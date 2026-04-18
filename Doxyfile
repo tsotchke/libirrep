@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: MIT
+# Minimal Doxygen configuration for libirrep. `make docs` runs:
+#   doxygen Doxyfile → HTML output under build/docs/html/
+
+PROJECT_NAME           = "libirrep"
+PROJECT_BRIEF          = "SO(3)/SU(2)/O(3) irreducible-representation machinery in C"
+OUTPUT_DIRECTORY       = build/docs
+OUTPUT_LANGUAGE        = English
+INPUT                  = include/irrep docs README.md CHANGELOG.md
+FILE_PATTERNS          = *.h *.md
+RECURSIVE              = YES
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = NO
+OPTIMIZE_OUTPUT_FOR_C  = YES
+JAVADOC_AUTOBRIEF      = YES
+QUIET                  = YES
+WARNINGS               = YES
+WARN_NO_PARAMDOC       = NO
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+HTML_OUTPUT            = html
+USE_MDFILE_AS_MAINPAGE = README.md
+SOURCE_BROWSER         = YES
+MARKDOWN_SUPPORT       = YES
+ALIASES                = "todo=TODO:"
+HIDE_UNDOC_MEMBERS     = NO
+TAB_SIZE               = 4

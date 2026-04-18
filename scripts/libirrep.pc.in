@@ -1,0 +1,10 @@
+prefix=@PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: libirrep
+Description: SO(3)/SU(2)/O(3) irreducible-representation machinery
+Version: @VERSION@
+Libs: -L${libdir} -llibirrep -lm
+Cflags: -I${includedir}

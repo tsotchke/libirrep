@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: MIT
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14,      triple: macos-arm64,   cc: clang }
+          - { os: macos-13,      triple: macos-x86_64,  cc: clang }
+          - { os: ubuntu-22.04,  triple: linux-x86_64,  cc: gcc   }
+          - { os: ubuntu-22.04,  triple: linux-x86_64,  cc: clang }
+    runs-on: ${{ matrix.os }}
+    env:
+      CC: ${{ matrix.cc }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: print-config
+        run: make print-config
+      - name: build
+        run: make all
+      - name: test
+        run: make test
+      - name: asan
+        if: matrix.cc == 'clang'
+        run: make asan
+      - name: ubsan
+        if: matrix.cc == 'clang'
+        run: make ubsan
+      - name: bench
+        run: make bench
+      - name: release
+        run: make release
+      - name: upload release tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: libirrep-${{ matrix.triple }}-${{ matrix.cc }}
+          path: release/1.0.0-dev/
+
+  cmake-build:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+      - run: cmake --build build --parallel
+      - run: ctest --test-dir build --output-on-failure
+
+  lint:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: clang-format
+        run: make lint || true     # advisory for now

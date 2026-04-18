@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: MIT
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-per-triple:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-14,     triple: macos-arm64   }
+          - { os: macos-13,     triple: macos-x86_64  }
+          - { os: ubuntu-22.04, triple: linux-x86_64  }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract version from tag
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Build release
+        run: bash scripts/build_release.sh ${{ steps.version.outputs.value }}
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: libirrep-${{ steps.version.outputs.value }}-${{ matrix.triple }}
+          path: release/liblibirrep-${{ steps.version.outputs.value }}-${{ matrix.triple }}.tar.gz
+
+  publish:
+    needs: build-per-triple
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*.tar.gz
+          generate_release_notes: true

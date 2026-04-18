@@ -1,0 +1,50 @@
+# build output
+bin/
+build/
+obj/
+*.o
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.lib
+*.exp
+*.pdb
+
+# release artifacts — generated, not tracked
+release/*/
+release/*.tar.gz
+release/*.tar.gz.sha256
+release/*.tar.gz.sig
+!release/.gitkeep
+
+# benchmark output
+benchmarks/results/
+!benchmarks/results/baseline/
+
+# editor state
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# coverage
+*.gcno
+*.gcda
+*.gcov
+coverage/
+
+# doxygen
+docs/html/
+docs/latex/
+docs/xml/
+
+# cmake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile.cmake
+compile_commands.json

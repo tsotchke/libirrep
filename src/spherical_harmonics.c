@@ -17,6 +17,14 @@
 #include <irrep/spherical_harmonics.h>
 #include <irrep/types.h>
 
+#include "internal/dispatch.h"
+
+/* The NEON batch kernel reproduces the scalar algorithm lane-by-lane and
+ * compares bit-exactly. Disabling fused-multiply-add contraction here keeps
+ * clang from pattern-matching `a*b - c*d` to `fmsub`, which would give a
+ * last-bit difference from the NEON path's separate mul/sub ops. */
+#pragma STDC FP_CONTRACT OFF
+
 #ifndef M_PI
 #  define M_PI 3.14159265358979323846
 #endif
@@ -116,7 +124,7 @@ double irrep_sph_harm_real(int l, int m, double theta, double phi) {
  * -------------------------------------------------------------------------- */
 
 void irrep_sph_harm_cart(int l, double *out, const double r_hat[3]) {
-    if (l < 0) return;
+    if (l < 0 || !out || !r_hat) return;
     double x = r_hat[0], y = r_hat[1], z = r_hat[2];
 
     /* m = 0: Y_{l,0} = N(l,0) P_l(z). */
@@ -124,11 +132,17 @@ void irrep_sph_harm_cart(int l, double *out, const double r_hat[3]) {
     out[l] = N0 * irrep_legendre_assoc(l, 0, z);
     if (l == 0) return;
 
-    /* Trig recurrence: cos(mφ), sin(mφ) from (x, y). */
+    /* Trig recurrence: cos(mφ), sin(mφ) from (x, y).
+     * At the pole (r_xy ≈ 0) φ is undefined; any Y_{l, m ≠ 0} contains a
+     * (sin θ)^|m| prefactor that vanishes at the pole anyway, so the choice
+     * (cp, sp) = (1, 0) gives the correct limit. The threshold below
+     * IRREP_SH_POLE_EPS isolates the divide and is set well inside the
+     * region where double-precision loss on x/r_xy would matter. */
+    const double IRREP_SH_POLE_EPS = 1e-14;
     double r_xy = sqrt(x * x + y * y);
     double cp, sp;
-    if (r_xy > 1e-14) { cp = x / r_xy; sp = y / r_xy; }
-    else              { cp = 1.0;      sp = 0.0;      }
+    if (r_xy > IRREP_SH_POLE_EPS) { cp = x / r_xy; sp = y / r_xy; }
+    else                          { cp = 1.0;      sp = 0.0;      }
 
     double cos_prev = 1.0, sin_prev = 0.0;
     const double sqrt2 = 1.4142135623730951;
@@ -152,6 +166,7 @@ void irrep_sph_harm_cart(int l, double *out, const double r_hat[3]) {
 }
 
 void irrep_sph_harm_cart_all(int l_max, double *out, const double r_hat[3]) {
+    if (l_max < 0 || !out || !r_hat) return;
     int offset = 0;
     for (int l = 0; l <= l_max; ++l) {
         irrep_sph_harm_cart(l, out + offset, r_hat);
@@ -160,32 +175,31 @@ void irrep_sph_harm_cart_all(int l_max, double *out, const double r_hat[3]) {
 }
 
 /* -------------------------------------------------------------------------- *
- * Gradient of cartesian real SH (finite difference, M3 placeholder)          *
+ * Gradient of cartesian real surface SH.                                     *
  * Layout: out[axis * (2l+1) + (m + l)] for axis ∈ {0:x, 1:y, 2:z}.           *
- * The analytic solid-harmonic version is a hot-path rewrite for M10.         *
+ *                                                                            *
+ * Analytic via solid harmonics: on the unit sphere,                          *
+ *                                                                            *
+ *   ∇_i Y_{l,m}(r̂) = ∇_i R_{l,m}(r)|_{|r|=1} − l · r̂_i · Y_{l,m}(r̂).        *
+ *                                                                            *
+ * Both R and ∇R are computed analytically by `irrep/solid_harmonics.h`.      *
  * -------------------------------------------------------------------------- */
 
+#include <irrep/solid_harmonics.h>
+
 void irrep_sph_harm_cart_grad(int l, double *out, const double r_hat[3]) {
-    if (l < 0) return;
-    const double h = 1.0e-5;
-    const int    d = 2 * l + 1;
-    double tmp_p[2 * IRREP_L_MAX + 3];
-    double tmp_m[2 * IRREP_L_MAX + 3];
+    if (l < 0 || !out) return;
+    int d = 2 * l + 1;
+
+    double Y[2 * IRREP_L_MAX + 1];
+    irrep_sph_harm_cart(l, Y, r_hat);
+
+    double dR[3 * (2 * IRREP_L_MAX + 1)];
+    irrep_solid_harm_cart_grad(l, dR, r_hat);
 
     for (int axis = 0; axis < 3; ++axis) {
-        double rp[3] = { r_hat[0], r_hat[1], r_hat[2] };
-        double rm[3] = { r_hat[0], r_hat[1], r_hat[2] };
-        rp[axis] += h;
-        rm[axis] -= h;
-        double np = sqrt(rp[0] * rp[0] + rp[1] * rp[1] + rp[2] * rp[2]);
-        double nm = sqrt(rm[0] * rm[0] + rm[1] * rm[1] + rm[2] * rm[2]);
-        double inv_p = 1.0 / np, inv_m = 1.0 / nm;
-        double rpn[3] = { rp[0] * inv_p, rp[1] * inv_p, rp[2] * inv_p };
-        double rmn[3] = { rm[0] * inv_m, rm[1] * inv_m, rm[2] * inv_m };
-        irrep_sph_harm_cart(l, tmp_p, rpn);
-        irrep_sph_harm_cart(l, tmp_m, rmn);
         for (int i = 0; i < d; ++i) {
-            out[axis * d + i] = (tmp_p[i] - tmp_m[i]) / (2.0 * h);
+            out[axis * d + i] = dR[axis * d + i] - (double)l * r_hat[axis] * Y[i];
         }
     }
 }
@@ -242,4 +256,49 @@ void irrep_sph_harm_cart_all_f32(int l_max, float *out, const float r_hat[3]) {
     irrep_sph_harm_cart_all(l_max, tmp, rd);
     int total = (l_max + 1) * (l_max + 1);
     for (int i = 0; i < total; ++i) out[i] = (float)tmp[i];
+}
+
+void irrep_sph_harm_cart_all_batch_scalar(int l_max, size_t N,
+                                          const double *r_hats, double *out) {
+    if (l_max < 0) return;
+    int block = (l_max + 1) * (l_max + 1);
+    for (size_t i = 0; i < N; ++i) {
+        irrep_sph_harm_cart_all(l_max, out + i * (size_t)block, r_hats + i * 3);
+    }
+}
+
+void irrep_sph_harm_cart_all_batch(int l_max, size_t N,
+                                   const double *r_hats, double *out) {
+    irrep_dispatch_get()->sph_harm_cart_all_batch(l_max, N, r_hats, out);
+}
+
+/* Batched gradient: for each edge, for each l = 0..l_max, the gradient block
+ * is 3 · (2l+1) reals. The per-edge output is
+ *
+ *     out[edge, axis, l, m + l]
+ *       → out[(edge · 3 + axis) · (l_max+1)² + (l² + (m + l))]
+ *
+ * where each `l`-group of `2l + 1` entries is contiguous within an axis plane.
+ * This matches the layout produced by stacking irrep_sph_harm_cart_grad
+ * across l (per axis). */
+void irrep_sph_harm_cart_all_grad_batch(int l_max, size_t N,
+                                        const double *r_hats, double *out) {
+    if (l_max < 0 || !out || !r_hats) return;
+    int block = (l_max + 1) * (l_max + 1);
+    double tmp_grad[3 * (2 * IRREP_L_MAX + 1)];
+    for (size_t e = 0; e < N; ++e) {
+        const double *rhat = r_hats + e * 3;
+        double *base = out + e * 3 * (size_t)block;
+        int off = 0;
+        for (int l = 0; l <= l_max; ++l) {
+            int d = 2 * l + 1;
+            irrep_sph_harm_cart_grad(l, tmp_grad, rhat);
+            for (int axis = 0; axis < 3; ++axis) {
+                for (int i = 0; i < d; ++i) {
+                    base[axis * (size_t)block + off + i] = tmp_grad[axis * d + i];
+                }
+            }
+            off += d;
+        }
+    }
 }

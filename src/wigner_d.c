@@ -20,6 +20,20 @@
 #define UNUSED(x) ((void)(x))
 #define IRREP_MAX_BLOCK_DIM (2 * IRREP_L_MAX + 1)
 
+/* x^n for non-negative integer n via repeated squaring — faster than
+ * libm pow() on runtime integer exponents and yields identical results
+ * across platforms (libm pow has sub-ULP variation across implementations). */
+static inline double ipow_(double x, int n) {
+    double r = 1.0;
+    double base = x;
+    while (n > 0) {
+        if (n & 1) r *= base;
+        n >>= 1;
+        if (n) base *= base;
+    }
+    return r;
+}
+
 /* -------------------------------------------------------------------------- *
  * small-d: Sakurai (3.8.33) direct sum, evaluated in log-gamma form          *
  * -------------------------------------------------------------------------- */
@@ -36,8 +50,6 @@ double irrep_wigner_d_small_2j(int two_j, int two_mp, int two_m, double beta) {
     int r   = (two_j + two_mp) / 2;  /* j + m'      */
     int s   = (two_j - two_mp) / 2;  /* j − m'      */
     int dmm = (two_m - two_mp) / 2;  /* m − m'      */
-    int dmp = (two_m - two_mp) / 2;  /* m − m' (alias; keeps naming local) */
-    UNUSED(dmp);
 
     int k_min = 0;
     if (dmm > k_min) k_min = dmm;
@@ -61,7 +73,7 @@ double irrep_wigner_d_small_2j(int two_j, int two_mp, int two_m, double beta) {
         double log_A = half_log_fact - log_denom;
         double sign  = ((k - dmm) & 1) ? -1.0 : 1.0;
 
-        double term = sign * exp(log_A) * pow(cb2, (double)p1) * pow(sb2, (double)p2);
+        double term = sign * exp(log_A) * ipow_(cb2, p1) * ipow_(sb2, p2);
         sum += term;
     }
     return sum;
@@ -201,12 +213,12 @@ double irrep_wigner_d_small_dbeta(int j, int mp, int m, double beta) {
 
         double contrib = 0.0;
         if (p1 > 0) {
-            contrib -= 0.5 * (double)p1 * sb2 * pow(cb2, (double)(p1 - 1))
-                                              * pow(sb2, (double)p2);
+            contrib -= 0.5 * (double)p1 * sb2 * ipow_(cb2, p1 - 1)
+                                              * ipow_(sb2, p2);
         }
         if (p2 > 0) {
-            contrib += 0.5 * (double)p2 * cb2 * pow(cb2, (double)p1)
-                                              * pow(sb2, (double)(p2 - 1));
+            contrib += 0.5 * (double)p2 * cb2 * ipow_(cb2, p1)
+                                              * ipow_(sb2, p2 - 1);
         }
         sum += sign * A * contrib;
     }

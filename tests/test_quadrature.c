@@ -80,6 +80,45 @@ int main(void) {
         free(buf);
     }
 
+    /* -------- Tensor-product sphere quadrature: exactness across all orders -------- */
+    {
+        for (int D = 2; D <= 20; ++D) {
+            int sz = irrep_quadrature_sphere_size(D);
+            double *buf = malloc((size_t)sz * 4 * sizeof(double));
+            IRREP_ASSERT(irrep_quadrature_sphere_fill(D, buf));
+
+            /* Weights sum to 1 and each point is unit. */
+            double s_w = 0.0;
+            for (int i = 0; i < sz; ++i) {
+                double x = buf[i*4+0], y = buf[i*4+1], z = buf[i*4+2], w = buf[i*4+3];
+                s_w += w;
+                double n2 = x*x + y*y + z*z;
+                IRREP_ASSERT(fabs(n2 - 1.0) < 1e-12);
+            }
+            IRREP_ASSERT(fabs(s_w - 1.0) < 1e-12);
+
+            /* Integrate x^2 — expect 1/3 exactly for D ≥ 2. */
+            double s_x2 = 0.0;
+            for (int i = 0; i < sz; ++i) {
+                double x = buf[i*4+0], w = buf[i*4+3];
+                s_x2 += w * x * x;
+            }
+            IRREP_ASSERT(fabs(s_x2 - 1.0 / 3.0) < 1e-12);
+
+            /* Integrate x^4 — expect 1/5 for D ≥ 4. */
+            if (D >= 4) {
+                double s_x4 = 0.0;
+                for (int i = 0; i < sz; ++i) {
+                    double x = buf[i*4+0], w = buf[i*4+3];
+                    s_x4 += w * x * x * x * x;
+                }
+                IRREP_ASSERT(fabs(s_x4 - 1.0 / 5.0) < 1e-12);
+            }
+
+            free(buf);
+        }
+    }
+
     /* -------- Lebedev order 5: integrate degree-4 monomials exactly -------- */
     /* ⟨x⁴⟩_{S²} = 1/5;  ⟨x²y²⟩ = 1/15 */
     {

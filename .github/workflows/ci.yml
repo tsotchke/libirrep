@@ -13,10 +13,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-14,      triple: macos-arm64,   cc: clang }
-          - { os: macos-13,      triple: macos-x86_64,  cc: clang }
-          - { os: ubuntu-22.04,  triple: linux-x86_64,  cc: gcc   }
-          - { os: ubuntu-22.04,  triple: linux-x86_64,  cc: clang }
+          - { os: macos-14,         triple: macos-arm64,    cc: clang }
+          - { os: macos-13,         triple: macos-x86_64,   cc: clang }
+          - { os: ubuntu-22.04,     triple: linux-x86_64,   cc: gcc   }
+          - { os: ubuntu-22.04,     triple: linux-x86_64,   cc: clang }
+          - { os: ubuntu-24.04-arm, triple: linux-arm64,    cc: gcc   }
     runs-on: ${{ matrix.os }}
     env:
       CC: ${{ matrix.cc }}
@@ -28,6 +29,8 @@ jobs:
         run: make all
       - name: test
         run: make test
+      - name: check-headers
+        run: make check-headers
       - name: asan
         if: matrix.cc == 'clang'
         run: make asan
@@ -36,13 +39,99 @@ jobs:
         run: make ubsan
       - name: bench
         run: make bench
+      - name: perf-compare
+        if: matrix.triple == 'macos-arm64'
+        continue-on-error: true
+        run: |
+          latest=$(ls -1d benchmarks/results/2* | tail -n 1)
+          bash scripts/perf_compare.sh \
+              benchmarks/results/baseline/darwin-arm64.json \
+              "$latest/darwin-arm64.json"
       - name: release
         run: make release
       - name: upload release tree
         uses: actions/upload-artifact@v4
         with:
           name: libirrep-${{ matrix.triple }}-${{ matrix.cc }}
-          path: release/1.0.0-dev/
+          # VERSION file drives the release path — `make release` emits
+          # into release/$(cat VERSION)/ and we upload the same path so
+          # future bumps don't need a CI edit.
+          path: release/
+
+  windows-smoke:
+    # Windows/MinGW build through MSYS2 so the bash-based release and
+    # Makefile rules work unchanged. Runs the full test suite so any
+    # MSVC-incompatible idiom (e.g. `_Thread_local`, atomic_flag) surfaces
+    # before release-cut.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: 'msys2 {0}'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update:  false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+            make
+            coreutils
+            python
+            tar
+      - name: print-config
+        run: make print-config
+      - name: build
+        run: make all
+      - name: test
+        run: make test
+      - name: check-headers
+        run: make check-headers
+
+  fuzz-smoke:
+    # Builds every libFuzzer target on clang and runs each for a short
+    # wall-clock budget. Catches regressions in parsers and low-level CG /
+    # TP invariants that the deterministic suite misses.
+    runs-on: ubuntu-22.04
+    env:
+      CC: clang
+    steps:
+      - uses: actions/checkout@v4
+      - name: build fuzz targets
+        run: make fuzz
+      - name: run fuzz_multiset_parse (60s)
+        run: ./build/bin/fuzz_multiset_parse -max_total_time=60 -print_final_stats=1
+      - name: run fuzz_cg (60s)
+        run: ./build/bin/fuzz_cg -max_total_time=60 -print_final_stats=1
+      - name: run fuzz_tp_apply (60s)
+        run: ./build/bin/fuzz_tp_apply -max_total_time=60 -print_final_stats=1
+      - name: run fuzz_nequip_apply_forces (60s)
+        run: ./build/bin/fuzz_nequip_apply_forces -max_total_time=60 -print_final_stats=1
+      - name: run fuzz_nequip_from_spec (60s)
+        run: ./build/bin/fuzz_nequip_from_spec -max_total_time=60 -print_final_stats=1
+      - name: run fuzz_pg_project (60s)
+        run: ./build/bin/fuzz_pg_project -max_total_time=60 -print_final_stats=1
+
+  abi-check:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: build
+        run: make lib
+      - name: abi hash
+        run: bash scripts/generate_abi_hash.sh build/lib > /tmp/ABI_HASH_CANDIDATE
+      - name: abi diff
+        # If abi/baseline/ABI_HASH.linux-x86_64 is checked in, the CI fails
+        # when the exported-symbol set / struct layout diverges without an
+        # accompanying major-version bump.
+        run: |
+          if [ -f abi/baseline/ABI_HASH.linux-x86_64 ]; then
+            diff abi/baseline/ABI_HASH.linux-x86_64 /tmp/ABI_HASH_CANDIDATE \
+              || { echo 'ABI drift detected — bump the major version or update abi/baseline'; exit 1; }
+          else
+            echo 'no ABI baseline checked in; skipping drift check'
+          fi
 
   cmake-build:
     runs-on: ubuntu-22.04

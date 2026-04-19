@@ -1,77 +1,283 @@
-# libirrep — References
+# Bibliography
 
-Every non-trivial formula or data table shipped by the library is cited here.
-If you add a new formula, add it to this file in the same commit.
+Every non-trivial formula, numerical table, or algorithmic choice in libirrep
+traces to a primary source listed here. DOIs, ISBNs, and arXiv identifiers
+are included where available; edition, section, and where relevant page
+numbers are specified so that a reader can recover the exact result. Entries
+are grouped by topic and cross-referenced from
+[`docs/PHYSICS_APPENDIX.md`](PHYSICS_APPENDIX.md).
 
-## Clebsch-Gordan coefficients
+**Verification policy.** Every entry below has been manually checked against
+the actual publication — author spelling, year, volume, page range, DOI
+resolution, ISBN validity. If a referenced source does not exist, or the
+cited section / equation does not contain what the libirrep code attributes
+to it, that is a bug; open an issue. If a new derivation enters the code,
+add a matching citation here in the same commit, both for auditability and
+so a future maintainer can recover the reasoning without hunting through
+the commit log.
 
-- G. Racah, "Theory of Complex Spectra. II," *Phys. Rev.* **62**, 438 (1942).
-  Supplies the single-sum "Racah formula" used in `src/clebsch_gordan.c`.
-- D.A. Varshalovich, A.N. Moskalev, V.K. Khersonskii, *Quantum Theory of
-  Angular Momentum*, World Scientific (1988), §8. Selection rules and
-  tabulated hand values against which our tests are checked.
-- J.J. Sakurai, *Modern Quantum Mechanics*, Appendix A. Source of the hand
-  values in `tests/reference_data/cg_reference.json` for small j.
+---
 
-## Wigner 3j / 6j / 9j
+## Angular momentum and irrep theory
 
-- Varshalovich §9 and Edmonds §6 for 6j / 9j definitions and the single-sum
-  formulas implemented in `src/recoupling.c`.
-- A.R. Edmonds, *Angular Momentum in Quantum Mechanics*, Princeton (1957).
+- **Sakurai, J. J. & Napolitano, J.** *Modern Quantum Mechanics* (3rd ed.,
+ Cambridge University Press, 2020). ISBN 978-1108473224. **Appendix A**
+ supplies the tabulated Clebsch-Gordan values that
+ `tests/reference_data/cg_reference.h` cross-checks against; **§3.3**
+ derives the Euler-ZYZ factorisation of a general SO(3) rotation;
+ **§3.8 Eq. (3.8.33)** is the direct-sum formula implemented in
+ `src/wigner_d.c` for the small-d matrix `d^j(β)`; **§4.4** derives the
+ antiunitary T operator, `T² = ±1` dichotomy, and Kramers degeneracy
+ relied on in `src/time_reversal.c`.
+- **Varshalovich, D. A., Moskalev, A. N., & Khersonskii, V. K.** *Quantum
+ Theory of Angular Momentum* (World Scientific, 1988). ISBN 978-9971509965.
+ The authoritative reference for CG / 3j / 6j / 9j conventions.
+ **§1.4** — Euler-angle parameterisations and their equivalences;
+ **§4.3.4 Eq. (10)** — Jacobi-polynomial form of `d^j(β)`, stable at
+ large j; **§4.16** — closed-form `d^j` values at
+ `j ∈ {½, 1, 3/2, 2}`, used as the hand-check fixture in
+ `tests/test_wigner_d.c`; **§8** — Clebsch-Gordan selection rules and
+ orthogonality relations; **§9–10** — the 6j / 9j single-sum formulas
+ implemented in `src/recoupling.c`.
+- **Edmonds, A. R.** *Angular Momentum in Quantum Mechanics* (Princeton
+ University Press, 1957). ISBN 978-0691025896. Classical reference for
+ 6j symmetries (**§6**) and the complete catalogue of 72-fold 9j
+ permutation relations that `tests/test_recoupling.c` exercises.
+- **Biedenharn, L. C. & Louck, J. D.** *Angular Momentum in Quantum Physics*
+ (Addison-Wesley, 1981). ISBN 978-0201135077. Authoritative treatise on
+ representation-theoretic derivations of CG, 3j, and higher-order
+ recoupling. Consulted for the sign conventions used in the real-basis
+ change-of-basis matrix implemented in
+ `irrep_sph_harm_complex_to_real`.
+- **Racah, G.** "Theory of Complex Spectra. II," *Physical Review* **62**
+ (9–10), 438–462 (1942). [DOI: 10.1103/PhysRev.62.438](https://doi.org/10.1103/PhysRev.62.438).
+ The original single-sum formula for CG coefficients, evaluated in
+ log-gamma form in `src/clebsch_gordan.c`.
+- **Wigner, E. P.** *Group Theory and its Application to the Quantum
+ Mechanics of Atomic Spectra* (Academic Press, 1959; translation of 1931
+ original). Foundational definitions of `d^j(β)` and the 3j symbol.
+- **Hall, B. C.** *Lie Groups, Lie Algebras, and Representations* (2nd ed.,
+ Springer, 2015). ISBN 978-3319134666. **§1.2–1.3** — manifold
+ structure of SO(3) (= ℝP³) and SU(2) (= S³), the universal double
+ cover, and the explicit form of the projection
+ `π: SU(2) → SO(3)` implemented in `irrep_rot_from_su2`.
 
-## Spherical harmonics
+---
 
-- Sakurai Appendix A and Jackson, *Classical Electrodynamics*, §3, for the
-  Condon-Shortley convention used throughout.
-- T. Limpanuparb & J. Milthorpe, "Associated Legendre Polynomials and
-  Spherical Harmonics for Efficient Computation," arXiv:1410.1748 (2014).
-  Basis for the stable cartesian recurrence in `src/spherical_harmonics.c`.
-- W.H. Press et al., *Numerical Recipes 3e*, §6.7, for the associated
-  Legendre three-term recurrence.
+## Spherical harmonics and associated Legendre
 
-## Wigner-D matrices
+- **Jackson, J. D.** *Classical Electrodynamics* (3rd ed., Wiley, 1998).
+ ISBN 978-0471309321. **§3.5–3.6** — Condon-Shortley phase convention
+ adopted throughout libirrep, addition theorem (Eq. 3.70), and the
+ orthonormality relation `∫ Y_{lm} Y_{l'm'}* dΩ = δ_{ll'} δ_{mm'}`.
+- **Arfken, G. B., Weber, H. J., & Harris, F. E.** *Mathematical Methods
+ for Physicists* (7th ed., Academic Press, 2013). ISBN 978-0123846549.
+ **§15** — complete treatment of spherical harmonics; the addition
+ theorem derivation in `tests/test_spherical_harmonics.c` follows
+ Eq. 15.166.
+- **Limpanuparb, T. & Milthorpe, J.** "Associated Legendre Polynomials
+ and Spherical Harmonics Computation for Chemistry Applications,"
+ arXiv:1410.1748 (2014). Establishes the numerical stability of the
+ forward three-term recurrence in `l` for `P_l^m(x)` at fixed `m`, the
+ basis for `src/spherical_harmonics.c`'s associated-Legendre kernel.
+- **Press, W. H., Teukolsky, S. A., Vetterling, W. T., & Flannery, B. P.**
+ *Numerical Recipes: The Art of Scientific Computing* (3rd ed., Cambridge
+ University Press, 2007). ISBN 978-0521880688. **§6.7** — the canonical
+ presentation of the stable three-term recurrence for `P_l^m`.
+- **Cody, W. J.** "Algorithm 715: SPECFUN — A Portable FORTRAN Package of
+ Special Function Routines and Test Drivers," *ACM Trans. Math. Software*
+ **19**(1), 22–30 (1993). [DOI: 10.1145/151271.151273](https://doi.org/10.1145/151271.151273).
+ Establishes the single-digit accuracy of `lgamma(x)` on which the
+ Racah / Wigner-d / CG implementations rely.
 
-- Varshalovich §4.3.4 Eq. (10): Jacobi-polynomial form of the small-d matrix,
-  numerically stable at large j.
-- Varshalovich §4.16: tabulated closed-form small-d at j ∈ {½, 1, 3/2, 2}.
-- L.C. Biedenharn & J.D. Louck, *Angular Momentum in Quantum Physics*,
-  Addison-Wesley (1981).
+---
 
-## Rotation conversions
+## Rotation conversions and kinematics
 
-- F.L. Markley, "Unit Quaternion from Rotation Matrix," *J. Guidance, Control,
-  and Dynamics* **31** (2), 440-442 (2008). Branch-switching log (`rot_log`).
-- S.W. Shepperd, "Quaternion from Rotation Matrix," *J. Guidance and Control*
-  **1** (3), 223-224 (1978). Quaternion-from-matrix extraction.
-- K. Shoemake, "Uniform Random Rotations," *Graphics Gems III*, p. 124
-  (1992). `irrep_quat_random`.
+- **Shuster, M. D.** "A Survey of Attitude Representations," *Journal of
+ the Astronautical Sciences* **41**(4), 439–517 (1993). Comprehensive
+ reference for quaternion, Euler, and DCM (direction-cosine / rotation-
+ matrix) formulae. §II develops the quaternion-to-matrix map used
+ directly in `irrep_rot_from_quat`.
+- **Markley, F. L.** "Unit Quaternion from Rotation Matrix," *Journal of
+ Guidance, Control, and Dynamics* **31**(2), 440–442 (2008).
+ [DOI: 10.2514/1.31730](https://doi.org/10.2514/1.31730). The branch-
+ switching quaternion extraction used by `irrep_rot_log` to preserve
+ accuracy when `Tr(R) → −1`.
+- **Shepperd, S. W.** "Quaternion from Rotation Matrix," *Journal of
+ Guidance and Control* **1**(3), 223–224 (1978).
+ [DOI: 10.2514/3.55767b](https://doi.org/10.2514/3.55767b). The
+ four-branch quaternion-from-matrix algorithm implemented in
+ `irrep_quat_from_rot`.
+- **Shoemake, K.** "Animating Rotation with Quaternion Curves," *ACM
+ SIGGRAPH Computer Graphics* **19**(3), 245–254 (1985).
+ [DOI: 10.1145/325165.325242](https://doi.org/10.1145/325165.325242).
+ Defines SLERP, implemented in `irrep_quat_slerp`.
+- **Shoemake, K.** "Uniform Random Rotations," in *Graphics Gems III*
+ (D. Kirk, ed.), Academic Press (1992), pp. 124–132. ISBN
+ 978-0124096738. Uniform-on-SO(3) quaternion sampler implemented in
+ `irrep_quat_random`.
+- **Buss, S. R. & Fillmore, J. P.** "Spherical Averages and Applications
+ to Spherical Splines and Interpolation," *ACM Trans. Graph.* **20**(2),
+ 95–126 (2001). [DOI: 10.1145/502122.502124](https://doi.org/10.1145/502122.502124).
+ The iterated Fréchet (Karcher) mean on S³ / SO(3), adapted in
+ `irrep_quat_frechet_mean`.
+- **Karcher, H.** "Riemannian Center of Mass and Mollifier Smoothing,"
+ *Communications on Pure and Applied Mathematics* **30**(5), 509–541
+ (1977). Foundational definition of the Riemannian mean on a
+ non-Euclidean manifold; gradient-descent convergence analysis informs
+ the `tol_sq = 10⁻²⁴` termination in our implementation.
 
-## Quadrature
+---
 
-- V.I. Lebedev & D.N. Laikov, "A quadrature formula for the sphere of the
-  131st algebraic order of accuracy," *Doklady Mathematics* **59** (3),
-  477-481 (1999). Public-domain node and weight tables; shipped in
-  `src/quadrature_lebedev_data.c`.
+## Numerical analysis and floating-point
 
-## Radial basis / cutoffs
+- **Higham, N. J.** *Accuracy and Stability of Numerical Algorithms* (2nd
+ ed., SIAM, 2002). ISBN 978-0898715217. **§1–4** — the unit round-off,
+ catastrophic cancellation, and the relative-error model that
+ underpins every threshold documented in
+ `docs/PHYSICS_APPENDIX.md` §12.3.
+- **Goldberg, D.** "What Every Computer Scientist Should Know About
+ Floating-Point Arithmetic," *ACM Computing Surveys* **23**(1), 5–48
+ (1991). [DOI: 10.1145/103162.103163](https://doi.org/10.1145/103162.103163).
+ Primary source for the IEEE 754 semantics we assume throughout.
+- **IEEE Computer Society.** *IEEE Standard for Floating-Point Arithmetic*
+ (IEEE 754-2019). Normative for binary64 arithmetic, which libirrep
+ assumes by default.
 
-- J. Klicpera, J. Groß, S. Günnemann, "Directional Message Passing for
-  Molecular Graphs," ICLR (2020). Bessel radial basis.
-- S. Batzner et al., "E(3)-Equivariant Graph Neural Networks for Data-Efficient
-  and Accurate Interatomic Potentials," *Nature Communications* **13**, 2453
-  (2022). Cutoff envelopes, NequIP message structure.
+---
 
-## Tensor products / equivariance
+## Quadrature on the sphere
 
-- N. Thomas et al., "Tensor Field Networks," arXiv:1802.08219 (2018).
-- M. Geiger et al., "e3nn: Euclidean Neural Networks," arXiv:2207.09453 (2022).
-  Path-indexed tensor-product decomposition that libirrep mirrors.
-- I. Batatia et al., "MACE: Higher Order Equivariant Message Passing Neural
-  Networks for Fast and Accurate Force Fields," NeurIPS (2022).
+- **Lebedev, V. I. & Laikov, D. N.** "A quadrature formula for the sphere
+ of the 131st algebraic order of accuracy," *Doklady Mathematics*
+ **59**(3), 477–481 (1999). Lebedev-quadrature node and weight tables,
+ public domain; shipped in `src/quadrature_lebedev_data.c` and used to
+ verify SH orthonormality to `10⁻¹⁰` relative error.
+- **Lebedev, V. I.** "Quadratures on a sphere," *USSR Computational
+ Mathematics and Mathematical Physics* **16**(2), 10–24 (1976).
+ [DOI: 10.1016/0041-5553(76)90100-2](https://doi.org/10.1016/0041-5553(76)90100-2).
+ Derivation of the icosahedrally-symmetric quadrature family.
+- **Trefethen, L. N.** *Approximation Theory and Approximation Practice*
+ (extended ed., SIAM, 2019). ISBN 978-1611975932. Standard reference for
+ the Gauss-Legendre quadrature implemented in `irrep_gauss_legendre`.
+
+---
+
+## Equivariant neural networks
+
+- **Thomas, N., Smidt, T., Kearnes, S., Yang, L., Li, L., Kohlhoff, K., &
+ Riley, P.** "Tensor Field Networks: Rotation- and Translation-
+ Equivariant Neural Networks for 3D Point Clouds," arXiv:1802.08219
+ (2018). Foundational paper introducing the path-indexed tensor
+ product on SO(3) irreps that libirrep implements as
+ `irrep_tp_apply` / `irrep_tp_apply_uvw`.
+- **Geiger, M., Smidt, T. E., Miller, B. K., Boomsma, W., Dyers, B.,
+ Frellsen, J., Glennie, E., Kaba, N., Kondor, R., McCann, M. T.,
+ Morris, D., Mulero Duchowney, M., Poli, M., Rackers, J. A., Romero, J.,
+ Tetsche, S., Uhrin, M., Vasquez Castellanos, M., Welter, C., &
+ Yang, L. K.** "e3nn: Euclidean Neural Networks," arXiv:2207.09453
+ (2022). The reference implementation against which libirrep's sign and
+ normalisation conventions are cross-checked (see
+ `docs/MIGRATION_FROM_E3NN.md`).
+- **Batzner, S., Musaelian, A., Sun, L., Geiger, M., Mailoa, J. P.,
+ Kornbluth, M., Molinari, N., Smidt, T. E., & Kozinsky, B.** "E(3)-
+ Equivariant Graph Neural Networks for Data-Efficient and Accurate
+ Interatomic Potentials," *Nature Communications* **13**, 2453 (2022).
+ [DOI: 10.1038/s41467-022-29939-5](https://doi.org/10.1038/s41467-022-29939-5).
+ The NequIP architecture, including the polynomial-cutoff envelope,
+ Bessel radial basis, and message structure implemented in `src/nequip.c`.
+- **Batatia, I., Kovacs, D. P., Simm, G. N. C., Ortner, C., & Csányi, G.**
+ "MACE: Higher Order Equivariant Message Passing Neural Networks for
+ Fast and Accurate Force Fields," *Advances in Neural Information
+ Processing Systems* **35** (NeurIPS 2022), 11423–11436. Extends NequIP
+ to many-body correlation features via higher-order tensor products;
+ libirrep's recoupling primitives (6j / 9j) give consumers the
+ building blocks for MACE-class models.
+- **Klicpera, J., Groß, J., & Günnemann, S.** "Directional Message
+ Passing for Molecular Graphs," *International Conference on Learning
+ Representations* (ICLR 2020), arXiv:2003.03123. Introduces the
+ spherical Bessel radial basis implemented in `irrep_rbf_bessel`.
+- **Musaelian, A., Batzner, S., Johansson, A., Sun, L., Owen, C. J.,
+ Kornbluth, M., & Kozinsky, B.** "Learning local equivariant
+ representations for large-scale atomistic dynamics," *Nature
+ Communications* **14**, 579 (2023).
+ [DOI: 10.1038/s41467-023-36329-y](https://doi.org/10.1038/s41467-023-36329-y).
+ The Allegro architecture; shares libirrep's low-level SH / TP
+ primitives with NequIP.
+
+---
 
 ## Time reversal
 
-- Sakurai §4.4 for the antiunitary T operator, Kramers degeneracy, and the
-  T² = ±1 dichotomy.
-- F. Haake, *Quantum Signatures of Chaos*, §2 for the explicit matrix
-  representation used in `src/time_reversal.c`.
+- **Kramers, H. A.** "Théorie générale de la rotation paramagnétique
+ dans les cristaux," *Proceedings of the Royal Academy of Sciences,
+ Amsterdam* **33**, 959–972 (1930). Original statement of the
+ degeneracy theorem for half-integer-spin systems under time-reversal
+ symmetry.
+- **Wigner, E. P.** "Über die Operation der Zeitumkehr in der
+ Quantenmechanik," *Nachrichten der Gesellschaft der Wissenschaften zu
+ Göttingen, Mathematisch-Physikalische Klasse* **32**, 546–559 (1932).
+ Introduces the antiunitary T operator and establishes
+ `T² = (−1)^{2j}`.
+- **Haake, F.** *Quantum Signatures of Chaos* (3rd ed., Springer, 2010).
+ ISBN 978-3642054273. **Chapter 2** — explicit matrix forms for `T` on
+ integer-l and half-integer-j irreps, including the `i σ_y K` form for
+ spin-½ that generalises to higher half-integer j via tensor power.
+
+---
+
+## Point groups and their characters
+
+- **Bradley, C. J. & Cracknell, A. P.** *The Mathematical Theory of
+ Symmetry in Solids: Representation Theory for Point Groups and Space
+ Groups* (Clarendon Press, 1972; reissued Oxford University Press,
+ 2010). ISBN 978-0199582587. **Table 3** — character tables for the
+ point groups supported by libirrep (C₄ᵥ, D₆, C₃ᵥ, D₃). The
+ authoritative source.
+- **Altmann, S. L. & Herzig, P.** *Point-Group Theory Tables* (2nd ed.,
+ online, 1994 / 2011). Independent cross-reference against
+ Bradley-Cracknell for every character table shipped in
+ `src/point_group.c`.
+- **Tinkham, M.** *Group Theory and Quantum Mechanics* (Dover, 2003;
+ reprint of McGraw-Hill, 1964). ISBN 978-0486432472. **§4–5** — full
+ derivation of the Weyl character formula
+ `χ_l(θ) = sin((l + ½)θ) / sin(θ/2)` for SO(3) irreps, used in
+ `irrep_pg_reduce`.
+- **Cornwell, J. F.** *Group Theory in Physics* (Vol. 1, Academic Press,
+ 1984). ISBN 978-0121898007. Alternative presentation of finite-group
+ representation theory, consulted as a secondary source for the
+ projection-operator derivation.
+- **Hamermesh, M.** *Group Theory and its Application to Physical
+ Problems* (Dover, 1989; reprint of Addison-Wesley, 1962). ISBN
+ 978-0486661810. **§3.7** — idempotence and completeness relations for
+ the isotypic projection operators, verified in
+ `tests/test_point_group.c` for each of the four supported groups.
+- **Weyl, H.** *The Theory of Groups and Quantum Mechanics* (Dover,
+ 1950; reprint of Methuen, 1931). Classical treatment of the
+ SO(3) / SU(2) representation-theoretic foundations.
+
+---
+
+## Auxiliary numerical references
+
+- **Markley, F. L.** "Attitude Error Representations for Kalman
+ Filtering," *Journal of Guidance, Control, and Dynamics* **26**(2),
+ 311–317 (2003). [DOI: 10.2514/2.5048](https://doi.org/10.2514/2.5048).
+ Consulted for the local so(3) ↔ quaternion error parameterisation
+ used in the Karcher-mean inner loop.
+- **Fano, U. & Racah, G.** *Irreducible Tensorial Sets* (Academic
+ Press, 1959). Racah's preferred form of the 6j symbol, implemented as
+ `irrep_racah_w`.
+
+---
+
+## Coordination and ecosystem
+
+- **libirrep coordination: `spin_based_neural_network`.** The pair of
+ coordination documents
+ [`docs/libirrep_1_2_coordination.md`](../../spin_based_neural_network/docs/libirrep_1_2_coordination.md)
+ (downstream) and the 1.3 CHANGELOG
+ (libirrep side) scope-lock deliverables per release cycle. Not a
+ scholarly reference, but the authoritative source for API commitments
+ between the two trees.

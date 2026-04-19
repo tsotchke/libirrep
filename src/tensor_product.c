@@ -1,21 +1,30 @@
 /* SPDX-License-Identifier: MIT */
-/* M7: e3nn-style path-indexed tensor products.
+/* e3nn-style path-indexed tensor products.
  *
- * Channel mode: "uuu". For each selected path (i_a, i_b, i_c) we require
- * mult_a = mult_b = mult_c, and pair channels one-to-one across the three
- * multisets. One scalar weight per path.
+ * Two channel modes supported (see IRREP_TP_MODE_UUU / IRREP_TP_MODE_UVW):
  *
- * For each path p with copy index u ∈ [0, mult_p):
+ *   UUU mode (`irrep_tp_build` / `_apply` / `_apply_weighted`):
+ *     For each selected path (i_a, i_b, i_c) we require
+ *     mult_a = mult_b = mult_c, and pair channels one-to-one. One scalar
+ *     weight per path. Copy index u ∈ [0, mult_p):
  *
- *     c[i_c, u, m_c] += w_p · Σ_{m_a, m_b}
- *         ⟨l_a m_a; l_b m_b | l_c m_c⟩ · a[i_a, u, m_a] · b[i_b, u, m_b]
+ *         c[i_c, u, m_c] += w_p · Σ_{m_a, m_b}
+ *             W_p[m_a, m_b, m_c] · a[i_a, u, m_a] · b[i_b, u, m_b]
  *
- * Build precomputes the CG block once; apply is a loop over (m_c, m_a, m_b).
+ *   UVW mode (`irrep_tp_build_uvw` / `_apply_uvw` / `_apply_uvw_backward`):
+ *     Independent multiplicities. Full [W, V, U] weight tensor per path.
  *
- * Backward:
- *     ∂L/∂a[i_a, u, m_a] += w_p · Σ_{m_b, m_c} CG · b[i_b, u, m_b] · ∂L/∂c[i_c, u, m_c]
- *     ∂L/∂b[i_b, u, m_b] += w_p · Σ_{m_a, m_c} CG · a[i_a, u, m_a] · ∂L/∂c[i_c, u, m_c]
- *     ∂L/∂w_p            += Σ_u Σ_{m_a,m_b,m_c} CG · a · b · ∂L/∂c
+ *         c[i_c, w, m_c] += Σ_{u, v} weight_p[w, v, u] · Σ_{m_a, m_b}
+ *             W_p[m_a, m_b, m_c] · a[i_a, u, m_a] · b[i_b, v, m_b]
+ *
+ * The path coupling tensor W_p is built from the real-basis change-of-
+ * basis of the complex Clebsch-Gordan coefficients, with an
+ * i^{l_a + l_b − l_c} phase correction so odd-l-sum paths (e.g. the
+ * cross-product (1, 1, 1) path) produce guaranteed-real output.
+ * Parity filter `p_a · p_b = p_c` is enforced by irrep_tp_enumerate_paths.
+ *
+ * Backward accumulates gradients into grad_a / grad_b / grad_w via the
+ * transposed recipe; see irrep_tp_apply_backward, irrep_tp_apply_uvw_backward.
  */
 
 #include <complex.h>
@@ -26,8 +35,13 @@
 
 #include <irrep/clebsch_gordan.h>
 #include <irrep/parity.h>
+#include <irrep/quadrature.h>
 #include <irrep/spherical_harmonics.h>
 #include <irrep/tensor_product.h>
+
+#ifndef M_PI
+#  define M_PI 3.14159265358979323846
+#endif
 
 extern void irrep_set_error_(const char *fmt, ...);
 
@@ -41,13 +55,17 @@ struct tp_path {
     int     i_a, i_b, i_c;
     int     l_a, l_b, l_c;
     int     d_a, d_b, d_c;        /* 2l + 1 */
-    int     mult;                  /* mult_a = mult_b = mult_c */
+    int     mult_u, mult_v, mult_w;   /* u = a-channels, v = b-channels,
+                                       * w = c-channels; for UUU all equal. */
     int     offset_a, offset_b, offset_c;
+    int     weight_offset;         /* into the flat weights buffer */
     double *cg;                    /* d_a · d_b · d_c doubles */
 };
 
 struct tp_descriptor {
+    irrep_tp_mode_t mode;
     int             num_paths;
+    int             num_weights;
     int             a_dim, b_dim, c_dim;
     struct tp_path *paths;
 };
@@ -88,11 +106,9 @@ int irrep_tp_enumerate_paths(const irrep_multiset_t *a,
                 int pc = c->labels[ic].parity;
                 if (lc < lo || lc > hi) continue;
                 if (pab != pc)          continue;
-                /* v1.0 supports "parity-natural" couplings only: the real-basis
-                 * coupling tensor is real iff l_a + l_b + l_c is even. Odd-sum
-                 * paths are antisymmetric in the complex basis and would need
-                 * an explicit i-factor convention (planned for v1.1). */
-                if (((la + lb + lc) & 1) != 0) continue;
+                /* Both even and odd l-sum paths are supported — the coupling
+                 * tensor is computed as a real-basis Gaunt integral, which is
+                 * real by construction for every triangle-valid triple. */
                 if (out_paths && count < max_paths) {
                     out_paths[count * 3 + 0] = ia;
                     out_paths[count * 3 + 1] = ib;
@@ -125,10 +141,12 @@ tp_descriptor_t *irrep_tp_build(const irrep_multiset_t *a,
 
     tp_descriptor_t *desc = calloc(1, sizeof(*desc));
     if (!desc) return NULL;
-    desc->a_dim     = a->total_dim;
-    desc->b_dim     = b->total_dim;
-    desc->c_dim     = c->total_dim;
-    desc->num_paths = num_selected_paths;
+    desc->mode       = IRREP_TP_MODE_UUU;
+    desc->a_dim      = a->total_dim;
+    desc->b_dim      = b->total_dim;
+    desc->c_dim      = c->total_dim;
+    desc->num_paths  = num_selected_paths;
+    desc->num_weights = num_selected_paths;
 
     if (num_selected_paths == 0) return desc;
 
@@ -160,12 +178,6 @@ tp_descriptor_t *irrep_tp_build(const irrep_multiset_t *a,
                              k, pa, pb, pa * pb, pc);
             goto fail;
         }
-        if (((la + lb + lc) & 1) != 0) {
-            irrep_set_error_("irrep_tp_build: path %d has odd l-sum (%d + %d + %d); "
-                             "the real-basis coupling is imaginary, not yet supported",
-                             k, la, lb, lc);
-            goto fail;
-        }
         int mult_a = a->multiplicities[ia];
         int mult_b = b->multiplicities[ib];
         int mult_c = c->multiplicities[ic];
@@ -179,20 +191,29 @@ tp_descriptor_t *irrep_tp_build(const irrep_multiset_t *a,
         p->i_a = ia; p->i_b = ib; p->i_c = ic;
         p->l_a = la; p->l_b = lb; p->l_c = lc;
         p->d_a = 2 * la + 1; p->d_b = 2 * lb + 1; p->d_c = 2 * lc + 1;
-        p->mult = mult_a;
+        p->mult_u = p->mult_v = p->mult_w = mult_a;
+        p->weight_offset = k;                     /* 1 weight per path */
         p->offset_a = multiset_offset_(a, ia);
         p->offset_b = multiset_offset_(b, ib);
         p->offset_c = multiset_offset_(c, ic);
 
-        /* Compute the real-basis coupling tensor
-         *   W[n_a, n_b, n_c] = Σ_{m_a, m_b, m_c}
-         *       U_c[n_c, m_c] · CG[m_a, m_b, m_c]
-         *         · conj(U_a[n_a, m_a]) · conj(U_b[n_b, m_b])
-         * where U_l is the complex-to-real SH basis change. The sum is
-         * identically real when l_a + l_b + l_c is even (the only case
-         * allowed by the parity selection plus triangle + parity above),
-         * so we drop the tiny imaginary residual that remains from
-         * floating-point round-off. */
+        /* Real-basis coupling tensor W via complex CG + change-of-basis,
+         * with the e3nn "i^{l_a + l_b − l_c}" phase that keeps W real for
+         * every triangle-valid (l_a, l_b, l_c) — including the antisymmetric
+         * odd-l-sum couplings (e.g. 1 ⊗ 1 → 1, the cross product):
+         *
+         *   Q_l[n, m] = i^l · U_l[n, m]     (complex-to-real with extra phase)
+         *   W_C[n_a, n_b, n_c]
+         *     = Σ_{m_a, m_b, m_c}
+         *         conj(Q_c[n_c, m_c]) · CG[m_a, m_b, m_c]
+         *           · Q_a[n_a, m_a] · Q_b[n_b, m_b]
+         *     = i^{l_a + l_b − l_c} · [old U-only formula]
+         *
+         * The result is purely real; we store its real part directly.
+         *
+         * References:
+         *   • Limpanuparb & Milthorpe (2014), arXiv:1410.1748, §3.
+         *   • e3nn `o3.wigner_3j`: the same convention, repackaged as a 3j. */
         size_t nW = (size_t)p->d_a * (size_t)p->d_b * (size_t)p->d_c;
         double          *cg_c = calloc(nW, sizeof(double));
         double _Complex *U_a  = calloc((size_t)(p->d_a * p->d_a), sizeof(double _Complex));
@@ -208,24 +229,34 @@ tp_descriptor_t *irrep_tp_build(const irrep_multiset_t *a,
         irrep_sph_harm_complex_to_real(lb, U_b);
         irrep_sph_harm_complex_to_real(lc, U_c);
 
+        /* Phase exponent i^{l_a + l_b − l_c} ∈ {1, i, −1, −i}. */
+        int phase_mod = (((la + lb - lc) % 4) + 4) % 4;
+        double _Complex phase;
+        switch (phase_mod) {
+            case 0: phase =  1.0;          break;
+            case 1: phase =  1.0 * I;      break;
+            case 2: phase = -1.0;          break;
+            default: phase = -1.0 * I;     break;
+        }
+
         for (int na = 0; na < p->d_a; ++na) {
             for (int nb = 0; nb < p->d_b; ++nb) {
                 for (int nc = 0; nc < p->d_c; ++nc) {
                     double _Complex s = 0.0;
                     for (int ma = 0; ma < p->d_a; ++ma) {
-                        double _Complex ua_star = conj(U_a[na * p->d_a + ma]);
-                        if (ua_star == 0.0) continue;
+                        double _Complex ua = U_a[na * p->d_a + ma];
+                        if (ua == 0.0) continue;
                         for (int mb = 0; mb < p->d_b; ++mb) {
-                            double _Complex ub_star = conj(U_b[nb * p->d_b + mb]);
-                            if (ub_star == 0.0) continue;
+                            double _Complex ub = U_b[nb * p->d_b + mb];
+                            if (ub == 0.0) continue;
                             for (int mc = 0; mc < p->d_c; ++mc) {
                                 double cg = cg_c[(ma * p->d_b + mb) * p->d_c + mc];
                                 if (cg == 0.0) continue;
-                                s += U_c[nc * p->d_c + mc] * cg * ua_star * ub_star;
+                                s += conj(U_c[nc * p->d_c + mc]) * cg * ua * ub;
                             }
                         }
                     }
-                    p->cg[(na * p->d_b + nb) * p->d_c + nc] = creal(s);
+                    p->cg[(na * p->d_b + nb) * p->d_c + nc] = creal(phase * s);
                 }
             }
         }
@@ -250,6 +281,10 @@ void irrep_tp_free(tp_descriptor_t *desc) {
 int irrep_tp_output_dim(const tp_descriptor_t *d) { return d ? d->c_dim    : 0; }
 int irrep_tp_num_paths (const tp_descriptor_t *d) { return d ? d->num_paths : 0; }
 
+irrep_tp_mode_t irrep_tp_mode(const tp_descriptor_t *d) {
+    return d ? d->mode : IRREP_TP_MODE_UUU;
+}
+
 /* -------------------------------------------------------------------------- *
  * Forward (unweighted / weighted)                                            *
  *                                                                            *
@@ -269,7 +304,7 @@ static void apply_core_(const tp_descriptor_t *desc,
         double w = weights ? weights[k] : 1.0;
         int d_a = p->d_a, d_b = p->d_b, d_c = p->d_c;
 
-        for (int u = 0; u < p->mult; ++u) {
+        for (int u = 0; u < p->mult_u; ++u) {
             const double *a_block = a_in + p->offset_a + u * d_a;
             const double *b_block = b_in + p->offset_b + u * d_b;
             /* */  double *c_block = c_out + p->offset_c + u * d_c;
@@ -323,7 +358,7 @@ static void backward_core_(const tp_descriptor_t *desc,
         int d_a = p->d_a, d_b = p->d_b, d_c = p->d_c;
         double dw = 0.0;
 
-        for (int u = 0; u < p->mult; ++u) {
+        for (int u = 0; u < p->mult_u; ++u) {
             const double *a_block  = a_in  + p->offset_a + u * d_a;
             const double *b_block  = b_in  + p->offset_b + u * d_b;
             const double *gc_block = grad_c + p->offset_c + u * d_c;
@@ -425,5 +460,255 @@ void irrep_tp_apply_backward_weighted_batch(const tp_descriptor_t *desc, size_t 
                        grad_a ? grad_a + bi * (size_t)desc->a_dim : NULL,
                        grad_b ? grad_b + bi * (size_t)desc->b_dim : NULL,
                        grad_w);   /* grad_w accumulates across batch */
+    }
+}
+
+/* ========================================================================== *
+ * UVW mode: independent multiplicities, per-(path, w, v, u) weights.         *
+ * ========================================================================== */
+
+tp_descriptor_t *irrep_tp_build_uvw(const irrep_multiset_t *a,
+                                     const irrep_multiset_t *b,
+                                     const irrep_multiset_t *c,
+                                     const int *selected_paths,
+                                     int num_selected_paths) {
+    if (!a || !b || !c) {
+        irrep_set_error_("irrep_tp_build_uvw: NULL multiset input");
+        return NULL;
+    }
+    if (num_selected_paths < 0) {
+        irrep_set_error_("irrep_tp_build_uvw: negative path count");
+        return NULL;
+    }
+
+    tp_descriptor_t *desc = calloc(1, sizeof(*desc));
+    if (!desc) return NULL;
+    desc->mode       = IRREP_TP_MODE_UVW;
+    desc->a_dim      = a->total_dim;
+    desc->b_dim      = b->total_dim;
+    desc->c_dim      = c->total_dim;
+    desc->num_paths  = num_selected_paths;
+    desc->num_weights = 0;
+
+    if (num_selected_paths == 0) return desc;
+    desc->paths = calloc((size_t)num_selected_paths, sizeof(*desc->paths));
+    if (!desc->paths) { free(desc); return NULL; }
+
+    int wsum = 0;
+    for (int k = 0; k < num_selected_paths; ++k) {
+        int ia = selected_paths[k * 3 + 0];
+        int ib = selected_paths[k * 3 + 1];
+        int ic = selected_paths[k * 3 + 2];
+        if (ia < 0 || ia >= a->num_terms ||
+            ib < 0 || ib >= b->num_terms ||
+            ic < 0 || ic >= c->num_terms) {
+            irrep_set_error_("irrep_tp_build_uvw: path %d out-of-range index", k);
+            goto fail;
+        }
+        int la = a->labels[ia].l, pa = a->labels[ia].parity;
+        int lb = b->labels[ib].l, pb = b->labels[ib].parity;
+        int lc = c->labels[ic].l, pc = c->labels[ic].parity;
+        int lo = la > lb ? la - lb : lb - la;
+        int hi = la + lb;
+        if (lc < lo || lc > hi) {
+            irrep_set_error_("irrep_tp_build_uvw: path %d violates triangle", k);
+            goto fail;
+        }
+        if (pa * pb != pc) {
+            irrep_set_error_("irrep_tp_build_uvw: path %d violates parity", k);
+            goto fail;
+        }
+
+        struct tp_path *p = &desc->paths[k];
+        p->i_a = ia; p->i_b = ib; p->i_c = ic;
+        p->l_a = la; p->l_b = lb; p->l_c = lc;
+        p->d_a = 2 * la + 1; p->d_b = 2 * lb + 1; p->d_c = 2 * lc + 1;
+        p->mult_u = a->multiplicities[ia];
+        p->mult_v = b->multiplicities[ib];
+        p->mult_w = c->multiplicities[ic];
+        p->offset_a = multiset_offset_(a, ia);
+        p->offset_b = multiset_offset_(b, ib);
+        p->offset_c = multiset_offset_(c, ic);
+        p->weight_offset = wsum;
+        wsum += p->mult_w * p->mult_v * p->mult_u;
+
+        /* Reuse the same Gaunt / CG+phase coupling tensor as UUU build. */
+        size_t nW = (size_t)p->d_a * (size_t)p->d_b * (size_t)p->d_c;
+        double          *cg_c = calloc(nW, sizeof(double));
+        double _Complex *U_a  = calloc((size_t)(p->d_a * p->d_a), sizeof(double _Complex));
+        double _Complex *U_b  = calloc((size_t)(p->d_b * p->d_b), sizeof(double _Complex));
+        double _Complex *U_c  = calloc((size_t)(p->d_c * p->d_c), sizeof(double _Complex));
+        p->cg = calloc(nW, sizeof(double));
+        if (!cg_c || !U_a || !U_b || !U_c || !p->cg) {
+            free(cg_c); free(U_a); free(U_b); free(U_c);
+            goto fail;
+        }
+        irrep_cg_block(la, lb, lc, cg_c);
+        irrep_sph_harm_complex_to_real(la, U_a);
+        irrep_sph_harm_complex_to_real(lb, U_b);
+        irrep_sph_harm_complex_to_real(lc, U_c);
+
+        int phase_mod = (((la + lb - lc) % 4) + 4) % 4;
+        double _Complex phase;
+        switch (phase_mod) {
+            case 0: phase =  1.0;          break;
+            case 1: phase =  1.0 * I;      break;
+            case 2: phase = -1.0;          break;
+            default: phase = -1.0 * I;     break;
+        }
+
+        for (int na = 0; na < p->d_a; ++na)
+        for (int nb = 0; nb < p->d_b; ++nb)
+        for (int nc = 0; nc < p->d_c; ++nc) {
+            double _Complex s = 0.0;
+            for (int ma = 0; ma < p->d_a; ++ma) {
+                double _Complex ua = U_a[na * p->d_a + ma];
+                if (ua == 0.0) continue;
+                for (int mb = 0; mb < p->d_b; ++mb) {
+                    double _Complex ub = U_b[nb * p->d_b + mb];
+                    if (ub == 0.0) continue;
+                    for (int mc = 0; mc < p->d_c; ++mc) {
+                        double cg = cg_c[(ma * p->d_b + mb) * p->d_c + mc];
+                        if (cg == 0.0) continue;
+                        s += conj(U_c[nc * p->d_c + mc]) * cg * ua * ub;
+                    }
+                }
+            }
+            p->cg[(na * p->d_b + nb) * p->d_c + nc] = creal(phase * s);
+        }
+        free(cg_c); free(U_a); free(U_b); free(U_c);
+    }
+    desc->num_weights = wsum;
+    return desc;
+
+fail:
+    irrep_tp_free(desc);
+    return NULL;
+}
+
+int irrep_tp_num_weights_uvw(const tp_descriptor_t *d) {
+    return (d && d->mode == IRREP_TP_MODE_UVW) ? d->num_weights : 0;
+}
+
+void irrep_tp_apply_uvw(const tp_descriptor_t *desc,
+                        const double *weights,
+                        const double *a_in, const double *b_in, double *c_out) {
+    if (!desc || desc->mode != IRREP_TP_MODE_UVW) return;
+    for (int i = 0; i < desc->c_dim; ++i) c_out[i] = 0.0;
+
+    for (int k = 0; k < desc->num_paths; ++k) {
+        const struct tp_path *p = &desc->paths[k];
+        int d_a = p->d_a, d_b = p->d_b, d_c = p->d_c;
+        int U = p->mult_u, V = p->mult_v, W = p->mult_w;
+        const double *wp = weights + p->weight_offset;          /* [W, V, U] */
+
+        for (int w = 0; w < W; ++w) {
+            double *c_block = c_out + p->offset_c + w * d_c;
+            for (int v = 0; v < V; ++v) {
+                const double *b_block = b_in + p->offset_b + v * d_b;
+                for (int u = 0; u < U; ++u) {
+                    double wt = wp[(w * V + v) * U + u];
+                    if (wt == 0.0) continue;
+                    const double *a_block = a_in + p->offset_a + u * d_a;
+                    for (int imc = 0; imc < d_c; ++imc) {
+                        double s = 0.0;
+                        for (int ima = 0; ima < d_a; ++ima) {
+                            double a_v = a_block[ima];
+                            if (a_v == 0.0) continue;
+                            for (int imb = 0; imb < d_b; ++imb) {
+                                double cg = p->cg[(ima * d_b + imb) * d_c + imc];
+                                if (cg == 0.0) continue;
+                                s += cg * a_v * b_block[imb];
+                            }
+                        }
+                        c_block[imc] += wt * s;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void irrep_tp_apply_uvw_backward(const tp_descriptor_t *desc,
+                                  const double *weights,
+                                  const double *a_in, const double *b_in,
+                                  const double *grad_c_out,
+                                  double *grad_a, double *grad_b, double *grad_w) {
+    if (!desc || desc->mode != IRREP_TP_MODE_UVW) return;
+    for (int k = 0; k < desc->num_paths; ++k) {
+        const struct tp_path *p = &desc->paths[k];
+        int d_a = p->d_a, d_b = p->d_b, d_c = p->d_c;
+        int U = p->mult_u, V = p->mult_v, W = p->mult_w;
+        const double *wp  = weights + p->weight_offset;
+        double       *gwp = grad_w ? grad_w + p->weight_offset : NULL;
+
+        for (int w = 0; w < W; ++w) {
+            const double *gc = grad_c_out + p->offset_c + w * d_c;
+            for (int v = 0; v < V; ++v) {
+                const double *b_block = b_in + p->offset_b + v * d_b;
+                double       *gb_block = grad_b ? grad_b + p->offset_b + v * d_b : NULL;
+                for (int u = 0; u < U; ++u) {
+                    const double *a_block = a_in + p->offset_a + u * d_a;
+                    double       *ga_block = grad_a ? grad_a + p->offset_a + u * d_a : NULL;
+                    double wt = wp[(w * V + v) * U + u];
+                    double dw = 0.0;
+
+                    for (int imc = 0; imc < d_c; ++imc) {
+                        double gv = gc[imc];
+                        if (gv == 0.0) continue;
+                        for (int ima = 0; ima < d_a; ++ima) {
+                            double a_v = a_block[ima];
+                            for (int imb = 0; imb < d_b; ++imb) {
+                                double cg = p->cg[(ima * d_b + imb) * d_c + imc];
+                                if (cg == 0.0) continue;
+                                double b_v = b_block[imb];
+                                if (ga_block) ga_block[ima] += wt * cg * b_v * gv;
+                                if (gb_block) gb_block[imb] += wt * cg * a_v * gv;
+                                if (gwp)      dw             +=       cg * a_v * b_v * gv;
+                            }
+                        }
+                    }
+                    if (gwp) gwp[(w * V + v) * U + u] += dw;
+                }
+            }
+        }
+    }
+}
+
+/* -------------------------------------------------------------------------- *
+ * Per-path weight L2 — useful for SR-style training where different paths    *
+ * on the variational manifold have different curvatures and need per-path    *
+ * regularisation strengths.                                                  *
+ * -------------------------------------------------------------------------- */
+
+void irrep_tp_weight_l2_per_path_uvw(const tp_descriptor_t *desc,
+                                     const double *weights,
+                                     double *out) {
+    if (!desc || desc->mode != IRREP_TP_MODE_UVW || !weights || !out) return;
+    for (int k = 0; k < desc->num_paths; ++k) {
+        const struct tp_path *p = &desc->paths[k];
+        int U = p->mult_u, V = p->mult_v, W = p->mult_w;
+        const double *wp = weights + p->weight_offset;
+        double s = 0.0;
+        int n = W * V * U;
+        for (int i = 0; i < n; ++i) s += wp[i] * wp[i];
+        out[k] = s;
+    }
+}
+
+void irrep_tp_weight_l2_per_path_uvw_backward(const tp_descriptor_t *desc,
+                                              const double *weights,
+                                              const double *grad_per_path,
+                                              double *grad_weights) {
+    if (!desc || desc->mode != IRREP_TP_MODE_UVW
+        || !weights || !grad_per_path || !grad_weights) return;
+    for (int k = 0; k < desc->num_paths; ++k) {
+        const struct tp_path *p = &desc->paths[k];
+        int U = p->mult_u, V = p->mult_v, W = p->mult_w;
+        const double *wp  = weights      + p->weight_offset;
+        double       *gwp = grad_weights + p->weight_offset;
+        double coeff = 2.0 * grad_per_path[k];
+        int n = W * V * U;
+        for (int i = 0; i < n; ++i) gwp[i] += coeff * wp[i];
     }
 }

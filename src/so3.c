@@ -182,7 +182,14 @@ irrep_euler_zyz_t irrep_euler_zyz_from_rot(irrep_rot_matrix_t R) {
     double beta = acos(r22);
     double sb = sin(beta);
     double alpha, gamma;
-    if (sb > 1e-12) {
+    /* Gimbal lock: at |sin β| below the threshold below, R_zyz collapses to
+     * a single rotation about z (β ≈ 0) or a fixed inversion composed with
+     * one (β ≈ π), and the two atan2 branches for α, γ become ill-conditioned.
+     * IRREP_EULER_GIMBAL_EPS is chosen at the floor where sin β · (cos α ± 1)
+     * is still distinguishable from zero in double precision after the prior
+     * matrix-assemble roundoff. */
+    const double IRREP_EULER_GIMBAL_EPS = 1e-12;
+    if (sb > IRREP_EULER_GIMBAL_EPS) {
         alpha = atan2(R.m[5],  R.m[2]);     /* (sin α sin β, cos α sin β) */
         gamma = atan2(R.m[7], -R.m[6]);     /* (sin β sin γ, sin β cos γ) */
     } else {
@@ -251,8 +258,12 @@ irrep_rot_matrix_t irrep_rot_inverse(irrep_rot_matrix_t R) {
 irrep_rot_matrix_t irrep_rot_exp(const double omega[3]) {
     double theta = vec3_norm(omega);
     irrep_rot_matrix_t R;
-    if (theta < 1e-12) {
-        /* R ≈ I + [ω]_× (+ O(θ²)); for our tolerance the linear term suffices. */
+    /* Below this rotation angle the full Rodrigues formula divides (1−cos θ)
+     * and sin θ by θ, both producing catastrophic cancellation; the first
+     * Taylor term `I + [ω]_×` differs from the full R by O(θ²) < 1e-24 at
+     * IRREP_ROT_EXP_SMALL, i.e. well below double-precision round-off. */
+    const double IRREP_ROT_EXP_SMALL = 1e-12;
+    if (theta < IRREP_ROT_EXP_SMALL) {
         R.m[0] = 1;          R.m[1] = -omega[2];  R.m[2] =  omega[1];
         R.m[3] =  omega[2];  R.m[4] = 1;          R.m[5] = -omega[0];
         R.m[6] = -omega[1];  R.m[7] =  omega[0];  R.m[8] = 1;
@@ -369,11 +380,18 @@ double irrep_rot_geodesic_distance(irrep_rot_matrix_t A, irrep_rot_matrix_t B) {
 
 irrep_quaternion_t irrep_quat_frechet_mean(const irrep_quaternion_t *qs,
                                            const double *weights, size_t n) {
-    /* Chordal (extrinsic) mean: sign-align to the first quaternion, then
-     * weighted average + normalize. A good approximation of the Karcher mean
-     * for quaternions close to each other; v1.1 adds the iterative variant. */
+    /* Iterative Karcher (intrinsic geodesic) mean on SO(3):
+     *
+     *   μ_{k+1} = μ_k · exp( (1/Σw) · Σ_i  w_i · log(μ_k^{-1} · q_i) ).
+     *
+     * Each step accumulates the weighted tangent-space average of the offsets
+     * log(μ^{-1} q_i), advances along the corresponding geodesic, and re-
+     * linearises. Initialised from the chordal (extrinsic) average for good
+     * basin behaviour; converges quadratically inside the injectivity radius
+     * (quaternion angle < π between any q_i and the running μ). */
     if (n == 0 || !qs) return irrep_quat_identity();
 
+    /* ---- initial guess: chordal mean (the same thing we used to return) ---- */
     irrep_quaternion_t ref = qs[0];
     irrep_quaternion_t acc = { 0, 0, 0, 0 };
     double total = 0.0;
@@ -389,9 +407,56 @@ irrep_quaternion_t irrep_quat_frechet_mean(const irrep_quaternion_t *qs,
         total += w;
     }
     if (total == 0.0) return irrep_quat_identity();
-    double inv = 1.0 / total;
-    acc.x *= inv; acc.y *= inv; acc.z *= inv; acc.w *= inv;
-    return irrep_quat_normalize(acc);
+    double inv_total = 1.0 / total;
+    acc.x *= inv_total; acc.y *= inv_total; acc.z *= inv_total; acc.w *= inv_total;
+    irrep_quaternion_t mu = irrep_quat_normalize(acc);
+
+    /* ---- Karcher iteration: refine until the mean-log has tiny norm ----
+     *
+     * `tol_sq` is the squared L2 norm of the per-iteration log-step in so(3).
+     * Under local quadratic convergence of the Karcher iteration this bounds
+     * the residual of the Fréchet condition `Σ wᵢ log(μ⁻¹ qᵢ) = 0` by the
+     * square root of `tol_sq`, i.e. ≈ 1e-12 rad — below the angular resolution
+     * of double precision on a unit quaternion.
+     * `max_iter` is an emergency cap; the chordal init plus quadratic
+     * convergence means 6–8 iterations usually suffice.
+     */
+    const int    max_iter = 64;
+    const double tol_sq   = 1.0e-24;
+
+    for (int iter = 0; iter < max_iter; ++iter) {
+        double sum_omega[3] = { 0.0, 0.0, 0.0 };
+        irrep_quaternion_t mu_inv = irrep_quat_inverse(mu);
+        for (size_t i = 0; i < n; ++i) {
+            double w = weights ? weights[i] : 1.0;
+            irrep_quaternion_t q = qs[i];
+            /* Canonicalise sign against μ so log takes the short way. */
+            double d = mu.x * q.x + mu.y * q.y + mu.z * q.z + mu.w * q.w;
+            if (d < 0.0) { q.x = -q.x; q.y = -q.y; q.z = -q.z; q.w = -q.w; }
+            irrep_quaternion_t delta = irrep_quat_compose(mu_inv, q);
+            irrep_axis_angle_t aa    = irrep_axis_angle_from_quat(delta);
+            double omega[3] = {
+                aa.axis[0] * aa.angle,
+                aa.axis[1] * aa.angle,
+                aa.axis[2] * aa.angle,
+            };
+            sum_omega[0] += w * omega[0];
+            sum_omega[1] += w * omega[1];
+            sum_omega[2] += w * omega[2];
+        }
+        double step[3] = {
+            sum_omega[0] * inv_total,
+            sum_omega[1] * inv_total,
+            sum_omega[2] * inv_total,
+        };
+        double step_sq = step[0] * step[0] + step[1] * step[1] + step[2] * step[2];
+        if (step_sq < tol_sq) break;
+
+        irrep_rot_matrix_t step_R = irrep_rot_exp(step);
+        irrep_quaternion_t step_q = irrep_quat_from_rot(step_R);
+        mu = irrep_quat_normalize(irrep_quat_compose(mu, step_q));
+    }
+    return mu;
 }
 
 irrep_quaternion_t irrep_quat_from_two_vectors(const double a[3], const double b[3]) {

@@ -1,4 +1,17 @@
 /* SPDX-License-Identifier: MIT */
+/** @file export.h
+ *  @brief Symbol-visibility macro.
+ *
+ *  The library builds with `-fvisibility=hidden` on gcc/clang; public
+ *  symbols are tagged @c IRREP_API to opt back in to default visibility.
+ *  On Windows the macro resolves to `__declspec(dllexport)` while the DLL
+ *  is being built (define @c IRREP_BUILDING_DLL) and `__declspec(dllimport)`
+ *  for consumers.
+ *
+ *  This header deliberately omits `extern "C"` guards: it contains no
+ *  declarations, only a preprocessor macro. The guards would be inert
+ *  and would give a false signal of C/C++ cross-language linkage content.
+ */
 #ifndef IRREP_EXPORT_H
 #define IRREP_EXPORT_H
 

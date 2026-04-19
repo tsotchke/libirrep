@@ -59,9 +59,29 @@ else ifeq ($(UNAME_S),Linux)
   SHLIB_SONAME = liblibirrep.$(SHLIB_EXT).$(SO_MAJOR)
   SHLIB_LINK   = liblibirrep.$(SHLIB_EXT)
   SHLIB_FLAGS  = -shared -Wl,-soname,$(SHLIB_SONAME)
-else
-  OS_TRIPLE    = $(UNAME_S)
+else ifneq (,$(findstring MINGW,$(UNAME_S)))
+  OS_TRIPLE    = windows
   SHLIB_EXT    = dll
+  SHLIB_SONAME = liblibirrep.$(SHLIB_EXT)
+  SHLIB_LINK   = liblibirrep.$(SHLIB_EXT)
+  # MinGW-w64 export control: DLL path emits import library via
+  # --out-implib so consumers can link; dllexport attributes on public
+  # symbols come from IRREP_API when IRREP_BUILDING_DLL is defined.
+  SHLIB_FLAGS  = -shared -Wl,--out-implib,$(LIB_DIR)/liblibirrep.dll.a
+  PIC          =
+  CFLAGS      += -DIRREP_BUILDING_DLL
+else ifneq (,$(findstring CYGWIN,$(UNAME_S)))
+  OS_TRIPLE    = windows
+  SHLIB_EXT    = dll
+  SHLIB_SONAME = liblibirrep.$(SHLIB_EXT)
+  SHLIB_LINK   = liblibirrep.$(SHLIB_EXT)
+  SHLIB_FLAGS  = -shared -Wl,--out-implib,$(LIB_DIR)/liblibirrep.dll.a
+  PIC          =
+  CFLAGS      += -DIRREP_BUILDING_DLL
+else
+  # Unknown OS — fall back to POSIX-ish shared lib.
+  OS_TRIPLE    = $(UNAME_S)
+  SHLIB_EXT    = so
   SHLIB_SONAME = liblibirrep.$(SHLIB_EXT)
   SHLIB_LINK   = liblibirrep.$(SHLIB_EXT)
   SHLIB_FLAGS  = -shared
@@ -109,10 +129,10 @@ SHARED_LIB_LINK := $(LIB_DIR)/$(SHLIB_LINK)
 # Default / phony targets
 # ---------------------------------------------------------------------------
 .PHONY: all lib lib-static lib-shared test bench examples asan ubsan \
-        docs lint install release release-artifacts clean distclean \
-        dirs print-config
+        fuzz docs lint check-headers install release release-artifacts clean \
+        distclean dirs print-config
 
-all: lib test examples
+all: lib test examples check-headers
 
 print-config:
 	@echo "CC         = $(CC)"
@@ -152,6 +172,17 @@ $(SHARED_LIB_LINK): $(SHARED_LIB)
 $(BIN_DIR)/test_%: tests/test_%.c $(STATIC_LIB) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $(ARCH_CFLAGS) -Itests $< $(STATIC_LIB) $(LDFLAGS) -o $@
 
+# test_downstream_compat links the lattice loader too; explicit rule
+# overrides the generic %.c pattern and takes priority in make resolution.
+$(BIN_DIR)/test_downstream_compat: tests/test_downstream_compat.c \
+                                    tests/test_downstream_compat/lattice_loader.c \
+                                    tests/test_downstream_compat/lattice_loader.h \
+                                    $(STATIC_LIB) | $(BIN_DIR)
+	$(CC) $(CFLAGS) $(ARCH_CFLAGS) -Itests -Itests/test_downstream_compat \
+	    tests/test_downstream_compat.c \
+	    tests/test_downstream_compat/lattice_loader.c \
+	    $(STATIC_LIB) $(LDFLAGS) -o $@
+
 test: $(TEST_BINS)
 	@echo "# Running $(words $(TEST_BINS)) test suites"
 	@pass=0; fail=0; \
@@ -167,6 +198,17 @@ test: $(TEST_BINS)
 # ---------------------------------------------------------------------------
 $(BIN_DIR)/bench_%: benchmarks/bench_%.c $(STATIC_LIB) | $(BIN_DIR)
 	$(CC) $(CFLAGS) $(ARCH_CFLAGS) -Ibenchmarks $< $(STATIC_LIB) $(LDFLAGS) -o $@
+
+# Benchmarks that pull in downstream-compat helpers (lattice loader, golden
+# fixtures). Explicit rule so the extra TU participates in the link.
+$(BIN_DIR)/bench_downstream_shapes: benchmarks/bench_downstream_shapes.c \
+                                     tests/test_downstream_compat/lattice_loader.c \
+                                     tests/test_downstream_compat/lattice_loader.h \
+                                     $(STATIC_LIB) | $(BIN_DIR)
+	$(CC) $(CFLAGS) $(ARCH_CFLAGS) -Ibenchmarks -Itests/test_downstream_compat \
+	    benchmarks/bench_downstream_shapes.c \
+	    tests/test_downstream_compat/lattice_loader.c \
+	    $(STATIC_LIB) $(LDFLAGS) -o $@
 
 bench: $(BENCH_BINS)
 	@bash benchmarks/run_benchmarks.sh
@@ -193,12 +235,43 @@ ubsan:
 	        LDFLAGS="-lm -fsanitize=undefined" test
 
 # ---------------------------------------------------------------------------
+# Header self-containedness: each public header must compile standalone
+# under strict warnings, with no transitive include dependencies.
+# ---------------------------------------------------------------------------
+HEADER_SRCS   := $(wildcard include/irrep/*.h)
+HEADER_CHECKS := $(patsubst include/irrep/%.h,$(OBJ_DIR)/hdr/%.ok,$(HEADER_SRCS))
+
+$(OBJ_DIR)/hdr/%.ok: include/irrep/%.h | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	@printf '/* auto-generated: header self-containedness check */\n#include <irrep/%s.h>\ntypedef int irrep_hdr_ok_%s_t;\n' '$*' '$*' > $(dir $@)/$*.c
+	@$(CC) -std=c11 -Wall -Wextra -Wpedantic -Werror -Iinclude \
+	    -fsyntax-only $(dir $@)/$*.c
+	@touch $@
+
+check-headers: $(HEADER_CHECKS)
+	@echo "# $(words $(HEADER_CHECKS)) public headers compile self-contained"
+
+# ---------------------------------------------------------------------------
+# Fuzz targets (requires clang with libFuzzer support).
+# Run e.g.  ./build/bin/fuzz_multiset_parse -max_total_time=60
+# ---------------------------------------------------------------------------
+FUZZ_SRCS := $(wildcard tests/fuzz/fuzz_*.c)
+FUZZ_BINS := $(patsubst tests/fuzz/%.c,$(BIN_DIR)/%,$(FUZZ_SRCS))
+FUZZ_FLAGS = -fsanitize=fuzzer,address,undefined -O1 -g
+
+$(BIN_DIR)/fuzz_%: tests/fuzz/fuzz_%.c $(STATIC_LIB) | $(BIN_DIR)
+	$(CC) $(CFLAGS_COMMON) $(CFLAGS_WARN) $(ARCH_CFLAGS) $(FUZZ_FLAGS) \
+	    $< $(STATIC_LIB) -lm -o $@
+
+fuzz: $(FUZZ_BINS)
+
+# ---------------------------------------------------------------------------
 # Docs / lint
 # ---------------------------------------------------------------------------
 docs:
 	@command -v doxygen >/dev/null 2>&1 || { \
 	    echo "doxygen not installed; skipping"; exit 0; }
-	@mkdir -p $(BUILD_DIR)/docs && cd $(BUILD_DIR)/docs && doxygen $(CURDIR)/Doxyfile
+	@mkdir -p $(BUILD_DIR)/docs && doxygen Doxyfile
 
 lint:
 	@command -v clang-format >/dev/null 2>&1 || { \

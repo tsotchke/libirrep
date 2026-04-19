@@ -66,31 +66,7 @@ int irrep_lebedev_size(int order) {
         case 3:  return 6;
         case 5:  return 14;
         case 7:  return 26;
-        case 9:  return 38;
-        case 11: return 50;
         default: return 0;
-    }
-}
-
-/* Generator bk adds 24 points for a single value x:
- *   (±x, ±x, ±z) and all three positions for z (= √(1 − 2 x²)). */
-static void add_bk_(double *buf, size_t *idx, double x, double w) {
-    double z2 = 1.0 - 2.0 * x * x;
-    double z  = z2 > 0.0 ? sqrt(z2) : 0.0;
-    const double pts[24][3] = {
-        { +x, +x, +z }, { +x, +x, -z }, { +x, -x, +z }, { +x, -x, -z },
-        { -x, +x, +z }, { -x, +x, -z }, { -x, -x, +z }, { -x, -x, -z },
-        { +x, +z, +x }, { +x, -z, +x }, { +x, +z, -x }, { +x, -z, -x },
-        { -x, +z, +x }, { -x, -z, +x }, { -x, +z, -x }, { -x, -z, -x },
-        { +z, +x, +x }, { -z, +x, +x }, { +z, +x, -x }, { -z, +x, -x },
-        { +z, -x, +x }, { -z, -x, +x }, { +z, -x, -x }, { -z, -x, -x },
-    };
-    for (int i = 0; i < 24; ++i) {
-        buf[*idx * 4 + 0] = pts[i][0];
-        buf[*idx * 4 + 1] = pts[i][1];
-        buf[*idx * 4 + 2] = pts[i][2];
-        buf[*idx * 4 + 3] = w;
-        (*idx)++;
     }
 }
 
@@ -165,4 +141,55 @@ bool irrep_lebedev_fill(int order, double *xyz_weights) {
         default:
             return false;
     }
+}
+
+/* -------------------------------------------------------------------------- *
+ * Tensor-product S² quadrature: Gauss-Legendre in cos θ × uniform in φ.      *
+ * Covers arbitrary exactness at the cost of ≈ 2× more points than Lebedev.   *
+ * -------------------------------------------------------------------------- */
+
+#include <stdlib.h>
+
+int irrep_quadrature_sphere_size(int exactness_deg) {
+    if (exactness_deg < 0) return 0;
+    int n_theta = exactness_deg / 2 + 1;
+    int n_phi   = exactness_deg + 1;
+    if (n_theta < 1) n_theta = 1;
+    if (n_phi   < 1) n_phi   = 1;
+    return n_theta * n_phi;
+}
+
+bool irrep_quadrature_sphere_fill(int exactness_deg, double *xyz_weights) {
+    if (!xyz_weights || exactness_deg < 0) return false;
+    int n_theta = exactness_deg / 2 + 1;
+    int n_phi   = exactness_deg + 1;
+    if (n_theta < 1) n_theta = 1;
+    if (n_phi   < 1) n_phi   = 1;
+
+    double *nodes   = malloc((size_t)n_theta * sizeof(double));
+    double *weights = malloc((size_t)n_theta * sizeof(double));
+    if (!nodes || !weights) { free(nodes); free(weights); return false; }
+    if (!irrep_gauss_legendre(n_theta, nodes, weights)) {
+        free(nodes); free(weights); return false;
+    }
+
+    double dphi    = 2.0 * M_PI / (double)n_phi;
+    double inv_4pi = 1.0 / (4.0 * M_PI);
+    int idx = 0;
+    for (int i = 0; i < n_theta; ++i) {
+        double ct  = nodes[i];
+        double st2 = 1.0 - ct * ct;
+        double st  = st2 > 0.0 ? sqrt(st2) : 0.0;
+        double wt  = weights[i];
+        for (int j = 0; j < n_phi; ++j) {
+            double ph = ((double)j + 0.5) * dphi;
+            xyz_weights[idx * 4 + 0] = st * cos(ph);
+            xyz_weights[idx * 4 + 1] = st * sin(ph);
+            xyz_weights[idx * 4 + 2] = ct;
+            xyz_weights[idx * 4 + 3] = wt * dphi * inv_4pi;
+            idx++;
+        }
+    }
+    free(nodes); free(weights);
+    return true;
 }

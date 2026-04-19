@@ -67,10 +67,27 @@ if(LIBIRREP_BUILD_TESTS)
     file(GLOB LIBIRREP_TEST_SOURCES CONFIGURE_DEPENDS "tests/test_*.c")
     foreach(src ${LIBIRREP_TEST_SOURCES})
         get_filename_component(name ${src} NAME_WE)
-        add_executable(${name} ${src})
-        target_link_libraries(${name} PRIVATE libirrep)
-        target_include_directories(${name} PRIVATE tests)
-        add_test(NAME ${name} COMMAND ${name})
+
+        # test_downstream_compat.c links the lattice loader from
+        # tests/test_downstream_compat/lattice_loader.c, and reads the
+        # lattice_connectivity.json relative to the source tree root —
+        # mirror the explicit Makefile rule so the CMake path builds
+        # *and* runs from the right working directory.
+        if(name STREQUAL "test_downstream_compat")
+            add_executable(${name} ${src}
+                tests/test_downstream_compat/lattice_loader.c)
+            target_include_directories(${name} PRIVATE
+                tests tests/test_downstream_compat)
+            target_link_libraries(${name} PRIVATE libirrep)
+            add_test(NAME ${name}
+                     COMMAND ${name}
+                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+        else()
+            add_executable(${name} ${src})
+            target_include_directories(${name} PRIVATE tests)
+            target_link_libraries(${name} PRIVATE libirrep)
+            add_test(NAME ${name} COMMAND ${name})
+        endif()
     endforeach()
 endif()
 

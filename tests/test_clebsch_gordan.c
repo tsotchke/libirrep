@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 #include "harness.h"
 #include <irrep/clebsch_gordan.h>
+#include "reference_data/cg_reference.h"
 #include <math.h>
 
 static int iabs_(int x) { return x < 0 ? -x : x; }
@@ -176,6 +177,20 @@ int main(void) {
             s += v * v;
         }
         IRREP_ASSERT_NEAR(s, 1.0, 1e-10);
+    }
+
+    /* -------- Hand-tabulated reference sweep (Sakurai / Varshalovich) -------- *
+     * Check every entry in tests/reference_data/cg_reference.h to 1e-12. This
+     * catches silent drift — e.g., a convention flip — that sum rules wouldn't. */
+    for (int i = 0; i < IRREP_CG_NUM_REFERENCES; ++i) {
+        const irrep_cg_reference_t *ref = &IRREP_CG_REFERENCES[i];
+        double expected = (ref->sign == 0)
+            ? 0.0
+            : (double)ref->sign * sqrt((double)ref->num / (double)ref->den);
+        double got = irrep_cg_2j(ref->two_j1, ref->two_m1,
+                                 ref->two_j2, ref->two_m2,
+                                 ref->two_J,  ref->two_M);
+        IRREP_ASSERT(fabs(got - expected) < 1e-12);
     }
 
     return IRREP_TEST_END();

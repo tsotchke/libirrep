@@ -12,17 +12,41 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-14,     triple: macos-arm64   }
-          - { os: macos-13,     triple: macos-x86_64  }
-          - { os: ubuntu-22.04, triple: linux-x86_64  }
+          - { os: macos-14,         triple: macos-arm64,   shell: bash        }
+          - { os: macos-13,         triple: macos-x86_64,  shell: bash        }
+          - { os: ubuntu-22.04,     triple: linux-x86_64,  shell: bash        }
+          - { os: ubuntu-24.04-arm, triple: linux-arm64,   shell: bash        }
+          - { os: windows-latest,   triple: windows-x86_64, shell: 'msys2 {0}' }
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: ${{ matrix.shell }}
     steps:
       - uses: actions/checkout@v4
+
+      # Windows: use MSYS2 + MinGW-w64 so the shell-script release path
+      # (scripts/build_release.sh) runs unchanged. Provides gcc, make,
+      # coreutils, and shasum equivalents.
+      - if: matrix.triple == 'windows-x86_64'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update:  false
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+            make
+            coreutils
+            python
+            tar
+
       - name: Extract version from tag
         id: version
         run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
       - name: Build release
         run: bash scripts/build_release.sh ${{ steps.version.outputs.value }}
+
       - name: Upload
         uses: actions/upload-artifact@v4
         with:

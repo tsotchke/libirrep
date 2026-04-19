@@ -151,6 +151,50 @@ int main(void) {
         IRREP_ASSERT(approx_eq_quat(mean, q, tol));
     }
 
+    /* ---- Karcher mean is the geodesic midpoint of two quaternions ---- */
+    {
+        irrep_quaternion_t q0 = irrep_quat_from_axis_angle(
+            (irrep_axis_angle_t){ { 0, 0, 1 }, 0.2 });
+        irrep_quaternion_t q1 = irrep_quat_from_axis_angle(
+            (irrep_axis_angle_t){ { 0, 0, 1 }, 1.2 });
+        irrep_quaternion_t qs[2] = { q0, q1 };
+        irrep_quaternion_t mean = irrep_quat_frechet_mean(qs, NULL, 2);
+        /* Midpoint on the geodesic = SLERP(q0, q1, 0.5). Karcher gives exactly
+         * that for n=2 (closed form); chordal would not, and our old mean
+         * differed from SLERP by ~1e-3 on this pair. */
+        irrep_quaternion_t mid = irrep_quat_slerp(q0, q1, 0.5);
+        IRREP_ASSERT(approx_eq_quat(mean, mid, 1e-12));
+    }
+
+    /* ---- Karcher mean at unequal angular distances: equidistant to all inputs ---- */
+    {
+        irrep_quaternion_t qs[3];
+        double axes[3][3] = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } };
+        double angles[3]  = { 0.4, 0.3, 0.5 };
+        for (int i = 0; i < 3; ++i) {
+            qs[i] = irrep_quat_from_axis_angle(
+                (irrep_axis_angle_t){ { axes[i][0], axes[i][1], axes[i][2] }, angles[i] });
+        }
+        irrep_quaternion_t mean = irrep_quat_frechet_mean(qs, NULL, 3);
+        /* Condition for a minimum of Σ dist²(μ, q_i): sum of tangent-space
+         * log(μ^{-1} q_i) vanishes. Verify directly. */
+        double sum_omega[3] = { 0.0, 0.0, 0.0 };
+        irrep_quaternion_t mu_inv = irrep_quat_inverse(mean);
+        for (int i = 0; i < 3; ++i) {
+            irrep_quaternion_t q = qs[i];
+            double d = mean.x * q.x + mean.y * q.y + mean.z * q.z + mean.w * q.w;
+            if (d < 0) { q.x = -q.x; q.y = -q.y; q.z = -q.z; q.w = -q.w; }
+            irrep_quaternion_t delta = irrep_quat_compose(mu_inv, q);
+            irrep_axis_angle_t aa    = irrep_axis_angle_from_quat(delta);
+            sum_omega[0] += aa.axis[0] * aa.angle;
+            sum_omega[1] += aa.axis[1] * aa.angle;
+            sum_omega[2] += aa.axis[2] * aa.angle;
+        }
+        IRREP_ASSERT(fabs(sum_omega[0]) < 1e-10);
+        IRREP_ASSERT(fabs(sum_omega[1]) < 1e-10);
+        IRREP_ASSERT(fabs(sum_omega[2]) < 1e-10);
+    }
+
     /* ---- shortest-arc from ẑ to x̂ is 90° about ŷ ---- */
     {
         double a[3] = { 0, 0, 1 }, b[3] = { 1, 0, 0 };

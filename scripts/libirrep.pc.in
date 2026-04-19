@@ -3,8 +3,22 @@ exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
 
+# Build-time ABI hash (sha256 of exported-symbol set + public struct layouts).
+# Consumers can read this via `pkg-config --variable=abi_hash libirrep` and
+# compare to the runtime value returned by irrep_abi_hash(). A mismatch
+# means the headers you're compiling against don't match the installed
+# binary — cause of mysterious link / call-time crashes.
+abi_hash=@ABI_HASH@
+
 Name: libirrep
 Description: SO(3)/SU(2)/O(3) irreducible-representation machinery
 Version: @VERSION@
-Libs: -L${libdir} -llibirrep -lm
+# Libs is substituted at release time. On ELF / Mach-O targets it embeds
+# an rpath pointing at ${libdir} so dynamic consumers don't need to pass
+# `-Wl,-rpath,${libdir}` themselves; on Windows (PE/COFF) there is no
+# rpath concept — dynamic resolution uses PATH / the DLL's own directory —
+# and the flag is omitted to avoid an "unrecognized option" diagnostic
+# under MinGW. Drop to `pkg-config --static` for link-time static binding.
+Libs: @PKGCONFIG_LIBS@
+Libs.private: -lm
 Cflags: -I${includedir}

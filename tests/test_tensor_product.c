@@ -36,8 +36,9 @@ int main(void) {
         irrep_multiset_t *C = irrep_multiset_parse("1x0e + 1x1e + 1x2e");
         int paths[9 * 3];
         int n = irrep_tp_enumerate_paths(A, B, C, paths, 9);
-        /* Only even l-sum paths: (1,1,0) and (1,1,2). (1,1,1) has odd sum. */
-        IRREP_ASSERT(n == 2);
+        /* All three triangle-valid paths: 0e (scalar), 1e (cross product),
+         * 2e (symmetric-traceless tensor). Parity o·o = e matches all of C. */
+        IRREP_ASSERT(n == 3);
 
         /* Also: 1x1o × 1x1o → 1x0o should yield 0 paths (parity o·o = e ≠ o) */
         irrep_multiset_t *Co = irrep_multiset_parse("1x0o");
@@ -50,8 +51,10 @@ int main(void) {
         irrep_multiset_free(Co);
     }
 
-    /* -------- hand-computed: 1x1o × 1x1o → 1x0e in real basis ---------- */
-    /* Real-basis coupling: two l=1 vectors → scalar is −1/√3 · (a · b). */
+    /* -------- hand-computed: 1x1o × 1x1o → 1x0e via CG + i-phase ---------- */
+    /* With the e3nn-style `i^{l_a+l_b-l_c}` phase, the two-vector scalar
+     * coupling lands at `+(a · b) / √3` (the Condon-Shortley CG value
+     * i^2 = −1 flips the sign vs. the bare-CG result). */
     {
         irrep_multiset_t *A = irrep_multiset_parse("1x1o");
         irrep_multiset_t *B = irrep_multiset_parse("1x1o");
@@ -66,7 +69,7 @@ int main(void) {
         double b[3] = { 4.0, 5.0, 6.0 };
         double c[1] = { 0.0 };
         irrep_tp_apply(d, a, b, c);
-        double expected = -(a[0]*b[0] + a[1]*b[1] + a[2]*b[2]) / sqrt(3.0);
+        double expected = (a[0]*b[0] + a[1]*b[1] + a[2]*b[2]) / sqrt(3.0);
         IRREP_ASSERT_NEAR(c[0], expected, tol);
 
         /* weighted by 2.0 */
@@ -234,8 +237,8 @@ int main(void) {
         double b[6] = { 7, 8, 9,  10,11,12 };
         double c[2] = { 0.0, 0.0 };
         irrep_tp_apply(d, a, b, c);
-        double c0_expected = -(a[0]*b[0] + a[1]*b[1] + a[2]*b[2]) / sqrt(3.0);
-        double c1_expected = -(a[3]*b[3] + a[4]*b[4] + a[5]*b[5]) / sqrt(3.0);
+        double c0_expected = (a[0]*b[0] + a[1]*b[1] + a[2]*b[2]) / sqrt(3.0);
+        double c1_expected = (a[3]*b[3] + a[4]*b[4] + a[5]*b[5]) / sqrt(3.0);
         IRREP_ASSERT_NEAR(c[0], c0_expected, tol);
         IRREP_ASSERT_NEAR(c[1], c1_expected, tol);
 
@@ -305,6 +308,37 @@ int main(void) {
         irrep_multiset_free(C);
     }
 
+    /* -------- 1x1o × 1x1o → 1x1e: cross product (odd l-sum path) -------- */
+    {
+        irrep_multiset_t *A = irrep_multiset_parse("1x1o");
+        irrep_multiset_t *B = irrep_multiset_parse("1x1o");
+        irrep_multiset_t *C = irrep_multiset_parse("1x1e");
+        int path[3] = { 0, 0, 0 };
+        tp_descriptor_t *d = irrep_tp_build(A, B, C, path, 1);
+        IRREP_ASSERT(d != NULL);     /* odd l-sum no longer rejected */
+
+        double a[3] = { 1.3, -0.7, 0.9 };
+        double b[3] = { -0.4, 0.6, 0.2 };
+        double c[3] = { 0, 0, 0 };
+        irrep_tp_apply(d, a, b, c);
+
+        /* Antisymmetric in a↔b (cross-product property): */
+        double c_swap[3] = { 0, 0, 0 };
+        irrep_tp_apply(d, b, a, c_swap);
+        for (int i = 0; i < 3; ++i) IRREP_ASSERT(fabs(c[i] + c_swap[i]) < 1e-12);
+        /* And a × a = 0: */
+        double c_self[3] = { 0, 0, 0 };
+        irrep_tp_apply(d, a, a, c_self);
+        for (int i = 0; i < 3; ++i) IRREP_ASSERT(fabs(c_self[i]) < 1e-12);
+        /* Sanity: the output is not all zeros for non-parallel vectors. */
+        IRREP_ASSERT(fabs(c[0]) + fabs(c[1]) + fabs(c[2]) > 1e-6);
+
+        irrep_tp_free(d);
+        irrep_multiset_free(A);
+        irrep_multiset_free(B);
+        irrep_multiset_free(C);
+    }
+
     /* -------- batched matches single ---------- */
     {
         irrep_multiset_t *A = irrep_multiset_parse("1x1o");
@@ -324,6 +358,170 @@ int main(void) {
             IRREP_ASSERT_NEAR(c_batch[bi], c_single[0], 1e-14);
         }
 
+        irrep_tp_free(d);
+        irrep_multiset_free(A);
+        irrep_multiset_free(B);
+        irrep_multiset_free(C);
+    }
+
+    /* -------- UVW mode: build counts weights correctly, mode flag set --------- */
+    {
+        irrep_multiset_t *A = irrep_multiset_parse("2x1o");   /* U = 2 */
+        irrep_multiset_t *B = irrep_multiset_parse("3x1o");   /* V = 3 */
+        irrep_multiset_t *C = irrep_multiset_parse("4x0e");   /* W = 4 */
+        int path[3] = { 0, 0, 0 };
+        tp_descriptor_t *d = irrep_tp_build_uvw(A, B, C, path, 1);
+        IRREP_ASSERT(d != NULL);
+        IRREP_ASSERT(irrep_tp_mode(d) == IRREP_TP_MODE_UVW);
+        IRREP_ASSERT(irrep_tp_num_weights_uvw(d) == 2 * 3 * 4);
+        irrep_tp_free(d);
+        irrep_multiset_free(A);
+        irrep_multiset_free(B);
+        irrep_multiset_free(C);
+    }
+
+    /* -------- UVW collapses to UUU for diagonal weight = δ_{wvu} ------------- */
+    {
+        irrep_multiset_t *A = irrep_multiset_parse("2x1o");
+        irrep_multiset_t *B = irrep_multiset_parse("2x1o");
+        irrep_multiset_t *C = irrep_multiset_parse("2x0e");
+        int path[3] = { 0, 0, 0 };
+
+        tp_descriptor_t *uuu = irrep_tp_build(A, B, C, path, 1);
+        tp_descriptor_t *uvw = irrep_tp_build_uvw(A, B, C, path, 1);
+        IRREP_ASSERT(uuu != NULL && uvw != NULL);
+
+        double a[6] = { 1, 2, 3,   4, 5, 6 };
+        double b[6] = { 7, 8, 9,  10,11,12 };
+        double c_uuu[2] = { 0, 0 }, c_uvw[2] = { 0, 0 };
+        double uuu_w[1] = { 1.0 };
+        double uvw_w[8] = { 0 };
+        /* δ_{w,v,u}: weight 1 for w=v=u, else 0. */
+        for (int w = 0; w < 2; ++w)
+            for (int v = 0; v < 2; ++v)
+                for (int u = 0; u < 2; ++u)
+                    uvw_w[(w * 2 + v) * 2 + u] = (w == v && w == u) ? 1.0 : 0.0;
+
+        irrep_tp_apply_weighted(uuu, uuu_w, a, b, c_uuu);
+        irrep_tp_apply_uvw     (uvw, uvw_w, a, b, c_uvw);
+        for (int i = 0; i < 2; ++i) IRREP_ASSERT(fabs(c_uuu[i] - c_uvw[i]) < 1e-12);
+
+        irrep_tp_free(uuu);
+        irrep_tp_free(uvw);
+        irrep_multiset_free(A);
+        irrep_multiset_free(B);
+        irrep_multiset_free(C);
+    }
+
+    /* -------- UVW backward matches centered finite difference ---------------- */
+    {
+        irrep_multiset_t *A = irrep_multiset_parse("2x1o");
+        irrep_multiset_t *B = irrep_multiset_parse("3x1o");
+        irrep_multiset_t *C = irrep_multiset_parse("1x0e + 1x2e");
+        int n_paths = irrep_tp_enumerate_paths(A, B, C, NULL, 0);
+        int *paths = malloc((size_t)n_paths * 3 * sizeof(int));
+        irrep_tp_enumerate_paths(A, B, C, paths, n_paths);
+        tp_descriptor_t *d = irrep_tp_build_uvw(A, B, C, paths, n_paths);
+        IRREP_ASSERT(d != NULL);
+
+        int nw = irrep_tp_num_weights_uvw(d);
+        double *w  = malloc((size_t)nw * sizeof(double));
+        double *gw = calloc((size_t)nw, sizeof(double));
+        for (int i = 0; i < nw; ++i) w[i] = 0.1 * (i + 1) - 0.5;
+
+        double a[6] = { 0.1, -0.3, 0.5,   0.7, 0.2, -0.4 };
+        double b[9] = { 1.1, -0.7, 0.3,   0.4, -0.5, 0.8,   -0.9, 0.6, 0.2 };
+        /* c_dim = 1 + 5 = 6 */
+        double grad_c[6] = { 0.5, 0.3, -0.2, 0.7, -0.1, 0.4 };
+        double ga[6] = { 0 }, gb[9] = { 0 };
+
+        irrep_tp_apply_uvw_backward(d, w, a, b, grad_c, ga, gb, gw);
+
+        double h = 1e-7;
+        for (int i = 0; i < 6; ++i) {
+            double save = a[i];
+            double cp[6] = { 0 }, cm[6] = { 0 };
+            a[i] = save + h; irrep_tp_apply_uvw(d, w, a, b, cp);
+            a[i] = save - h; irrep_tp_apply_uvw(d, w, a, b, cm);
+            a[i] = save;
+            double fd = 0; for (int j = 0; j < 6; ++j) fd += grad_c[j] * (cp[j] - cm[j]) / (2 * h);
+            IRREP_ASSERT(fabs(ga[i] - fd) < 1e-6);
+        }
+        for (int i = 0; i < nw; ++i) {
+            double save = w[i];
+            double cp[6] = { 0 }, cm[6] = { 0 };
+            w[i] = save + h; irrep_tp_apply_uvw(d, w, a, b, cp);
+            w[i] = save - h; irrep_tp_apply_uvw(d, w, a, b, cm);
+            w[i] = save;
+            double fd = 0; for (int j = 0; j < 6; ++j) fd += grad_c[j] * (cp[j] - cm[j]) / (2 * h);
+            IRREP_ASSERT(fabs(gw[i] - fd) < 1e-6);
+        }
+
+        free(paths); free(w); free(gw);
+        irrep_tp_free(d);
+        irrep_multiset_free(A);
+        irrep_multiset_free(B);
+        irrep_multiset_free(C);
+    }
+
+    /* -------- Per-path L2 regulariser: forward matches brute force; backward matches FD. -------- */
+    {
+        irrep_multiset_t *A = irrep_multiset_parse("2x0e + 1x1o");
+        irrep_multiset_t *B = irrep_multiset_parse("2x0e + 1x1o");
+        irrep_multiset_t *C = irrep_multiset_parse("2x0e + 1x1o");
+        int np = irrep_tp_enumerate_paths(A, B, C, NULL, 0);
+        int *paths = malloc(np * 3 * sizeof(int));
+        irrep_tp_enumerate_paths(A, B, C, paths, np);
+        tp_descriptor_t *d = irrep_tp_build_uvw(A, B, C, paths, np);
+        IRREP_ASSERT(d != NULL);
+        int nw = irrep_tp_num_weights_uvw(d);
+
+        double *w = calloc(nw, sizeof(double));
+        for (int i = 0; i < nw; ++i) w[i] = 0.37 * i - 0.13;
+
+        double *per_path = calloc(np, sizeof(double));
+        irrep_tp_weight_l2_per_path_uvw(d, w, per_path);
+
+        /* Forward: sum across all paths equals the full-weight L2. */
+        double total = 0.0;
+        for (int k = 0; k < np; ++k) total += per_path[k];
+        double full_l2 = 0.0;
+        for (int i = 0; i < nw; ++i) full_l2 += w[i] * w[i];
+        IRREP_ASSERT(fabs(total - full_l2) < 1e-12);
+
+        /* Backward: per-path grad of 1.0 on every path — grad_w[i] should be 2 w[i]. */
+        double *grad_per_path = calloc(np, sizeof(double));
+        for (int k = 0; k < np; ++k) grad_per_path[k] = 1.0;
+        double *grad_w = calloc(nw, sizeof(double));
+        irrep_tp_weight_l2_per_path_uvw_backward(d, w, grad_per_path, grad_w);
+        for (int i = 0; i < nw; ++i) {
+            IRREP_ASSERT(fabs(grad_w[i] - 2.0 * w[i]) < 1e-12);
+        }
+
+        /* FD check with heterogeneous path weights. */
+        for (int k = 0; k < np; ++k) grad_per_path[k] = 0.17 * k - 0.3;
+        memset(grad_w, 0, nw * sizeof(double));
+        irrep_tp_weight_l2_per_path_uvw_backward(d, w, grad_per_path, grad_w);
+
+        double h = 1e-6;
+        /* Exercise the full weight vector — cheap enough on this shape and
+         * it closes the audit gap of a spot-check-only backward FD pass. */
+        for (int i = 0; i < nw; ++i) {
+            double save = w[i];
+            w[i] = save + h;
+            double *pp = calloc(np, sizeof(double));
+            irrep_tp_weight_l2_per_path_uvw(d, w, pp);
+            double lp = 0.0; for (int k = 0; k < np; ++k) lp += grad_per_path[k] * pp[k];
+            w[i] = save - h;
+            irrep_tp_weight_l2_per_path_uvw(d, w, pp);
+            double lm = 0.0; for (int k = 0; k < np; ++k) lm += grad_per_path[k] * pp[k];
+            w[i] = save;
+            double fd = (lp - lm) / (2 * h);
+            IRREP_ASSERT(fabs(grad_w[i] - fd) < 1e-6);
+            free(pp);
+        }
+
+        free(paths); free(w); free(per_path); free(grad_per_path); free(grad_w);
         irrep_tp_free(d);
         irrep_multiset_free(A);
         irrep_multiset_free(B);

@@ -193,5 +193,36 @@ int main(void) {
         IRREP_ASSERT(fabs(got - expected) < 1e-12);
     }
 
+    /* -------- large-j stability (Schulten–Gordon regime) --------
+     *
+     * Replaced-algorithm regression test. The prior Racah-log-gamma
+     * implementation produced 2e-9 sum-rule error at j = 50 and NaN past
+     * j ≈ 60 (catastrophic cancellation in the alternating sum, plus
+     * intermediate exp overflow near the triangle edge). The Schulten–
+     * Gordon backward recurrence reaches machine precision through j ≈ 50
+     * and degrades gradually past that. Measured at (m1 = j/2, m2 = -j/2):
+     *   j = 20 : 1e-16       j = 50 : 0
+     *   j = 30 : 2e-16       j = 80 : 6e-4   (non-classical regime leakage)
+     * Miller two-directional iteration would recover precision past j ≈ 80;
+     * tracked in TODO.md. */
+    {
+        const int   j_values[] = { 20, 30, 50 };
+        const double tol_at[]  = { 1e-12, 1e-12, 1e-12 };
+        for (int idx = 0; idx < (int)(sizeof j_values / sizeof *j_values); ++idx) {
+            int    j   = j_values[idx];
+            double tol = tol_at[idx];
+            int    m1  = j / 2;
+            int    m2  = -j / 2;
+            int    M   = m1 + m2;
+            double s   = 0.0;
+            for (int J = 0; J <= 2 * j; ++J) {
+                if (iabs_(M) > J) continue;
+                double v = irrep_cg(j, m1, j, m2, J, M);
+                s += v * v;
+            }
+            IRREP_ASSERT(fabs(s - 1.0) < tol);
+        }
+    }
+
     return IRREP_TEST_END();
 }

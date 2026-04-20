@@ -154,12 +154,15 @@ composition.
 
 ### 2.4. Coupling coefficients (`clebsch_gordan.h`, `recoupling.h`)
 
-Racah's single-sum formula in log-gamma form, with both integer (`_cg`)
-and half-integer (`_cg_2j`) signatures. Accurate to `~5e-15` at small `j`
-and degrades to `~2e-9` at `j = 50` and NaN past `j ≈ 60` owing to
-catastrophic cancellation in the alternating sum; a Schulten–Gordon
-recurrence replacement is tracked in `TODO.md` to match the Wigner-d
-stability regime. Selection rules return `0.0`; a small `cg_table_t` cache
+Wigner 3j via the Schulten–Gordon backward three-term recurrence in `j₁`
+(Luscombe–Luban 1998), with the 3j series normalised by the sum rule
+`Σ_j (2j+1) · 3j(j,j₂,j₃)² = 1` and the overall sign anchored to
+`(−1)^{j₂−j₃−m₁}` at `j = j_max`. Clebsch–Gordan derived from 3j via
+`⟨j₁ m₁ j₂ m₂ | J M⟩ = (−1)^{j₁−j₂+M} · √(2J+1) · (j₁ j₂ J; m₁ m₂ −M)`.
+Machine precision to `j ≈ 50`; leakage of the non-classical solution
+into the deep-subdominant region degrades precision past that (~6e-4
+at `j = 80`). Miller two-directional iteration would recover precision
+through `j ≈ 150+`; tracked in `TODO.md`. Selection rules return `0.0`; a small `cg_table_t` cache
 supports batch lookups. Wigner 3j, 6j, 9j, and Racah W are in
 `recoupling.h` and use the same log-gamma kernel.
 

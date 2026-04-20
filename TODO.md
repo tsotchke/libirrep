@@ -91,11 +91,15 @@ onwards plus the 1.3 section at the bottom.
  j ≈ 20) with Edmonds Jacobi-polynomial form via DLMF §18.9.1 recurrence.
  Measured unitarity ≤ 1e-12 through j = 80; bounded only by IEEE-754
  lgamma overflow (j ≈ 170) past that.
-- [ ] Clebsch-Gordan + Wigner 3j: current Racah log-gamma form has the
- same catastrophic-cancellation pathology as the old Wigner-d
- (sum-rule err 2e-9 at j=50, NaN past j≈60). Replace with Schulten-
- Gordon three-term recurrence in j (Luscombe-Luban 1994 / Rasch-Yu 2003)
- to match the Wigner-d stability regime.
+- [x] Wigner 3j + Clebsch–Gordan: replaced Racah log-gamma single-sum
+ (unstable past j ≈ 20, NaN past j ≈ 60 near triangle edge) with
+ Schulten–Gordon backward three-term recurrence in j₁, normalised by the
+ sum rule and sign-anchored at j_max. Machine precision through j ≈ 50.
+- [ ] Miller two-directional iteration for 3j past j ≈ 80. Backward-only
+ SG leaks the non-classical solution into the subdominant regime; Miller
+ (forward + backward, match + renormalise) recovers machine precision
+ through j ≈ 150+. Current regime is documented in tests/test_clebsch_
+ gordan.c and the METHODS appendix.
 
 ## M11 — x86 SIMD hot paths (open)
 - [ ] SSE4.2 + AVX2 variants of the above

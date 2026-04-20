@@ -84,13 +84,18 @@ IRREP_API irrep_sg_irrep_t *irrep_sg_sign_rep(const irrep_space_group_t *G);
  *         amplitude `P_μ ψ(σ)`.
  *
  *  @param mu         irrep handle
- *  @param psi_of_g   length-`order(G)` amplitudes, one per group element */
+ *  @param psi_of_g   length-`order(G)` amplitudes, one per group element
+ *  @return           projected amplitude on success; `NaN + NaN·i` on
+ *                    `NULL` input (zero is a legitimate result, so we use
+ *                    IEEE-754 NaN to distinguish error from answer; caller
+ *                    may check with `isnan(creal(·))`). */
 IRREP_API double _Complex
 irrep_sg_project_amplitude(const irrep_sg_irrep_t *mu,
                            const double _Complex *psi_of_g);
 
 /** @brief Shortcut: totally-symmetric projection,
- *         `(1/|G|) Σ_g ψ(g·σ)`. */
+ *         `(1/|G|) Σ_g ψ(g·σ)`.
+ *         Returns `NaN + NaN·i` on `NULL` input. */
 IRREP_API double _Complex
 irrep_sg_project_A1(const irrep_space_group_t *G,
                     const double _Complex *psi_of_g);
@@ -170,7 +175,8 @@ irrep_sg_adapted_basis(const irrep_space_group_t *G,
  *  @param psi_of_g  length-`irrep_space_group_order(G)` amplitudes as produced
  *                   by @ref irrep_sg_enumerate_orbit followed by a caller
  *                   wavefunction evaluation
- *  @return          projected amplitude */
+ *  @return          projected amplitude on success; `NaN + NaN·i` on NULL
+ *                   input or if the space group has no lattice handle. */
 IRREP_API double _Complex
 irrep_sg_bloch_amplitude(const irrep_space_group_t *G,
                          int kx, int ky,

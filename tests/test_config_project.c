@@ -290,8 +290,14 @@ int main(void) {
         /* Error paths */
         IRREP_ASSERT(irrep_sg_bloch_basis(NULL, 0, 0, Nsites, 2, NULL, 1) == -1);
         IRREP_ASSERT(irrep_sg_bloch_basis(G3, 0, 0, 8, 2, (double _Complex*)&total_dim, 1) == -1);
-        double _Complex zero = irrep_sg_bloch_amplitude(NULL, 0, 0, NULL);
-        IRREP_ASSERT(creal(zero) == 0.0 && cimag(zero) == 0.0);
+        /* NULL inputs: NaN result (IEEE-754 way to distinguish error from a
+         * legitimate zero projection). */
+        double _Complex bad = irrep_sg_bloch_amplitude(NULL, 0, 0, NULL);
+        IRREP_ASSERT(isnan(creal(bad)) && isnan(cimag(bad)));
+        bad = irrep_sg_project_A1(NULL, NULL);
+        IRREP_ASSERT(isnan(creal(bad)) && isnan(cimag(bad)));
+        bad = irrep_sg_project_amplitude(NULL, NULL);
+        IRREP_ASSERT(isnan(creal(bad)) && isnan(cimag(bad)));
 
         irrep_space_group_free(G3);
         irrep_lattice_free(L3);

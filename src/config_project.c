@@ -104,7 +104,7 @@ irrep_sg_irrep_t *irrep_sg_sign_rep(const irrep_space_group_t *G) {
 double _Complex
 irrep_sg_project_amplitude(const irrep_sg_irrep_t *mu,
                            const double _Complex *psi_of_g) {
-    if (!mu || !psi_of_g) return 0.0 + 0.0*I;
+    if (!mu || !psi_of_g) return NAN + NAN*I;
     double _Complex acc = 0.0 + 0.0*I;
     for (int g = 0; g < mu->order; ++g) {
         acc += conj(mu->characters[g]) * psi_of_g[g];
@@ -115,7 +115,7 @@ irrep_sg_project_amplitude(const irrep_sg_irrep_t *mu,
 double _Complex
 irrep_sg_project_A1(const irrep_space_group_t *G,
                     const double _Complex *psi_of_g) {
-    if (!G || !psi_of_g) return 0.0 + 0.0*I;
+    if (!G || !psi_of_g) return NAN + NAN*I;
     int order = irrep_space_group_order(G);
     double _Complex acc = 0.0 + 0.0*I;
     for (int g = 0; g < order; ++g) acc += psi_of_g[g];
@@ -263,9 +263,9 @@ double _Complex
 irrep_sg_bloch_amplitude(const irrep_space_group_t *G,
                          int kx, int ky,
                          const double _Complex *psi_of_g) {
-    if (!G || !psi_of_g) return 0.0 + 0.0*I;
+    if (!G || !psi_of_g) return NAN + NAN*I;
     const irrep_lattice_t *L = irrep_space_group_lattice(G);
-    if (!L) return 0.0 + 0.0*I;
+    if (!L) return NAN + NAN*I;
     int Lx = irrep_lattice_Lx(L);
     int Ly = irrep_lattice_Ly(L);
     /* Bloch indices live mod (Lx, Ly). Canonicalise so callers can pass any

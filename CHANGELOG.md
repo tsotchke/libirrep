@@ -259,6 +259,16 @@ public headers self-contained.
  runners (macOS arm64/x86_64, Linux x86_64, Linux arm64, Windows
  x86_64); see `.github/workflows/release.yml`.
 
+---
+
+> **Note on git tags.** Releases `1.0.0`, `1.1.0`, and `1.2.0` were internal
+> development cycles prior to the public repository. Their entries below
+> are retained as narrative history so the scope and precision trajectory
+> of the project is transparent, but they have no corresponding git tag
+> in this repository. Only `v1.3.0-alpha` and later carry tags.
+
+---
+
 ## [1.2.0] — 2026-04-19
 
 Superset of 1.2.0-rc1 plus the post-rc audit fixes, the four-point-group

@@ -3,9 +3,9 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   build-and-test:
@@ -119,19 +119,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: build
         run: make lib
-      - name: abi hash
-        run: bash scripts/generate_abi_hash.sh build/lib > /tmp/ABI_HASH_CANDIDATE
-      - name: abi diff
-        # If abi/baseline/ABI_HASH.linux-x86_64 is checked in, the CI fails
-        # when the exported-symbol set / struct layout diverges without an
-        # accompanying major-version bump.
-        run: |
-          if [ -f abi/baseline/ABI_HASH.linux-x86_64 ]; then
-            diff abi/baseline/ABI_HASH.linux-x86_64 /tmp/ABI_HASH_CANDIDATE \
-              || { echo 'ABI drift detected — bump the major version or update abi/baseline'; exit 1; }
-          else
-            echo 'no ABI baseline checked in; skipping drift check'
-          fi
+      - name: ABI regression gate
+        # Compares the current build's exported-symbol SHA-256 against
+        # release/BASELINE_ABI_HASH. Intentional breaks bump the major
+        # version in VERSION and refresh the baseline in the same commit.
+        run: make check-abi
 
   cmake-build:
     runs-on: ubuntu-22.04

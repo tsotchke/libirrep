@@ -1,5 +1,11 @@
 # libirrep
 
+> **Status: pre-release — `v1.3.0-alpha`.** The public API is covered by an
+> ABI hash and a regression gate, and the numerical kernels are at machine
+> precision across the documented range; the physics substrate is cycle-
+> scoped and may grow before `v1.3.0` final. Bug reports welcome; CI goes
+> live on first push.
+
 > A pure-C11 representation-theory library, built to support
 > work on open problems in frustrated quantum magnetism —
 > with a tested SO(3)/SU(2)/O(3) / Clebsch-Gordan / Wigner-D /
@@ -338,13 +344,13 @@ ctest --test-dir build --output-on-failure
 | Document | Purpose |
 | -------- | ------- |
 | [`docs/PHYSICS_RESULTS.md`](docs/PHYSICS_RESULTS.md) | Concrete numerical results produced with libirrep — kagome ED at 12/18/24 sites, finite-size extrapolation, symmetry-sector decompositions, structure factors. |
-| [`docs/METHODS.md`](docs/METHODS.md) | Methods-paper-style writeup of algorithmic choices (Racah log-gamma CG, Sakurai direct-sum Wigner-D, real-basis TP with `i^{l_a+l_b−l_c}` phase, orbit-rep basis builder, callback-based Lanczos, KP γ pipeline). |
+| [`docs/METHODS.md`](docs/METHODS.md) | Methods-paper-style writeup of algorithmic choices (Schulten–Gordon Miller-iterated 3j / CG, Jacobi-polynomial Wigner-D, real-basis TP with `i^{l_a+l_b−l_c}` phase and sparse CG inner loop, orbit-rep basis builder, callback-based Lanczos, KP γ pipeline). |
 | [`docs/DESIGN.md`](docs/DESIGN.md) | Architecture, module graph, feature → module mapping, numerical conventions, ABI policy, threading model. |
 | [`docs/PHYSICS_APPENDIX.md`](docs/PHYSICS_APPENDIX.md) | Mathematical foundations, convention derivations, threshold rationales. |
 | [`docs/REFERENCES.md`](docs/REFERENCES.md) | Annotated bibliography with DOIs and edition specificity. |
 | [`docs/API.md`](docs/API.md) | Module-by-module API reference, linking to individual headers. |
 | [`docs/MIGRATION_FROM_E3NN.md`](docs/MIGRATION_FROM_E3NN.md) | e3nn-to-libirrep mapping with sign conventions and caveats. |
-| the 1.3 CHANGELOG | Research-agenda scope lock for the 1.3 cycle (the Kagome Heisenberg ground-state-nature problem, secondary targets, module table). |
+| [`CHANGELOG.md`](CHANGELOG.md) | Per-release scope, API additions, and algorithm changes. The 1.3-cycle entry anchors the substrate to the Kagome Heisenberg ground-state-nature problem. |
 | [`docs/tutorials/`](docs/tutorials/) | Seven tutorials: rotations, spherical harmonics, Clebsch-Gordan, Wigner-D, tensor products, equivariant NNs, and the 1.3 Kagome NQS substrate. |
 
 Per-symbol Doxygen blocks are in the headers under `include/irrep/`;

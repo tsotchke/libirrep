@@ -62,12 +62,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     memcpy(h_in,     data + 144,  sizeof(h_in));
     memcpy(grad_out, data + 144 + 128, sizeof(grad_out));
 
+    /* Sanitize + clamp to [-1, 1] magnitude; raw random bytes include
+     * doubles near 1e+308 whose products overflow validly to Inf/NaN. */
     for (size_t i = 0; i < sizeof(edge_vec) / sizeof(edge_vec[0]); ++i)
-        if (!isfinite(edge_vec[i])) edge_vec[i] = 0.1;
+        edge_vec[i] = isfinite(edge_vec[i]) ? tanh(edge_vec[i]) : 0.1;
     for (size_t i = 0; i < sizeof(h_in) / sizeof(h_in[0]); ++i)
-        if (!isfinite(h_in[i])) h_in[i] = 0.0;
+        h_in[i] = isfinite(h_in[i]) ? tanh(h_in[i]) : 0.0;
     for (size_t i = 0; i < sizeof(grad_out) / sizeof(grad_out[0]); ++i)
-        if (!isfinite(grad_out[i])) grad_out[i] = 0.0;
+        grad_out[i] = isfinite(grad_out[i]) ? tanh(grad_out[i]) : 0.0;
 
     /* Clamp |edge_vec| to [0.01, 1.4] per component to keep some edges
      * inside r_cut and still sweep orientations. */

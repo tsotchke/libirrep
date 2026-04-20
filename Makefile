@@ -129,8 +129,8 @@ SHARED_LIB_LINK := $(LIB_DIR)/$(SHLIB_LINK)
 # Default / phony targets
 # ---------------------------------------------------------------------------
 .PHONY: all lib lib-static lib-shared test bench examples asan ubsan \
-        fuzz docs lint check-headers install release release-artifacts clean \
-        distclean dirs print-config
+        fuzz fuzz-driver fuzz-run docs lint check-headers install release \
+        release-artifacts clean distclean dirs print-config
 
 all: lib test examples check-headers
 
@@ -252,18 +252,47 @@ check-headers: $(HEADER_CHECKS)
 	@echo "# $(words $(HEADER_CHECKS)) public headers compile self-contained"
 
 # ---------------------------------------------------------------------------
-# Fuzz targets (requires clang with libFuzzer support).
-# Run e.g.  ./build/bin/fuzz_multiset_parse -max_total_time=60
+# Fuzz targets.
+#
+# `make fuzz`             — builds libFuzzer-instrumented binaries (needs a
+#                           clang that ships libclang_rt.fuzzer_osx.a; run
+#                           e.g. ./build/bin/fuzz_cg -max_total_time=60).
+# `make fuzz-driver`      — builds libFuzzer-less binaries that link the
+#                           same harnesses against tests/fuzz/driver.c, a
+#                           deterministic PCG-style random-byte driver.
+#                           Portable across Apple clang / Homebrew clang /
+#                           GCC; the preferred path on systems where
+#                           libFuzzer isn't available.
+# `make fuzz-run`         — builds the driver binaries and runs each for
+#                           1_000_000 iterations with seed 42. Writes a
+#                           report to build/fuzz-report.txt.
 # ---------------------------------------------------------------------------
 FUZZ_SRCS := $(wildcard tests/fuzz/fuzz_*.c)
 FUZZ_BINS := $(patsubst tests/fuzz/%.c,$(BIN_DIR)/%,$(FUZZ_SRCS))
+FUZZ_DRIVER_BINS := $(patsubst tests/fuzz/%.c,$(BIN_DIR)/%_driver,$(FUZZ_SRCS))
 FUZZ_FLAGS = -fsanitize=fuzzer,address,undefined -O1 -g
+FUZZ_DRIVER_FLAGS = -fsanitize=address,undefined -O1 -g
 
 $(BIN_DIR)/fuzz_%: tests/fuzz/fuzz_%.c $(STATIC_LIB) | $(BIN_DIR)
 	$(CC) $(CFLAGS_COMMON) $(CFLAGS_WARN) $(ARCH_CFLAGS) $(FUZZ_FLAGS) \
 	    $< $(STATIC_LIB) -lm -o $@
 
+$(BIN_DIR)/fuzz_%_driver: tests/fuzz/fuzz_%.c tests/fuzz/driver.c $(STATIC_LIB) | $(BIN_DIR)
+	$(CC) $(CFLAGS_COMMON) $(CFLAGS_WARN) $(ARCH_CFLAGS) $(FUZZ_DRIVER_FLAGS) \
+	    $< tests/fuzz/driver.c $(STATIC_LIB) -lm -o $@
+
 fuzz: $(FUZZ_BINS)
+fuzz-driver: $(FUZZ_DRIVER_BINS)
+
+fuzz-run: fuzz-driver
+	@mkdir -p $(BUILD_DIR)
+	@: > $(BUILD_DIR)/fuzz-report.txt
+	@for b in $(FUZZ_DRIVER_BINS); do \
+	    echo "## $$b" >> $(BUILD_DIR)/fuzz-report.txt; \
+	    $$b 42 1000000 256 >> $(BUILD_DIR)/fuzz-report.txt 2>&1 || \
+	        { echo "FAILED: $$b"; exit 1; }; \
+	done
+	@echo "# fuzz run ok; report in $(BUILD_DIR)/fuzz-report.txt"
 
 # ---------------------------------------------------------------------------
 # Docs / lint

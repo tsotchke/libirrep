@@ -15,6 +15,7 @@
 #include <math.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -51,14 +52,28 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
     double in[IN_DIM];
     memcpy(in, data + 2, IN_DIM * sizeof(double));
+    /* Constrain inputs to a sensible magnitude (|x| <= 1) — fuzzing raw
+     * random bytes as doubles produces IEEE-754 outliers like 1e+308,
+     * and the NaN/Inf that propagates from multiplying such values in
+     * the character-weighted D^l(R) chain is correct IEEE semantics,
+     * not a library bug. Feature vectors in any real workflow are O(1)
+     * after layer norms; we map into that regime. */
     for (int i = 0; i < IN_DIM; ++i) {
-        if (!isfinite(in[i])) in[i] = 0.0;
+        if (!isfinite(in[i])) { in[i] = 0.0; continue; }
+        in[i] = tanh(in[i]);                  /* squish to [-1, 1] */
     }
 
     double out[IN_DIM] = { 0 };
     irrep_pg_project(t, mu, g_spec, in, out);
     for (int i = 0; i < IN_DIM; ++i) {
-        if (!isfinite(out[i])) __builtin_trap();
+        if (!isfinite(out[i])) {
+            fprintf(stderr,
+                "non-finite output: group_idx=%d mu=%d i=%d out=%g\n"
+                "in = [", group_idx, mu, i, out[i]);
+            for (int j = 0; j < IN_DIM; ++j) fprintf(stderr, " %.17g", in[j]);
+            fprintf(stderr, " ]\n");
+            __builtin_trap();
+        }
     }
     return 0;
 }

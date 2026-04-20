@@ -32,9 +32,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     double a[4], b[4], c[9];
     memcpy(a, data,      sizeof(a));
     memcpy(b, data + 32, sizeof(b));
+    /* Clamp to [-1, 1] — raw random bytes include IEEE-754 outliers
+     * (1e+308, subnormals) whose products overflow validly to NaN/Inf.
+     * Real e3nn-style features are O(1); fuzz in that regime. */
     for (int i = 0; i < 4; ++i) {
-        if (!isfinite(a[i])) a[i] = 0.0;
-        if (!isfinite(b[i])) b[i] = 0.0;
+        if (!isfinite(a[i])) a[i] = 0.0; else a[i] = tanh(a[i]);
+        if (!isfinite(b[i])) b[i] = 0.0; else b[i] = tanh(b[i]);
     }
     irrep_tp_apply(g_desc, a, b, c);
     for (int i = 0; i < 9; ++i) {

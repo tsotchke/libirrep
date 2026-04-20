@@ -328,22 +328,35 @@ on the middle Euler angle. The exponentials introduce the α, γ phase
 dependence and are straightforward; the numerical content is concentrated
 in `d^j`.
 
-### 6.2. Small-d: the Sakurai direct sum
+### 6.2. Small-d: Jacobi-polynomial form
 
-The explicit formula (Sakurai §3.8, Eq. 3.8.33; Varshalovich §4.3.4, Eq. 10)
+For `m ≥ |m'|`, Edmonds (4.1.23) gives
 ```
- d^j_{m', m}(β) = Σ_k (−1)^{k + m' − m} · (2j)! · √{(j+m)!(j−m)!(j+m')!(j−m')!} · [k! (j+m'−k)! (j−m−k)! (k+m−m')!]⁻¹ · (cos β/2)^{2j+m−m'−2k} · (sin β/2)^{2k+m'−m} (6.2)
+ d^j_{m', m}(β) = √{(j+m)!(j−m)! / (j+m')!(j−m')!}
+                · (cos β/2)^{m+m'} · (sin β/2)^{m−m'}
+                · P_{j−m}^{(m−m', m+m')}(cos β).            (6.2)
 ```
-is a single sum over `k`; the summation range is determined by the
-constraints that every factorial argument be non-negative. Direct
-evaluation overflows at even modest `j`; libirrep factors out the common
-`j!` via the identity
-`√{(j+m)!(j−m)!(j+m')!(j−m')!} / Π(...k...)` and evaluates the
-logarithmic version using `lgamma(·)` from `<math.h>`, which is IEEE-754
-single-digit accurate for all double-precision inputs (Cody 1993). The
-result is numerically stable past `j = 50` in double precision; closed-form
-small-d values at `j ∈ {½, 1, 3/2, 2}` (Varshalovich §4.16) agree to
-machine precision (`tests/test_wigner_d.c`).
+Other `(m, m')` quadrants reduce to the canonical one via the
+Varshalovich §4.4.1 symmetries — swap `m ↔ m'` with a `(−1)^{m−m'}`
+phase, and/or take `(m, m') → (−m', −m)`.
+
+The Jacobi polynomial `P_n^{(α,β)}(x)` itself is evaluated by the
+NIST DLMF §18.9.1 forward three-term recurrence in `n`, which is
+stable for non-negative integer `(α, β)` at `x ∈ [−1, 1]`. The sqrt
+factorial ratio is computed in log-space via
+`exp(½·(lgamma − lgamma − lgamma + lgamma))`, bounded in `j` only by
+the IEEE-754 `lgamma` overflow limit (`j ≈ 170`).
+
+The earlier direct-sum implementation (Sakurai 3.8.33) was replaced
+here because the alternating-sign summation loses precision to
+catastrophic cancellation past `j ≈ 20`: measured unitarity at
+`(α,β,γ) = (0.3, 0.9, 1.5)` was `2 × 10⁻³` at `j = 50` and divergent
+past `j = 60`. The Jacobi form measures `≤ 1 × 10⁻¹²` for every
+`j ≤ 80` we have tested, limited only by the `O((2j+1)²)`
+accumulation in the unitarity product itself.
+
+Closed-form small-d values at `j ∈ {½, 1, 3/2, 2}` (Varshalovich
+§4.16) agree to machine precision in `tests/test_wigner_d.c`.
 
 ### 6.3. Unitarity and composition
 

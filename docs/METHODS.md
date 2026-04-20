@@ -25,7 +25,8 @@ library that can evaluate:
 - Spherical harmonics `Y_l^m(r̂)` at moderate `l` (up to 16),
 - Clebsch-Gordan coefficients and Wigner 3j / 6j / 9j symbols for
  both integer and half-integer spin,
-- Wigner small-d and full-D rotation matrices, stable past `j = 50`,
+- Wigner small-d and full-D rotation matrices via a Jacobi-polynomial
+ three-term recurrence, machine-precision to at least `j = 80`,
 - Tensor products `a ⊗ b` with irrep-preserving contraction,
 - Point-group and space-group projection operators on feature or
  configuration vectors,
@@ -84,14 +85,24 @@ Reference: Racah 1942, Phys. Rev. 62, 438. Implemented in
 hand-tabulated values at
 `(j₁, j₂) ∈ {(½,½), (1,½), (1,1), (3/2,1), (2,2), (3,2)}` to `10⁻¹²`.
 
-### 3.2. Wigner small-d via Sakurai's direct sum
+### 3.2. Wigner small-d via Jacobi-polynomial recurrence
 
-Jacobi-polynomial recurrences for the small-d function
-`d^j_{m'm}(β)` are standard but can lose precision near `β = π`.
-libirrep uses Sakurai's direct sum (Sakurai 3.8.33) summed in
-log-gamma form; verified stable past `j = 50` in our unit tests,
-and up to `j = 100` by cross-check against a SymPy-generated
-reference.
+For `m ≥ |m'|`, Edmonds (4.1.23) expresses the small-d as
+`d^j_{m',m}(β) = √((j+m)!(j−m)!/(j+m')!(j−m')!) · (cos β/2)^{m+m'} ·
+(sin β/2)^{m−m'} · P_{j−m}^{(m−m', m+m')}(cos β)`. Other
+(m', m) quadrants reduce to this one by the Varshalovich §4.4.1
+symmetries (`(m, m') ↔ (m', m)` with a `(−1)^{m−m'}` phase, and/or
+`(m, m') → (−m', −m)`). The Jacobi polynomial itself is evaluated by
+the NIST DLMF §18.9.1 forward three-term recurrence in `n`, which is
+stable for non-negative integer `(α, β)` at `x ∈ [−1, 1]`. The sqrt
+factorial ratio is evaluated via `0.5 · (lgamma(·) + lgamma(·) −
+lgamma(·) − lgamma(·))`, bounded by `j ≈ 170` (double-precision
+`lgamma` overflow limit). Measured unitarity at
+`(α, β, γ) = (0.3, 0.9, 1.5)` is ≤ `1 × 10⁻¹²` for every `j ≤ 80` we
+have tested; the earlier Sakurai (3.8.33) direct-sum implementation
+was replaced here because it loses precision to catastrophic
+cancellation past `j ≈ 20` (e.g., `j = 50` unitarity `≈ 2 × 10⁻³`,
+`j = 80` divergent).
 
 ### 3.3. Cartesian spherical harmonics via stable three-term recurrence
 

@@ -5,6 +5,7 @@
 #include <irrep/multiset.h>
 #include <complex.h>
 #include <math.h>
+#include <stdlib.h>
 
 #ifndef M_PI
 #  define M_PI 3.14159265358979323846
@@ -188,6 +189,59 @@ int main(void) {
                 for (int p = 0; p < d; ++p) z += D[i * d + p] * conj(D[k * d + p]);
                 double target = (i == k) ? 1.0 : 0.0;
                 IRREP_ASSERT(cabs(z - target) < 1e-8);
+            }
+        }
+    }
+
+    /* -------- numerical stability vs. j --------
+     * The Jacobi-polynomial form gives machine precision to very large j.
+     * Measured unitarity at (α,β,γ) = (0.3, 0.9, 1.5) with the current
+     * implementation:
+     *   j = 10 : 4e-15    j = 30 : 1e-14    j = 60 : 5e-14
+     *   j = 20 : 8e-15    j = 50 : 6e-14    j = 80 : 2e-13
+     * Unitarity tolerance scales roughly linearly in the matrix dimension
+     * (2j+1)² from accumulation; bound below accounts for that. If these
+     * fire it indicates a regression back to the old direct-sum formula
+     * (which hit ~2e-3 at j = 50 and diverged past j = 60). */
+    {
+        const int    j_values[] = { 20, 30, 50, 80 };
+        const double tol_at[]   = { 1e-12, 1e-12, 1e-12, 1e-11 };
+        for (int idx = 0; idx < (int)(sizeof j_values / sizeof *j_values); ++idx) {
+            int    j   = j_values[idx];
+            double tol = tol_at[idx];
+            int    d   = 2 * j + 1;
+            double _Complex *D = malloc((size_t)d * (size_t)d * sizeof(double _Complex));
+            IRREP_ASSERT(D != NULL);
+            irrep_wigner_D_matrix(j, D, 0.3, 0.9, 1.5);
+            double worst = 0.0;
+            for (int i = 0; i < d; ++i) {
+                for (int k = 0; k < d; ++k) {
+                    double _Complex z = 0.0;
+                    for (int p = 0; p < d; ++p) z += D[i * d + p] * conj(D[k * d + p]);
+                    double target = (i == k) ? 1.0 : 0.0;
+                    double err = cabs(z - target);
+                    if (err > worst) worst = err;
+                }
+            }
+            IRREP_ASSERT(worst < tol);
+            IRREP_ASSERT(isfinite(creal(D[0])) && isfinite(cimag(D[0])));
+            IRREP_ASSERT(isfinite(creal(D[(size_t)d * d - 1])));
+            free(D);
+        }
+    }
+
+    /* d/dβ analytic vs. finite-difference at j = 30 — the Jacobi form makes
+     * this stable well past the old log-gamma regime. */
+    {
+        int    j    = 30;
+        double beta = 1.2;
+        double h    = 1e-5;
+        for (int mp = -j; mp <= j; mp += 7) {
+            for (int m = -j; m <= j; m += 7) {
+                double dana = irrep_wigner_d_small_dbeta(j, mp, m, beta);
+                double dfd  = (irrep_wigner_d_small(j, mp, m, beta + h)
+                             - irrep_wigner_d_small(j, mp, m, beta - h)) / (2.0 * h);
+                IRREP_ASSERT(fabs(dana - dfd) < 1e-6);
             }
         }
     }

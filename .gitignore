@@ -19,9 +19,12 @@ release/*.tar.gz.sha256
 release/*.tar.gz.sig
 !release/.gitkeep
 
-# benchmark output
-benchmarks/results/
+# benchmark output (baseline, coverage and fuzz reports are tracked;
+# dated run directories are not)
+benchmarks/results/*/
 !benchmarks/results/baseline/
+!benchmarks/results/coverage/
+!benchmarks/results/fuzz/
 
 # editor state
 .vscode/
@@ -31,13 +34,14 @@ benchmarks/results/
 *~
 .DS_Store
 
-# coverage
+# coverage (raw profile artefacts only; baseline report under
+# benchmarks/results/coverage/ stays tracked)
 *.gcno
 *.gcda
 *.gcov
 *.profraw
 *.profdata
-coverage/
+/build/coverage/
 
 # doxygen
 docs/html/

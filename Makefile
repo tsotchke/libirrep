@@ -129,8 +129,8 @@ SHARED_LIB_LINK := $(LIB_DIR)/$(SHLIB_LINK)
 # Default / phony targets
 # ---------------------------------------------------------------------------
 .PHONY: all lib lib-static lib-shared test bench examples asan ubsan \
-        fuzz fuzz-driver fuzz-run docs lint check-headers check-abi install \
-        release release-artifacts clean distclean dirs print-config
+        coverage fuzz fuzz-driver fuzz-run docs lint check-headers check-abi \
+        install release release-artifacts clean distclean dirs print-config
 
 all: lib test examples check-headers check-abi
 
@@ -233,6 +233,43 @@ ubsan:
 	$(MAKE) distclean
 	$(MAKE) CFLAGS_OPT="-O1 -fno-math-errno -fsanitize=undefined -fno-omit-frame-pointer -g" \
 	        LDFLAGS="-lm -fsanitize=undefined" test
+
+# ---------------------------------------------------------------------------
+# Coverage. Rebuilds with LLVM source-based coverage instrumentation, runs
+# every test binary with a unique LLVM_PROFILE_FILE, merges the .profraw
+# stream into a .profdata blob, and prints a per-file report plus a
+# summary for the src/ tree. Requires `llvm-profdata` and `llvm-cov` in
+# PATH — both ship with Apple Xcode (`xcrun --find ...`) and Homebrew
+# LLVM.
+# ---------------------------------------------------------------------------
+COV_DIR := $(BUILD_DIR)/coverage
+LLVM_PROFDATA ?= $(shell xcrun --find llvm-profdata 2>/dev/null || command -v llvm-profdata)
+LLVM_COV      ?= $(shell xcrun --find llvm-cov      2>/dev/null || command -v llvm-cov)
+
+coverage:
+	@command -v "$(LLVM_PROFDATA)" >/dev/null 2>&1 || { \
+	    echo "llvm-profdata not found; install LLVM or Xcode"; exit 1; }
+	$(MAKE) distclean
+	$(MAKE) CFLAGS_OPT="-O1 -fno-math-errno -fprofile-instr-generate -fcoverage-mapping -g" \
+	        LDFLAGS="-lm -fprofile-instr-generate -fcoverage-mapping" lib test bench
+	@mkdir -p $(COV_DIR)/raw
+	@rm -f $(COV_DIR)/raw/*.profraw
+	@# Run each test binary with its own profraw output
+	@for t in $(TEST_BINS) $(BENCH_BINS); do \
+	    name=$$(basename $$t); \
+	    LLVM_PROFILE_FILE="$(COV_DIR)/raw/$$name.profraw" $$t > /dev/null 2>&1 || :; \
+	done
+	@"$(LLVM_PROFDATA)" merge -sparse $(COV_DIR)/raw/*.profraw \
+	    -o $(COV_DIR)/merged.profdata
+	@"$(LLVM_COV)" report \
+	    -instr-profile=$(COV_DIR)/merged.profdata \
+	    $(firstword $(TEST_BINS)) $(addprefix -object=,$(wordlist 2,$(words $(TEST_BINS)),$(TEST_BINS))) \
+	    src/ > $(COV_DIR)/report.txt 2>&1 || :
+	@awk '/^TOTAL/ { \
+	    printf "# coverage: %s line, %s function, %s region, %s branch\n", \
+	        $$10, $$7, $$4, $$13 \
+	  }' $(COV_DIR)/report.txt | tee $(COV_DIR)/summary.txt
+	@echo "# per-file report at $(COV_DIR)/report.txt"
 
 # ---------------------------------------------------------------------------
 # Header self-containedness: each public header must compile standalone

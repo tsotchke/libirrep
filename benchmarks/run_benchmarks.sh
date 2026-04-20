@@ -28,6 +28,7 @@ echo "# cpu model        → ${CPU_MODEL}"
 # file is a valid JSON array (consumable by scripts/perf_compare.sh).
 TMP="$(mktemp)"
 for b in "${BIN_DIR}"/bench_*; do
+    [ -f "${b}" ] || continue        # skip .dSYM directories etc.
     [ -x "${b}" ] || continue
     "${b}" >> "${TMP}"
 done

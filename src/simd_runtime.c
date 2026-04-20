@@ -74,6 +74,16 @@ static void populate_dispatch(void) {
         g_dispatch.sph_harm_cart_all_batch   = irrep_sph_harm_cart_all_batch_neon;
     }
 #endif
+
+#if (defined(__x86_64__) || defined(_M_X64)) && defined(__AVX2__) && defined(__FMA__)
+    extern void irrep_sph_harm_cart_all_batch_avx2(int, size_t, const double *, double *);
+    if (g_features.avx2 && g_features.fma) {
+        /* SH batch: 4 edges per __m256d, Chebyshev trig recurrence
+         * vectorised across lanes; per-lane Legendre grid. Bit-exact
+         * against the scalar kernel on tail-included fixtures. */
+        g_dispatch.sph_harm_cart_all_batch = irrep_sph_harm_cart_all_batch_avx2;
+    }
+#endif
 }
 
 static void init_once(void) {

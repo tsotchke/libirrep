@@ -156,6 +156,14 @@ $(OBJ_DIR)/src/%.o: src/%.c | $(OBJ_DIR)
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) $(ARCH_CFLAGS) $(PIC) -c $< -o $@
 
+# Arch-specific SIMD TUs need their own per-file flags so the intrinsics
+# compile on any host, even when the default build arch lacks them.
+$(OBJ_DIR)/src/%_avx2.o: src/%_avx2.c | $(OBJ_DIR)
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) $(ARCH_CFLAGS) $(PIC) \
+	    $(if $(filter x86_64,$(UNAME_M)),-mavx2 -mfma) \
+	    -c $< -o $@
+
 $(STATIC_LIB): $(LIB_OBJS) | $(LIB_DIR)
 	$(AR) rcs $@ $^
 	$(RANLIB) $@

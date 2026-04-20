@@ -284,9 +284,9 @@ Not exposed publicly. An internal function-pointer table (the
 `irrep_dispatch_t` struct in `src/internal/dispatch.h`) holds per-kernel
 pointers; at first use, `irrep_dispatch_get()` populates the table from
 the widest available SIMD variant. Currently populated:
-- `cutoff_polynomial_batch` → NEON on aarch64 / scalar elsewhere
-- `cutoff_polynomial_d_batch` → NEON / scalar
-- `sph_harm_cart_all_batch` → NEON / scalar
+- `cutoff_polynomial_batch` → AVX2+FMA on x86_64 / NEON on aarch64 / scalar
+- `cutoff_polynomial_d_batch` → AVX2+FMA / NEON / scalar
+- `sph_harm_cart_all_batch` → AVX2+FMA / NEON / scalar
 
 Dispatch overhead is one indirect call per batched entry point;
 measurably unchanged against direct-call baseline in the benchmark

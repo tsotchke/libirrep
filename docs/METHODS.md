@@ -255,11 +255,14 @@ performance targets for the research workflow:
 - **Sparse Lanczos** at 24-site kagome: ~74 s per eigensolve (2 min
  including memory allocation). Memory footprint under 1 GB.
 
-Runtime SIMD dispatch (NEON on aarch64, AVX2 reserved for x86_64) is
-wired via a function-pointer table populated at first use. Currently
-the polynomial cutoff and the cartesian SH batched kernel are NEON-
-accelerated; Wigner-D and tensor-product hot paths are scheduled for
-NEON in a 1.3.x point release (see [`../TODO.md`](../TODO.md) § M10).
+Runtime SIMD dispatch is wired via a function-pointer table populated
+at first use. Shipping kernels: NEON (2 lanes, aarch64) and AVX2+FMA
+(4 lanes, x86_64) for the cartesian SH batch, the polynomial cutoff,
+and its derivative. Each vector kernel is bit-identical to the scalar
+reference on representative inputs. Wigner-D and tensor-product hot
+paths received algorithmic speedups (3.5× and 3.8× respectively) in
+the 1.3.0-alpha cycle; SIMD on top of those is tracked in
+[`../TODO.md`](../TODO.md) § M10.
 
 ## 5. Validation
 

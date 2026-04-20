@@ -21,6 +21,7 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | ------ | ------ | ------------- | ------------ |
 | `<irrep/types.h>` | core types | `irrep_quaternion_t`, `irrep_rot_matrix_t`, `irrep_euler_zyz_t`, `irrep_axis_angle_t`, `irrep_label_t`, `irrep_multiset_t`, `irrep_status_t` | `irrep_strerror`, `irrep_last_error` |
 | `<irrep/version.h>` | versioning | — | `IRREP_VERSION_*` macros, `irrep_version_*()`, `irrep_abi_hash()` |
+| `<irrep/export.h>` | symbol visibility | — | `IRREP_API` macro |
 | `<irrep/simd.h>` | CPU features | `irrep_cpu_features_t` | `irrep_cpu_features()`, `irrep_cpu_has_neon()`, `…_has_avx2()` |
 | `<irrep/so3.h>` | rotation math | (types only) | conversions, `_compose`, `_inverse`, `_rot_exp`, `_rot_log`, `_quat_slerp`, `_quat_random`, `_quat_frechet_mean` |
 | `<irrep/su2.h>` | SU(2) ops | `irrep_su2_t` | Pauli matrices, SU(2) ↔ quaternion ↔ rotation matrix |
@@ -40,8 +41,8 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | `<irrep/nequip.h>` | NequIP message-passing layer | `irrep_nequip_layer_t`, `irrep_nequip_cutoff_t` | `_build`, `_from_spec`, `_apply`, `_apply_backward`, `_apply_forces`, `_num_weights`, `_free` |
 | `<irrep/point_group.h>` | point-group projection | `irrep_pg_table_t`, `irrep_point_group_t` | `_table_build`, `_table_free`, `_num_irreps`, `_order`, `_irrep_label`, `_project`, `_reduce` |
 | `<irrep/lattice.h>` (1.3) | 2D lattices with PBC | `irrep_lattice_t`, `irrep_lattice_kind_t` | `_build`, `_free`, `_num_sites`, `_num_cells`, `_primitive_vectors`, `_reciprocal_vectors`, `_site_position`, `_sublattice_of`, `_cell_of`, `_site_index`, `_translate`, `_num_bonds_nn`, `_num_bonds_nnn`, `_fill_bonds_nn`, `_fill_bonds_nnn`, `_k_grid` |
-| `<irrep/space_group.h>` (1.3) | 2D wallpaper-group tables | `irrep_space_group_t`, `irrep_wallpaper_t` | `_build`, `_free`, `_order`, `_point_order`, `_num_sites`, `_kind`, `_apply`, `_permutation`, `_permutation_inverse`, `_apply_config` |
-| `<irrep/config_project.h>` (1.3) | configuration-space projection | `irrep_sg_irrep_t` | `irrep_sg_irrep_new`, `_free`, `irrep_sg_trivial`, `irrep_sg_sign_rep`, `irrep_sg_project_amplitude`, `irrep_sg_project_A1`, `irrep_sg_enumerate_orbit`, `irrep_sg_adapted_basis` |
+| `<irrep/space_group.h>` (1.3) | 2D wallpaper-group tables | `irrep_space_group_t`, `irrep_wallpaper_t` | `_build`, `_free`, `_order`, `_point_order`, `_num_sites`, `_kind`, `_lattice`, `_apply`, `_permutation`, `_permutation_inverse`, `_apply_config` |
+| `<irrep/config_project.h>` (1.3) | configuration-space projection | `irrep_sg_irrep_t` | `irrep_sg_irrep_new`, `_free`, `irrep_sg_trivial`, `irrep_sg_sign_rep`, `irrep_sg_project_amplitude`, `irrep_sg_project_A1`, `irrep_sg_enumerate_orbit`, `irrep_sg_adapted_basis`, `irrep_sg_bloch_amplitude`, `irrep_sg_bloch_basis` |
 | `<irrep/rdm.h>` (1.3) | reduced density matrix / entropies | — | `irrep_partial_trace`, `irrep_hermitian_eigvals`, `irrep_entropy_vonneumann_spectrum`, `_renyi_spectrum`, `_vonneumann`, `_renyi`, `irrep_topological_entanglement_entropy` |
 | `<irrep/sym_group.h>` (1.3) | S_N, Young tableaux, (anti)sym projectors | — | `irrep_factorial`, `_permutation_sign`, `_permutations_all`, `_young_dim`, `irrep_sym_group_antisymmetrize`, `_symmetrize` |
 | `<irrep/spin_project.h>` (1.3) | total-J projection on spin-½ chains | — | `irrep_spin_half_apply_rotation`, `irrep_spin_project_spin_half` |

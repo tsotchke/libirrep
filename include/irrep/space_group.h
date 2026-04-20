@@ -87,6 +87,10 @@ IRREP_API int irrep_space_group_num_sites  (const irrep_space_group_t *G);
 
 /** @brief The wallpaper kind this handle was built with. */
 IRREP_API irrep_wallpaper_t irrep_space_group_kind(const irrep_space_group_t *G);
+
+/** @brief Borrow the lattice this space group was built over. The returned
+ *         pointer is owned by the caller who built the lattice; do not free. */
+IRREP_API const irrep_lattice_t *irrep_space_group_lattice(const irrep_space_group_t *G);
 /** @} */
 
 /** @name Group action on sites

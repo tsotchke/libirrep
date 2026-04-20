@@ -23,7 +23,7 @@
  *   5. Validate every permutation is a bijection; if not (PBC breaks the
  *      symmetry), the builder reports failure.
  *
- * Memory cost for the research-target 6×6 kagome cluster:
+ * Memory cost for the 6×6 kagome cluster:
  *   order = 12 · 36 = 432, sites = 108  →  432 · 108 · 4 B ≈ 186 KB.
  * Double that for the cached inverse permutations: ≈ 373 KB. Still tiny.
  */
@@ -408,6 +408,10 @@ int irrep_space_group_num_sites  (const irrep_space_group_t *G) { return G ? G->
 
 irrep_wallpaper_t irrep_space_group_kind(const irrep_space_group_t *G) {
     return G ? G->kind : IRREP_WALLPAPER_P1;
+}
+
+const irrep_lattice_t *irrep_space_group_lattice(const irrep_space_group_t *G) {
+    return G ? G->lattice : NULL;
 }
 
 int irrep_space_group_apply(const irrep_space_group_t *G, int g, int site) {

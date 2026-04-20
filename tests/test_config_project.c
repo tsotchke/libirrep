@@ -14,6 +14,7 @@
 
 #include <complex.h>
 #include <math.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -181,6 +182,120 @@ int main(void) {
     irrep_sg_irrep_free(A1);
     irrep_space_group_free(G);
     irrep_lattice_free(sq);
+
+    /* -------------------------------------------------------------------- *
+     * Bloch (non-Γ) momentum projection and basis tests.                   *
+     *                                                                      *
+     * On a 3×3 square cluster under p1 (translations only, 9 elements),   *
+     * sum of sector dimensions across all 9 k-points must equal 2^9 = 512 *
+     * (full Hilbert-space dimension). Basis vectors across different k    *
+     * sectors must be orthogonal. At Γ (k=0), Bloch reduces to A₁.        *
+     * -------------------------------------------------------------------- */
+    {
+        irrep_lattice_t     *L3  = irrep_lattice_build(IRREP_LATTICE_SQUARE, 3, 3);
+        irrep_space_group_t *G3  = irrep_space_group_build(L3, IRREP_WALLPAPER_P1);
+        IRREP_ASSERT(G3 != NULL);
+        IRREP_ASSERT(irrep_space_group_lattice(G3) == L3);
+
+        int Nsites = 9;
+        long long D = 1LL << Nsites;
+
+        /* Γ-sector via Bloch must match A₁ via irrep_sg_project_A1 on any
+         * amplitude array. */
+        int order3 = irrep_space_group_order(G3);
+        double _Complex *psi9 = malloc(sizeof(double _Complex) * order3);
+        uint64_t rng = 0xC0FFEEULL;
+        for (int g = 0; g < order3; ++g) {
+            rng = rng * 6364136223846793005ULL + 1442695040888963407ULL;
+            double re = ((rng >> 16) & 0xFFFF) / 65536.0 - 0.5;
+            double im = ((rng >> 32) & 0xFFFF) / 65536.0 - 0.5;
+            psi9[g] = re + I * im;
+        }
+        double _Complex a1 = irrep_sg_project_A1(G3, psi9);
+        double _Complex b0 = irrep_sg_bloch_amplitude(G3, 0, 0, psi9);
+        IRREP_ASSERT_NEAR(creal(a1), creal(b0), 1e-12);
+        IRREP_ASSERT_NEAR(cimag(a1), cimag(b0), 1e-12);
+
+        /* Sum of Bloch projections over all k equals ψ at g=0 (Fourier
+         * inversion on the translation group). */
+        double _Complex acc = 0.0;
+        for (int kx = 0; kx < 3; ++kx)
+            for (int ky = 0; ky < 3; ++ky)
+                acc += irrep_sg_bloch_amplitude(G3, kx, ky, psi9);
+        IRREP_ASSERT_NEAR(creal(acc), creal(psi9[0]), 1e-12);
+        IRREP_ASSERT_NEAR(cimag(acc), cimag(psi9[0]), 1e-12);
+        free(psi9);
+
+        /* Sector-dimension sum must equal full Hilbert dim. */
+        double _Complex *basis = malloc(sizeof(double _Complex) * (size_t)D * (size_t)D);
+        IRREP_ASSERT(basis != NULL);
+        int total_dim = 0;
+        int sector_dim[9] = {0};
+        for (int kx = 0; kx < 3; ++kx) {
+            for (int ky = 0; ky < 3; ++ky) {
+                int nb = irrep_sg_bloch_basis(G3, kx, ky, Nsites, 2, basis, (int)D);
+                IRREP_ASSERT(nb > 0);
+                sector_dim[ky * 3 + kx] = nb;
+                total_dim += nb;
+
+                /* Orthonormality within the sector. */
+                for (int i = 0; i < nb && i < 10; ++i) {
+                    for (int j = i; j < nb && j < 10; ++j) {
+                        double _Complex ov = 0.0;
+                        for (long long t = 0; t < D; ++t)
+                            ov += conj(basis[(size_t)i * D + t]) * basis[(size_t)j * D + t];
+                        double ex = (i == j) ? 1.0 : 0.0;
+                        IRREP_ASSERT_NEAR(creal(ov), ex,  1e-10);
+                        IRREP_ASSERT_NEAR(cimag(ov), 0.0, 1e-10);
+                    }
+                }
+            }
+        }
+        IRREP_ASSERT(total_dim == (int)D);
+
+        /* Cross-sector orthogonality: a basis vector from k=(1,0) should be
+         * orthogonal to every basis vector from k=(0,0). Build k=(0,0) first,
+         * keep a copy of its basis, then k=(1,0), test. */
+        double _Complex *gamma = malloc(sizeof(double _Complex) * (size_t)D * (size_t)D);
+        double _Complex *mpoint = malloc(sizeof(double _Complex) * (size_t)D * (size_t)D);
+        int nG = irrep_sg_bloch_basis(G3, 0, 0, Nsites, 2, gamma, (int)D);
+        int nM = irrep_sg_bloch_basis(G3, 1, 0, Nsites, 2, mpoint, (int)D);
+        IRREP_ASSERT(nG > 0 && nM > 0);
+        for (int i = 0; i < nG && i < 5; ++i) {
+            for (int j = 0; j < nM && j < 5; ++j) {
+                double _Complex ov = 0.0;
+                for (long long t = 0; t < D; ++t)
+                    ov += conj(gamma[(size_t)i * D + t]) * mpoint[(size_t)j * D + t];
+                IRREP_ASSERT_NEAR(creal(ov), 0.0, 1e-10);
+                IRREP_ASSERT_NEAR(cimag(ov), 0.0, 1e-10);
+            }
+        }
+        free(gamma);
+        free(mpoint);
+        free(basis);
+
+        /* Canonicalisation: kx = -1 must match kx = Lx - 1; kx = 2·Lx + 1 must
+         * match kx = 1. Same for ky. Test on a small random amplitude. */
+        double _Complex *psi_bound = malloc(sizeof(double _Complex) * order3);
+        for (int g = 0; g < order3; ++g) psi_bound[g] = (double)(g % 5) - 2.0;
+        double _Complex k_pos = irrep_sg_bloch_amplitude(G3,  1,  2, psi_bound);
+        double _Complex k_neg = irrep_sg_bloch_amplitude(G3,  1, -1, psi_bound);   /* ky = -1 ≡ 2 */
+        double _Complex k_far = irrep_sg_bloch_amplitude(G3, -2,  2, psi_bound);   /* kx = -2 ≡ 1 */
+        IRREP_ASSERT_NEAR(creal(k_pos), creal(k_neg), 1e-12);
+        IRREP_ASSERT_NEAR(cimag(k_pos), cimag(k_neg), 1e-12);
+        IRREP_ASSERT_NEAR(creal(k_pos), creal(k_far), 1e-12);
+        IRREP_ASSERT_NEAR(cimag(k_pos), cimag(k_far), 1e-12);
+        free(psi_bound);
+
+        /* Error paths */
+        IRREP_ASSERT(irrep_sg_bloch_basis(NULL, 0, 0, Nsites, 2, NULL, 1) == -1);
+        IRREP_ASSERT(irrep_sg_bloch_basis(G3, 0, 0, 8, 2, (double _Complex*)&total_dim, 1) == -1);
+        double _Complex zero = irrep_sg_bloch_amplitude(NULL, 0, 0, NULL);
+        IRREP_ASSERT(creal(zero) == 0.0 && cimag(zero) == 0.0);
+
+        irrep_space_group_free(G3);
+        irrep_lattice_free(L3);
+    }
 
     /* Error paths */
     IRREP_ASSERT(irrep_sg_irrep_new(NULL, NULL, 1) == NULL);

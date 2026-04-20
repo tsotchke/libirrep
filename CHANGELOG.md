@@ -4,21 +4,51 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Wigner-d rewritten to Jacobi-polynomial form** (`src/wigner_d.c`).
+ Replaced the Sakurai (3.8.33) direct-sum implementation — which lost
+ precision to catastrophic cancellation past `j ≈ 20` (unitarity
+ `≈ 2 × 10⁻³` at `j = 50`, divergent past `j = 60`) — with the Edmonds
+ (4.1.23) Jacobi-polynomial form via the NIST DLMF §18.9.1 forward
+ three-term recurrence and symmetry reduction to the canonical
+ `m ≥ |m'|` region. Measured unitarity is now `≤ 1 × 10⁻¹²` for every
+ `j ≤ 80` tested; bounded only by the IEEE-754 `lgamma` overflow limit
+ (`j ≈ 170`) past that. Analytic ∂d/∂β updated to match, using the
+ Jacobi derivative identity `(d/dx) P_n^{(α,β)} = (n+α+β+1)/2 ·
+ P_{n−1}^{(α+1,β+1)}`. No public-API changes. Test suite pins the new
+ stability regime across `j ∈ {20, 30, 50, 80}` at 1e-12 / 1e-11.
+
+### Added
+
+- **Non-Γ Bloch-momentum projection** (`irrep/config_project.h`,
+ `src/config_project.c`). `irrep_sg_bloch_amplitude` and
+ `irrep_sg_bloch_basis` project amplitudes and build symmetry-adapted
+ bases at arbitrary Bloch momentum `k = (kx/Lx) b1 + (ky/Ly) b2`,
+ using the translation subgroup only. Indices are canonicalised mod
+ `(Lx, Ly)` so negative or out-of-range `(kx, ky)` are accepted.
+ Enables k-resolved exact diagonalisation; Γ-sector matches A₁
+ projection exactly, and the dimensions across all `Lx·Ly` k-sectors
+ sum to the full Hilbert-space dimension. Fourier inversion and
+ cross-sector orthogonality verified in the test suite.
+- **Space-group lattice accessor** (`irrep/space_group.h`).
+ `irrep_space_group_lattice(G)` returns the borrowed lattice handle the
+ space group was built over; saves callers from threading the lattice
+ pointer alongside the space-group pointer when both are needed.
+
 ## [1.3.0-alpha] — 2026-04-19
 
-First public tag of the 1.3 cycle. Production-quality 1.2 core
+First public tag of the 1.3 cycle. The tested 1.2 core
 (spherical harmonics, Clebsch-Gordan, Wigner-D, tensor products, NequIP
 message-passing layer, point-group projection, equivariant-NN building
-blocks) is preserved intact; the cycle adds a physics-focused physics
-substrate pinned to open problems. Headline: the Kagome Heisenberg S = ½
-ground-state-nature question (open since Yan-Huse-White 2011). The
-roadmap has been superseded by the 1.3 scope at
-the 1.3 CHANGELOG,
-which pins the cycle to the Kagome Heisenberg S = ½ ground-state-nature
-problem (open problem since Yan–Huse–White 2011) and its immediate follow-ups
-(J₁–J₂ square Heisenberg, 2D Hubbard at finite doping, fermion-sign-problem
-program). Seven modules (A–G) have landed as in-tree candidates; release
-gates (1.3.0-alpha / beta / rc1 / final) sequence them per the agenda.
+blocks) is preserved intact; the cycle adds a physics substrate pinned
+to the Kagome Heisenberg S = ½ ground-state-nature problem (open since
+Yan–Huse–White 2011). Seven new headers have landed (`lattice.h`,
+`space_group.h`, `config_project.h`, `rdm.h`, `sym_group.h`,
+`spin_project.h`, plus a half-integer path in `tensor_product.h`);
+end-to-end ED at 12/18/24 sites reproduces published values.
 
 ### Added — 1.3 modules
 
@@ -26,7 +56,7 @@ gates (1.3.0-alpha / beta / rc1 / final) sequence them per the agenda.
  Square, triangular, honeycomb, kagome lattices under PBC. Site
  coordinates, sublattice lookup, NN / NNN bond enumeration (canonicalised
  and deduplicated), primitive / reciprocal vectors, cell translations,
- Brillouin-zone k-grids. The 6×6 target 6×6 kagome cluster resolves
+ Brillouin-zone k-grids. The 6×6 kagome target cluster resolves
  to 108 sites, 216 NN bonds, 216 NNN bonds.
 - **2D wallpaper-group tables** (`irrep/space_group.h`,
  `src/space_group.c`). p1, p4mm, p6mm site-permutation actions; full

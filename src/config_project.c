@@ -13,6 +13,11 @@
 #include <string.h>
 
 #include <irrep/config_project.h>
+#include <irrep/lattice.h>
+
+#ifndef M_PI
+#  define M_PI 3.14159265358979323846
+#endif
 
 extern void irrep_set_error_(const char *fmt, ...);
 
@@ -243,5 +248,144 @@ int irrep_sg_adapted_basis(const irrep_space_group_t *G,
 
     free(v);
     free(perm_inv_table);
+    return n_basis;
+}
+
+/* -------------------------------------------------------------------------- *
+ * Bloch-momentum projection (translation subgroup only)                      *
+ *                                                                            *
+ * Convention: k = (kx/Lx) b1 + (ky/Ly) b2 with b_i · a_j = 2π δ_ij, so the   *
+ * phase on translation t = (tx, ty) is                                       *
+ *     e^{-i k·t} = exp(-2π i (kx tx / Lx + ky ty / Ly)).                     *
+ * -------------------------------------------------------------------------- */
+
+double _Complex
+irrep_sg_bloch_amplitude(const irrep_space_group_t *G,
+                         int kx, int ky,
+                         const double _Complex *psi_of_g) {
+    if (!G || !psi_of_g) return 0.0 + 0.0*I;
+    const irrep_lattice_t *L = irrep_space_group_lattice(G);
+    if (!L) return 0.0 + 0.0*I;
+    int Lx = irrep_lattice_Lx(L);
+    int Ly = irrep_lattice_Ly(L);
+    /* Bloch indices live mod (Lx, Ly). Canonicalise so callers can pass any
+     * integer (including negatives for signed BZ conventions) without hitting
+     * the orbit-rep filter's [0, Lx) assumption in bloch_basis. */
+    kx = ((kx % Lx) + Lx) % Lx;
+    ky = ((ky % Ly) + Ly) % Ly;
+    int point_order = irrep_space_group_point_order(G);
+    double _Complex acc = 0.0 + 0.0*I;
+    double inv_Lx = 1.0 / (double)Lx;
+    double inv_Ly = 1.0 / (double)Ly;
+    for (int ty = 0; ty < Ly; ++ty) {
+        for (int tx = 0; tx < Lx; ++tx) {
+            int tidx = ty * Lx + tx;
+            int g = tidx * point_order + 0;   /* identity point element */
+            double phase = -2.0 * M_PI *
+                ((double)(kx * tx) * inv_Lx + (double)(ky * ty) * inv_Ly);
+            double _Complex w = cos(phase) + I * sin(phase);
+            acc += w * psi_of_g[g];
+        }
+    }
+    return acc / (double)(Lx * Ly);
+}
+
+int irrep_sg_bloch_basis(const irrep_space_group_t *G,
+                         int kx, int ky,
+                         int num_sites, int local_dim,
+                         double _Complex *basis_out,
+                         int n_max) {
+    if (!G || !basis_out || n_max <= 0 || num_sites < 1 || local_dim < 2)
+        return -1;
+    if (num_sites != irrep_space_group_num_sites(G)) return -1;
+    const irrep_lattice_t *L = irrep_space_group_lattice(G);
+    if (!L) return -1;
+    int Lx = irrep_lattice_Lx(L);
+    int Ly = irrep_lattice_Ly(L);
+    kx = ((kx % Lx) + Lx) % Lx;
+    ky = ((ky % Ly) + Ly) % Ly;
+    int point_order = irrep_space_group_point_order(G);
+    int num_trans = Lx * Ly;
+
+    long long D = ipow_ll_(local_dim, num_sites);
+    if (D <= 0) return -1;
+
+    /* Cache translation-only inverse permutations. Group element
+     * g = tidx · point_order + 0 has permutation at row (tidx · point_order). */
+    int *trans_inv = malloc((size_t)num_trans * (size_t)num_sites * sizeof(int));
+    if (!trans_inv) return -1;
+    int *scratch = malloc((size_t)num_sites * sizeof(int));
+    if (!scratch) { free(trans_inv); return -1; }
+    for (int tidx = 0; tidx < num_trans; ++tidx) {
+        int g = tidx * point_order + 0;
+        irrep_space_group_permutation_inverse(G, g, scratch);
+        memcpy(trans_inv + (size_t)tidx * num_sites, scratch,
+               (size_t)num_sites * sizeof(int));
+    }
+    free(scratch);
+
+    /* Precompute Bloch phases for each translation index. */
+    double _Complex *phases = malloc((size_t)num_trans * sizeof(double _Complex));
+    if (!phases) { free(trans_inv); return -1; }
+    double inv_Lx = 1.0 / (double)Lx;
+    double inv_Ly = 1.0 / (double)Ly;
+    for (int ty = 0; ty < Ly; ++ty) {
+        for (int tx = 0; tx < Lx; ++tx) {
+            int tidx = ty * Lx + tx;
+            double ph = -2.0 * M_PI *
+                ((double)(kx * tx) * inv_Lx + (double)(ky * ty) * inv_Ly);
+            phases[tidx] = cos(ph) + I * sin(ph);
+        }
+    }
+
+    double _Complex *v = malloc((size_t)D * sizeof(double _Complex));
+    if (!v) { free(phases); free(trans_inv); return -1; }
+
+    const double tol   = 1e-9;
+    int   n_basis      = 0;
+    double _Complex scale = 1.0 / (double)num_trans;
+
+    for (long long s = 0; s < D; ++s) {
+        /* Orbit-representative filter over translations. For non-Γ k the
+         * orbit phase structure still makes each orbit produce one vector;
+         * keep the minimum translate as seed to avoid duplicated work. */
+        int is_min = 1;
+        for (int tidx = 1; tidx < num_trans && is_min; ++tidx) {
+            const int *perm = trans_inv + (size_t)tidx * num_sites;
+            long long s_g = permute_digits_(s, num_sites, local_dim, perm);
+            if (s_g < s) is_min = 0;
+        }
+        if (!is_min) continue;
+
+        memset(v, 0, (size_t)D * sizeof(double _Complex));
+        for (int tidx = 0; tidx < num_trans; ++tidx) {
+            const int *perm = trans_inv + (size_t)tidx * num_sites;
+            long long s_g = permute_digits_(s, num_sites, local_dim, perm);
+            v[s_g] += scale * phases[tidx];
+        }
+
+        for (int k = 0; k < n_basis; ++k) {
+            const double _Complex *b_k = basis_out + (size_t)k * D;
+            double _Complex overlap = 0.0;
+            for (long long t = 0; t < D; ++t) overlap += conj(b_k[t]) * v[t];
+            for (long long t = 0; t < D; ++t) v[t] -= overlap * b_k[t];
+        }
+
+        double norm2 = 0.0;
+        for (long long t = 0; t < D; ++t)
+            norm2 += creal(v[t]) * creal(v[t]) + cimag(v[t]) * cimag(v[t]);
+        double norm = sqrt(norm2);
+
+        if (norm > tol && n_basis < n_max) {
+            double _Complex *dst = basis_out + (size_t)n_basis * D;
+            for (long long t = 0; t < D; ++t) dst[t] = v[t] / norm;
+            ++n_basis;
+        }
+        if (n_basis >= n_max) break;
+    }
+
+    free(v);
+    free(phases);
+    free(trans_inv);
     return n_basis;
 }

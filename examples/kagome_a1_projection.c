@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 /* End-to-end configuration-space A₁ projection on a 6×6 × 3 = 108-site
- * kagome cluster — the research-target lattice for the symmetric neural-
- * quantum-state programme (kagome Heisenberg S = ½ ground-state nature,
+ * kagome cluster — the target lattice for the symmetric neural-
+ * quantum-state pipeline (kagome Heisenberg S = ½ ground-state nature,
  * open since Yan–Huse–White 2011).
  *
  * The example demonstrates the full 1.3 pipeline as a downstream VMC

@@ -154,9 +154,12 @@ composition.
 
 ### 2.4. Coupling coefficients (`clebsch_gordan.h`, `recoupling.h`)
 
-Racah's single-sum formula in log-gamma form for numerical stability
-past `j = 50`, with both integer (`_cg`) and half-integer (`_cg_2j`)
-signatures. Selection rules return `0.0`; a small `cg_table_t` cache
+Racah's single-sum formula in log-gamma form, with both integer (`_cg`)
+and half-integer (`_cg_2j`) signatures. Accurate to `~5e-15` at small `j`
+and degrades to `~2e-9` at `j = 50` and NaN past `j ≈ 60` owing to
+catastrophic cancellation in the alternating sum; a Schulten–Gordon
+recurrence replacement is tracked in `TODO.md` to match the Wigner-d
+stability regime. Selection rules return `0.0`; a small `cg_table_t` cache
 supports batch lookups. Wigner 3j, 6j, 9j, and Racah W are in
 `recoupling.h` and use the same log-gamma kernel.
 

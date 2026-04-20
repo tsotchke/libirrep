@@ -86,6 +86,17 @@ onwards plus the 1.3 section at the bottom.
 - [ ] `irrep_tp_apply_weighted_batch` NEON kernel
 - [x] Bit-exact vs. scalar for kernels that exist
 
+## Numerical stability replacements (open)
+- [x] Wigner-d small: replaced Sakurai (3.8.33) direct-sum (unstable past
+ j ≈ 20) with Edmonds Jacobi-polynomial form via DLMF §18.9.1 recurrence.
+ Measured unitarity ≤ 1e-12 through j = 80; bounded only by IEEE-754
+ lgamma overflow (j ≈ 170) past that.
+- [ ] Clebsch-Gordan + Wigner 3j: current Racah log-gamma form has the
+ same catastrophic-cancellation pathology as the old Wigner-d
+ (sum-rule err 2e-9 at j=50, NaN past j≈60). Replace with Schulten-
+ Gordon three-term recurrence in j (Luscombe-Luban 1994 / Rasch-Yu 2003)
+ to match the Wigner-d stability regime.
+
 ## M11 — x86 SIMD hot paths (open)
 - [ ] SSE4.2 + AVX2 variants of the above
 - [ ] Runtime dispatch verified on both macOS x86_64 and Linux x86_64
@@ -129,9 +140,11 @@ See the 1.3 CHANGELOG.
 - [x] `spin_project.h` (total-J projection on spin-½ chains)
 - [x] `tensor_product.h` half-integer (spinor) UVW path
 - [x] End-to-end kagome ED at 12, 18, 24 sites — published-matching values
-- [ ] Non-Γ Bloch-wave projections (access non-Γ sectors of space-group
- decomposition; currently only Γ-sector irreps are projectable)
-- [ ] k-point-resolved symmetry-adapted basis at high-symmetry k (M_a, M_b, K)
+- [x] Non-Γ Bloch-wave projections (`irrep_sg_bloch_amplitude`,
+ `irrep_sg_bloch_basis` — translation-subgroup momentum projector)
+- [x] k-point-resolved symmetry-adapted basis at arbitrary k (integer
+ `(kx, ky)` with `k = (kx/Lx) b1 + (ky/Ly) b2`; little-group point-group
+ overlay on top of the pure-momentum basis remains deferred)
 - [ ] Full point-group irrep tables for p3m1, p31m, p4, p4gm, p2 — enables
  non-square kagome and triangular tilings under their symmetry-reduced
  point groups

@@ -152,6 +152,58 @@ irrep_sg_adapted_basis(const irrep_space_group_t *G,
                        double _Complex *basis_out,
                        int n_max);
 
+/** @brief Project an amplitude onto Bloch momentum `k = (kx/Lx) b1 + (ky/Ly) b2`.
+ *
+ *  Sums the translation-subgroup amplitudes with the Bloch phase:
+ *
+ *  \f[ P_k\,\psi(\sigma) \;=\; \frac{1}{N_T}\sum_{t\in T} e^{-i k\cdot t}\,\psi(T_t\cdot\sigma) \f]
+ *
+ *  Only the identity point element at each translation is read (`g = tidx ·
+ *  point_order + 0` in the group element layout). This is the *abelian*
+ *  momentum projector — it ignores any extra point-group little-group
+ *  structure at high-symmetry k, so at Γ/M/K the result still needs a
+ *  subsequent point-group projection for full isotypic decomposition.
+ *
+ *  @param G         space group (translation subgroup used; point subgroup ignored)
+ *  @param kx, ky    Bloch indices; any integer is accepted and canonicalised
+ *                   to `[0, Lx) × [0, Ly)` modulo the cluster
+ *  @param psi_of_g  length-`irrep_space_group_order(G)` amplitudes as produced
+ *                   by @ref irrep_sg_enumerate_orbit followed by a caller
+ *                   wavefunction evaluation
+ *  @return          projected amplitude */
+IRREP_API double _Complex
+irrep_sg_bloch_amplitude(const irrep_space_group_t *G,
+                         int kx, int ky,
+                         const double _Complex *psi_of_g);
+
+/** @brief Build an orthonormal basis for the Bloch-momentum-`k` sector of
+ *         `local_dim^num_sites`-dimensional Hilbert space.
+ *
+ *  For each computational basis state `|s⟩`, computes
+ *  `|v⟩ = (1/N_T) Σ_t e^{-i k·t} T_t|s⟩` and Gram-Schmidt-orthogonalises
+ *  against previously accepted vectors. Non-zero residuals are normalised
+ *  and appended.
+ *
+ *  The sector dimension sums to the full Hilbert-space dimension across the
+ *  `N_T = Lx · Ly` momentum sectors, so the average sector is `D/N_T`. On
+ *  6×6 kagome (108 sites, `D = 2^108`) this is impractical; on 18-site
+ *  kagome in the `S_z = 0` subspace the per-k block is ~900 states.
+ *
+ *  @param G          space group (translation subgroup used)
+ *  @param kx, ky     integer Bloch indices; canonicalised mod `(Lx, Ly)`
+ *  @param num_sites  number of sites (must equal `irrep_space_group_num_sites(G)`)
+ *  @param local_dim  per-site Hilbert-space dimension (2 for spin-½)
+ *  @param basis_out  output buffer of length `n_max · local_dim^num_sites`
+ *  @param n_max      row capacity of @p basis_out; pass the full Hilbert-space
+ *                    dimension for safety
+ *  @return           actual basis size, or `-1` on error */
+IRREP_API int
+irrep_sg_bloch_basis(const irrep_space_group_t *G,
+                     int kx, int ky,
+                     int num_sites, int local_dim,
+                     double _Complex *basis_out,
+                     int n_max);
+
 #ifdef __cplusplus
 }
 #endif

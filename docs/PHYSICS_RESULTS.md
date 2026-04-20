@@ -10,10 +10,8 @@ The headline target is the **Kagome Heisenberg S = ½ ground-state-nature
 problem** (open since Yan, Huse & White, *Science* **332**, 1173, 2011).
 Two candidate phases — gapped Z₂ spin liquid and gapless Dirac spin
 liquid — differ in their extrapolated spin gap: `Δ_S(N→∞) ≈ 0.13 J`
-vs. `0` respectively. The scope of the 1.3 cycle is pinned in
-[`coordination/libirrep_1_3_research_agenda.md`](coordination/libirrep_1_3_research_agenda.md);
-this document reports the concrete datapoints the stack has produced
-against that scope.
+vs. `0` respectively. This document reports the concrete datapoints the
+stack has produced against that target.
 
 ---
 

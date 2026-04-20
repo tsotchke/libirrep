@@ -1,8 +1,8 @@
 # libirrep
 
 > A pure-C11 representation-theory library, built to support
-> research on open problems in frustrated quantum magnetism —
-> with a production-quality SO(3)/SU(2)/O(3) / Clebsch-Gordan / Wigner-D /
+> work on open problems in frustrated quantum magnetism —
+> with a tested SO(3)/SU(2)/O(3) / Clebsch-Gordan / Wigner-D /
 > e3nn-style tensor-product core underneath.
 
 ## What this is for
@@ -37,10 +37,13 @@ external solver):
 | 18 | −0.44707 | 0.2835 | 27 s | Waldtmann 1998, Läuchli 2011 |
 | 24 | −0.44833 | 0.2639 | 2.5 min | 2×4 torus published ≈ −0.441 |
 
-Linear 1/N extrapolation across the three points gives
-**`Δ_S(N→∞) ≈ 0.132 J`**, within ~1% of the Yan-Huse-White 2011 DMRG
-benchmark (0.13 J) for the gapped Z₂ spin-liquid picture — and
-distinctly above zero. The 12-site cluster's ground state is
+A three-point linear 1/N extrapolation of Δ_S across (12, 18, 24)
+gives **≈ 0.132 J**, consistent with the Yan–Huse–White 2011 DMRG
+value of 0.13 J for the gapped Z₂ picture. This is a sanity check,
+not a scaling study: the three clusters have different 2×L_y
+geometries, the extrapolation is linear-in-1/N, and reaching a regime
+where a gapless Dirac alternative could be ruled out would require
+larger sizes and more points. The 12-site cluster's ground state is
 additionally decomposed across all six p6mm Γ-irreps (sector
 dimensions summing to 1072 = dim V_Γ by Burnside); the ground-state
 energy in the resolved B₁ block matches the power-iteration answer to
@@ -49,8 +52,8 @@ pointers in [`docs/PHYSICS_RESULTS.md`](docs/PHYSICS_RESULTS.md).
 
 ## Library foundation
 
-Underneath the physics substrate sits a production-quality
-representation-theory core that stands on its own:
+Underneath the physics substrate sits a tested representation-theory
+core that stands on its own:
 
 1. **Equivariant neural networks** for chemistry, materials, and physics —
  NequIP, MACE, Allegro, TENN, and the broader e3nn lineage. These networks
@@ -310,7 +313,7 @@ side-by-side with e3nn in
 
 ```
 make # default: lib + test + examples + check-headers
-make test # run 20 test suites
+make test # run 28 test suites
 make bench # benchmark JSON under benchmarks/results/<utc>/
 make asan # rebuild and test with -fsanitize=address
 make ubsan # rebuild and test with -fsanitize=undefined

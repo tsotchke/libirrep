@@ -51,6 +51,20 @@ extern void irrep_set_error_(const char *fmt, ...);
  * Descriptor                                                                 *
  * -------------------------------------------------------------------------- */
 
+/* Sparse representation of a single non-zero CG tensor entry after the
+ * real-basis change. Packs three small indices + a weight in 16 bytes so
+ * four entries fit a cache line. Real-basis CG tensors are ~20 % dense
+ * (a tight analogue of the complex-basis m_a + m_b = m_c selection rule),
+ * so iterating the sparse list is 4–5× less work than sweeping the dense
+ * d_a · d_b · d_c block. */
+struct tp_nz_entry {
+    short ima;
+    short imb;
+    short imc;
+    short pad_;
+    double cg;
+};
+
 struct tp_path {
     int     i_a, i_b, i_c;
     int     l_a, l_b, l_c;
@@ -59,7 +73,10 @@ struct tp_path {
                                        * w = c-channels; for UUU all equal. */
     int     offset_a, offset_b, offset_c;
     int     weight_offset;         /* into the flat weights buffer */
-    double *cg;                    /* d_a · d_b · d_c doubles */
+    double *cg;                    /* d_a · d_b · d_c doubles (dense, kept
+                                    * for the backward-by-index paths) */
+    struct tp_nz_entry *nz;        /* sparse non-zero entries */
+    int     n_nz;
 };
 
 struct tp_descriptor {
@@ -261,6 +278,30 @@ tp_descriptor_t *irrep_tp_build(const irrep_multiset_t *a,
             }
         }
         free(cg_c); free(U_a); free(U_b); free(U_c);
+
+        /* Build the sparse non-zero index for the apply/backward hot
+         * loops. Visit (ima, imb, imc) in the same order apply_core_
+         * does so iteration is memory-sequential. */
+        int n_nz = 0;
+        for (int i = 0; i < nW; ++i) if (p->cg[i] != 0.0) ++n_nz;
+        p->nz   = (n_nz > 0) ? malloc((size_t)n_nz * sizeof *p->nz) : NULL;
+        p->n_nz = n_nz;
+        if (n_nz > 0 && !p->nz) goto fail;
+        int e = 0;
+        for (int ima = 0; ima < p->d_a; ++ima) {
+            for (int imb = 0; imb < p->d_b; ++imb) {
+                for (int imc = 0; imc < p->d_c; ++imc) {
+                    double v = p->cg[(ima * p->d_b + imb) * p->d_c + imc];
+                    if (v == 0.0) continue;
+                    p->nz[e].ima  = (short)ima;
+                    p->nz[e].imb  = (short)imb;
+                    p->nz[e].imc  = (short)imc;
+                    p->nz[e].pad_ = 0;
+                    p->nz[e].cg   = v;
+                    ++e;
+                }
+            }
+        }
     }
     return desc;
 
@@ -272,7 +313,10 @@ fail:
 void irrep_tp_free(tp_descriptor_t *desc) {
     if (!desc) return;
     if (desc->paths) {
-        for (int k = 0; k < desc->num_paths; ++k) free(desc->paths[k].cg);
+        for (int k = 0; k < desc->num_paths; ++k) {
+            free(desc->paths[k].cg);
+            free(desc->paths[k].nz);
+        }
         free(desc->paths);
     }
     free(desc);
@@ -303,24 +347,21 @@ static void apply_core_(const tp_descriptor_t *desc,
         const struct tp_path *p = &desc->paths[k];
         double w = weights ? weights[k] : 1.0;
         int d_a = p->d_a, d_b = p->d_b, d_c = p->d_c;
+        const struct tp_nz_entry *nz = p->nz;
+        int n_nz = p->n_nz;
 
         for (int u = 0; u < p->mult_u; ++u) {
             const double *a_block = a_in + p->offset_a + u * d_a;
             const double *b_block = b_in + p->offset_b + u * d_b;
             /* */  double *c_block = c_out + p->offset_c + u * d_c;
 
-            for (int imc = 0; imc < d_c; ++imc) {
-                double s = 0.0;
-                for (int ima = 0; ima < d_a; ++ima) {
-                    double a_v = a_block[ima];
-                    if (a_v == 0.0) continue;
-                    for (int imb = 0; imb < d_b; ++imb) {
-                        double cg = p->cg[(ima * d_b + imb) * d_c + imc];
-                        if (cg == 0.0) continue;
-                        s += cg * a_v * b_block[imb];
-                    }
-                }
-                c_block[imc] += w * s;
+            /* Sparse iteration: visit only the ~20 % of (ima, imb, imc)
+             * triples with non-zero CG. Each entry is a straight-line
+             * FMA with no inner-loop branch. */
+            for (int e = 0; e < n_nz; ++e) {
+                c_block[nz[e].imc] += w * nz[e].cg
+                                    * a_block[nz[e].ima]
+                                    * b_block[nz[e].imb];
             }
         }
     }
@@ -356,6 +397,8 @@ static void backward_core_(const tp_descriptor_t *desc,
         const struct tp_path *p = &desc->paths[k];
         double w = weights ? weights[k] : 1.0;
         int d_a = p->d_a, d_b = p->d_b, d_c = p->d_c;
+        const struct tp_nz_entry *nz = p->nz;
+        int n_nz = p->n_nz;
         double dw = 0.0;
 
         for (int u = 0; u < p->mult_u; ++u) {
@@ -365,20 +408,18 @@ static void backward_core_(const tp_descriptor_t *desc,
             double       *ga_block = grad_a ? grad_a + p->offset_a + u * d_a : NULL;
             double       *gb_block = grad_b ? grad_b + p->offset_b + u * d_b : NULL;
 
-            for (int imc = 0; imc < d_c; ++imc) {
-                double gc = gc_block[imc];
+            /* Sparse backward: iterate only the non-zero (ima, imb, imc)
+             * entries. Each entry contributes to three gradients. */
+            for (int e = 0; e < n_nz; ++e) {
+                double cg = nz[e].cg;
+                int    ima = nz[e].ima, imb = nz[e].imb, imc = nz[e].imc;
+                double gc  = gc_block[imc];
                 if (gc == 0.0) continue;
-                for (int ima = 0; ima < d_a; ++ima) {
-                    double a_v = a_block[ima];
-                    for (int imb = 0; imb < d_b; ++imb) {
-                        double cg = p->cg[(ima * d_b + imb) * d_c + imc];
-                        if (cg == 0.0) continue;
-                        double b_v = b_block[imb];
-                        if (ga_block) ga_block[ima] += w * cg * b_v * gc;
-                        if (gb_block) gb_block[imb] += w * cg * a_v * gc;
-                        if (grad_w)   dw            +=     cg * a_v * b_v * gc;
-                    }
-                }
+                double a_v = a_block[ima];
+                double b_v = b_block[imb];
+                if (ga_block) ga_block[ima] += w * cg * b_v * gc;
+                if (gb_block) gb_block[imb] += w * cg * a_v * gc;
+                if (grad_w)   dw            +=     cg * a_v * b_v * gc;
             }
         }
         if (grad_w) grad_w[k] += dw;
@@ -577,6 +618,28 @@ tp_descriptor_t *irrep_tp_build_uvw(const irrep_multiset_t *a,
             p->cg[(na * p->d_b + nb) * p->d_c + nc] = creal(phase * s);
         }
         free(cg_c); free(U_a); free(U_b); free(U_c);
+
+        /* Sparse non-zero list (same structure as UUU path). */
+        int n_nz_u = 0;
+        for (size_t i = 0; i < nW; ++i) if (p->cg[i] != 0.0) ++n_nz_u;
+        p->nz   = (n_nz_u > 0) ? malloc((size_t)n_nz_u * sizeof *p->nz) : NULL;
+        p->n_nz = n_nz_u;
+        if (n_nz_u > 0 && !p->nz) goto fail;
+        int e2 = 0;
+        for (int ima = 0; ima < p->d_a; ++ima) {
+            for (int imb = 0; imb < p->d_b; ++imb) {
+                for (int imc = 0; imc < p->d_c; ++imc) {
+                    double v = p->cg[(ima * p->d_b + imb) * p->d_c + imc];
+                    if (v == 0.0) continue;
+                    p->nz[e2].ima  = (short)ima;
+                    p->nz[e2].imb  = (short)imb;
+                    p->nz[e2].imc  = (short)imc;
+                    p->nz[e2].pad_ = 0;
+                    p->nz[e2].cg   = v;
+                    ++e2;
+                }
+            }
+        }
     }
     desc->num_weights = wsum;
     return desc;

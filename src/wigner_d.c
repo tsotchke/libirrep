@@ -180,11 +180,36 @@ void irrep_wigner_D_matrix(int j, double _Complex *out,
 void irrep_wigner_d_matrix(int j, double *out, double beta) {
     if (j < 0) return;
     int d = 2 * j + 1;
+    /* Exploit two Varshalovich §4.4.1 symmetries to cut the work ≈4× on the
+     * full d×d matrix:
+     *   d^j_{m', m}(β) = d^j_{−m, −m'}(β)                (antipodal swap)
+     *   d^j_{m', m}(β) = (−1)^{m'−m} · d^j_{m, m'}(β)    (transpose with sign)
+     * Compute only cells where m ≥ |m'| AND (m', m) lex ≤ (−m, −m'); fill
+     * the three symmetric images from each. */
+    for (int imp = 0; imp < d; ++imp) out[imp * d + (d - 1 - imp)] = 0.0;  /* zero scratch on anti-diagonal — refilled below */
+
     for (int imp = 0; imp < d; ++imp) {
         int mp = imp - j;
-        for (int im = 0; im < d; ++im) {
+        int im_lo = (mp < 0) ? -mp + j : mp + j;   /* smallest im with m ≥ |m'| */
+        for (int im = im_lo; im < d; ++im) {
             int m = im - j;
-            out[imp * d + im] = irrep_wigner_d_small(j, mp, m, beta);
+            double v = irrep_wigner_d_small(j, mp, m, beta);
+            out[imp * d + im] = v;                                   /* (m', m) */
+            /* Image 1: (−m, −m') → same value */
+            int imp_a = -m  + j;
+            int im_a  = -mp + j;
+            out[imp_a * d + im_a] = v;
+            /* Image 2: (m, m') → (-1)^{m-m'} · v  (skip if equal to (m', m)) */
+            if (mp != m) {
+                double sign = ((m - mp) & 1) ? -v : v;
+                out[im * d + imp] = sign;
+                /* Image 3: (−m', −m) → (-1)^{m-m'} · v  (mirror of image 2) */
+                int imp_b = -mp + j;
+                int im_b  = -m  + j;
+                if (imp_b != im || im_b != imp) {
+                    out[imp_b * d + im_b] = sign;
+                }
+            }
         }
     }
 }

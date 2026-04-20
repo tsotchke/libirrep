@@ -35,6 +35,8 @@ benchmarks/results/
 *.gcno
 *.gcda
 *.gcov
+*.profraw
+*.profdata
 coverage/
 
 # doxygen

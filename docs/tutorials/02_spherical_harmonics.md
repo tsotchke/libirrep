@@ -203,13 +203,25 @@ for (int i = 0; i < N; ++i) {
  irrep_sph_harm_cart(2, buf, rhat);
  integral += w * buf[0] * buf[0]; /* ⟨Y_{2, -2} | Y_{2, -2}⟩ */
 }
-/* integral → 1.0 to better than 10⁻¹⁰ */
+/* Note: irrep_quadrature_sphere_fill returns weights normalised so that
+ * Σ w = 1 (not 4π). To compare with the textbook orthonormality
+ * ∫ Y² dΩ = 1 multiply by 4π:
+ *
+ *     assert(fabs(integral * 4 * M_PI - 1.0) < 1e-10);
+ *
+ * The test suite in tests/test_spherical_harmonics.c uses a raw
+ * Gauss–Legendre × uniform-φ product with un-normalised weights and
+ * therefore compares directly to 1.0. */
 ```
 
-The Lebedev rule's polynomial exactness degree determines the smallest
-SH orthonormality that can be verified; order-131 rules (shipped in
-`src/quadrature_lebedev_data.c`, Lebedev-Laikov 1999) give exactness for
-`l ≤ 65`.
+The product rule's polynomial exactness degree (`deg`) determines the
+smallest SH orthonormality that can be verified: a rule exact for
+polynomials of total degree `2 · l_max` verifies orthonormality through
+`l_max`. For pure Lebedev rules, libirrep currently ships orders
+**3, 5, 7** (exact through `l = 1, 2, 3`); higher orders remain on the
+roadmap and callers needing broader exactness should use
+`irrep_quadrature_sphere_fill` (Gauss–Legendre × uniform-φ), which
+gives arbitrary exactness at ≈ 2× the point count.
 
 ## 7. The addition theorem
 

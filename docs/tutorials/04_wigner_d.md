@@ -87,25 +87,45 @@ rotates every irrep component consistently — the foundational operation
 behind every equivariance test in the library and every real-world
 NequIP / MACE forward pass.
 
-## 5. The Sakurai direct-sum formula
+## 5. Evaluation via the Jacobi-polynomial form
 
-The closed-form expression for the small-d matrix is (Sakurai Eq. 3.8.33;
-Varshalovich §4.3.4 Eq. 10):
+The closed-form expression from Sakurai (Eq. 3.8.33) / Varshalovich
+(§4.3.4 Eq. 10) is a single alternating-sign sum
 
 ```
 d^j_{m', m}(β) =
  Σ_k (−1)^{k + m' − m} · √{(j+m)! (j−m)! (j+m')! (j−m')!}
  / [ k! · (j+m'−k)! · (j−m−k)! · (k+m−m')! ]
- · (cos β/2)^{2j + m − m' − 2k} · (sin β/2)^{2k + m' − m}.
+ · (cos β/2)^{2j + m − m' − 2k} · (sin β/2)^{2k + m' − m},
 ```
 
-The summation range is the intersection of the four non-negativity
-constraints on the factorial arguments. For direct evaluation, the
-`(2j)!`, `(j ± m)!`, and denominator factorials overflow at modest `j`;
-the library refactors the expression to compute everything in log-gamma
-space via libm's `lgamma`. This is the same numerical technique as the
-Clebsch-Gordan implementation and remains stable past `j = 50` in
-double precision.
+which is classically computed in log-gamma form. That formulation is
+cancellation-limited: the alternating-sign sum loses precision past
+`j ≈ 20` (measured unitarity ≈ 2 × 10⁻³ at `j = 50`, divergent past
+`j ≈ 60`).
+
+Libirrep evaluates small-d via the equivalent Jacobi-polynomial form
+(Edmonds 4.1.23; canonical region `m ≥ |m'|` reached by the
+Varshalovich §4.4.1 symmetries):
+
+```
+d^j_{m', m}(β) = √{(j+m)! (j−m)! / (j+m')! (j−m')!}
+              · (cos β/2)^{m+m'} · (sin β/2)^{m−m'}
+              · P_{j−m}^{(m−m', m+m')}(cos β).
+```
+
+The Jacobi polynomial is evaluated by the NIST DLMF §18.9.1 forward
+three-term recurrence, stable for non-negative integer `(α, β)` at
+`x ∈ [−1, 1]`. Measured unitarity at `(α, β, γ) = (0.3, 0.9, 1.5)`:
+
+```
+  j = 10 : 4e-15    j = 30 : 1e-14    j = 60 : 5e-14
+  j = 20 : 8e-15    j = 50 : 6e-14    j = 80 : 2e-13
+```
+
+Bounded only by the IEEE-754 `lgamma` overflow limit (`j ≈ 170`) past
+that. See `src/wigner_d.c` for implementation and `METHODS.md` §3.2 for
+derivation and references.
 
 ## 6. Closed-form small-d values at low j
 

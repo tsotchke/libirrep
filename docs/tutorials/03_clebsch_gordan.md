@@ -168,30 +168,52 @@ out flat with explicit strides. Selection-rule violations and out-of-
 range lookups both return `0.0`; the caller must free the table when
 done.
 
-## 7. Racah's single-sum formula (implementation note)
+## 7. Schulten–Gordon recurrence (implementation note)
 
-Libirrep computes CGs via the single-sum form first given by Racah
+The canonical closed-form expression for CG is Racah's single-sum
 (1942, *Phys. Rev.* **62**, 438):
 
 ```
 ⟨j₁ m₁; j₂ m₂ | J M⟩ =
  δ_{M, m₁+m₂} · √(2J+1) · Δ(j₁, j₂, J) · √{N(j₁, m₁, j₂, m₂, J, M)}
  · Σ_k (−1)^k / [ k! · (j₁+j₂−J−k)! · (j₁−m₁−k)! · (j₂+m₂−k)!
- · (J−j₂+m₁+k)! · (J−j₁−m₂+k)! ],
+ · (J−j₂+m₁+k)! · (J−j₁−m₂+k)! ].
 ```
 
-where `Δ(j₁, j₂, J)` is the triangle coefficient and `N(·)` is the
-product of the four `(j ± m)!` factorials. The summation range of `k`
-is the intersection of the six non-negativity conditions on the
-factorial arguments; if it is empty, the coefficient is zero (which is
-equivalent to a selection-rule violation).
+Evaluated directly (or in log-gamma form), the alternating-sign sum
+is cancellation-limited: individual terms can exceed the final result
+by many orders of magnitude, and the subtraction leaves only the
+error bits. In libirrep we measured this regime to produce NaN past
+`j ≈ 60` near the triangle edge and `~10⁻⁹` sum-rule drift at `j = 50`.
 
-Direct evaluation overflows at even modest `j`. Libirrep factors the
-expression into a `lgamma`-based form (single-digit accurate per Cody
-1993) so that the implementation remains numerically stable well past
-`j = 50` in double precision. The round-off floor on individual CG
-values is `≲ 10⁻¹⁴` relative; sum rules hold to `10⁻¹⁰` after summing
-`~10²` terms.
+The production implementation therefore computes CG indirectly via
+the Wigner 3j symbol, using the Schulten–Gordon backward three-term
+recurrence in `j₁` (Luscombe & Luban, *Phys. Rev. E* **57**, 7274,
+1998):
+
+```
+j · E(j+1) · T(j+1) + F(j) · T(j) + (j+1) · E(j) · T(j−1) = 0
+```
+
+with `E(j)² = [j² − (j₂−j₃)²] · [(j₂+j₃+1)² − j²] · [j² − m₁²]` and
+`F(j) = −(2j+1) · { [j₂(j₂+1) − j₃(j₃+1)] · m₁ + j(j+1) · (m₂ − m₃) }`.
+The full `T(j)` series for `j ∈ [j_min, j_max]` is normalised by the
+sum rule `Σ_j (2j+1) · T(j)² = 1` and sign-anchored at `j_max` by
+`(−1)^{j₂−j₃−m₁}`. Clebsch-Gordan then derives from `T(j₁)` via
+`⟨j₁ m₁; j₂ m₂ | J M⟩ = (−1)^{j₁−j₂+M} · √(2J+1) · T_{m₁, m₂, −M}(j₁)`.
+
+Measured sum-rule precision at `(m₁, m₂) = (j/2, −j/2)`:
+
+```
+  j = 20 : 1e-16    j = 50 : 0
+  j = 30 : 2e-16    j = 80 : 6e-4   (non-classical leakage, j > 80)
+```
+
+Backward-only recurrence picks up the minimal (physical) solution
+cleanly through the classically allowed range; the `6 × 10⁻⁴` residual
+at `j = 80` is subdominant-solution contamination in the deep
+non-classical region. Miller two-directional iteration would recover
+precision past `j ≈ 80`; tracked in `TODO.md`.
 
 ## 8. Dense blocks for kernel code
 

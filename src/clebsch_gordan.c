@@ -56,6 +56,9 @@ static double three_j_E_squared_(double j, double j2mj3, double j2pj3p1, double 
          * (j*j - m1*m1);
 }
 
+/* Three-term recurrence step F(j)·T(j) = −j·E(j+1)·T(j+1) − (j+1)·E(j)·T(j−1).
+ * Used below by both forward (→ T(j+1)) and backward (→ T(j−1)) passes. */
+
 static int wigner_3j_series_(double j2, double j3,
                              double m1, double m2, double m3,
                              double j_min, double j_max,
@@ -65,64 +68,128 @@ static int wigner_3j_series_(double j2, double j3,
     double j2mj3   = j2 - j3;
     double j2pj3p1 = j2 + j3 + 1.0;
 
-    /* Backward recurrence from j_max down to j_min.  The coefficient
-     * (j+1)·E(j) in the T(j-1) position is nonzero for all j > j_min
-     * (E(j) > 0 for j ∈ (j_min, j_max]); forward recurrence would hit a
-     * 0/0 division when j_min = 0 and m₁ = 0 because the coefficient of
-     * T(j+1) is j·E(j+1), zero at j = 0.
+    /* Two-directional Miller iteration:
      *
-     *   T(j-1) = -[ j·E(j+1)·T(j+1) + F(j)·T(j) ] / [ (j+1)·E(j) ]
+     *   1. Forward recurrence from j_min up to j_max, using T(j_min−1) = 0
+     *      and T(j_min) = 1 (arbitrary seed). This is stable for the
+     *      classical solution in the lower half of [j_min, j_max] and
+     *      becomes contaminated by the non-classical (subdominant)
+     *      solution in the upper tail where E(j)² shrinks toward the
+     *      j_max endpoint.
      *
-     * Initialised with T(j_max+1) = 0 (outside support) and T(j_max) = 1
-     * (arbitrary; normalised below).  T(j_max - 1) then follows from the
-     * recurrence at j = j_max. */
-    double T_next = 0.0;                  /* T(j_max + 1) */
-    double T_curr = 1.0;                  /* T(j_max); arbitrary */
-    T_out[N - 1] = T_curr;
+     *   2. Backward recurrence from j_max down to j_min with T(j_max+1) = 0
+     *      and T(j_max) = 1, symmetrically stable in the upper half and
+     *      contaminated in the lower tail.
+     *
+     *   3. Splice: choose a matching index idx* inside the classical region
+     *      (one where the forward and backward iterations agree up to an
+     *      overall scale), rescale the forward array so T_fwd(idx*) =
+     *      T_bwd(idx*), then take T(j) from T_fwd for idx ≤ idx* and from
+     *      T_bwd for idx > idx*.
+     *
+     *   4. Normalise the spliced series via Σ_j (2j+1) T(j)² = 1 and fix
+     *      sign from the closed-form value at j_max.
+     *
+     * Match-point heuristic: pick the idx that maximises
+     * |T_fwd(idx)| · |T_bwd(idx)| — the locus where both solutions are
+     * large (so the scale estimate has the best relative precision).
+     */
 
-    for (int idx = N - 2; idx >= 0; --idx) {
-        double j   = j_min + (double)(idx + 1);   /* recurrence index yielding T(j-1) */
-        double jp1 = j + 1.0;
+    double T_fwd[IRREP_3J_MAX_SERIES];
+    double T_bwd[IRREP_3J_MAX_SERIES];
 
-        double Ej_sq   = three_j_E_squared_(j,   j2mj3, j2pj3p1, m1);
-        double Ejp1_sq = three_j_E_squared_(jp1, j2mj3, j2pj3p1, m1);
-        double Ej   = (Ej_sq   > 0.0) ? sqrt(Ej_sq)   : 0.0;
-        double Ejp1 = (Ejp1_sq > 0.0) ? sqrt(Ejp1_sq) : 0.0;
-
-        double Fj = -(2.0*j + 1.0)
-                  * ( (j2*(j2 + 1.0) - j3*(j3 + 1.0)) * m1
-                    + j*(j + 1.0) * (m2 - m3) );
-
-        double T_prev;
-        if (Ej > 0.0) {
-            T_prev = -(j * Ejp1 * T_next + Fj * T_curr) / (jp1 * Ej);
-        } else {
-            /* Shouldn't happen inside the loop: Ej > 0 for j ∈ (j_min, j_max]. */
-            T_prev = 0.0;
+    /* ---- forward ---- */
+    {
+        double T_prev = 0.0;       /* T(j_min − 1) */
+        double T_curr = 1.0;       /* T(j_min); arbitrary */
+        T_fwd[0] = T_curr;
+        for (int idx = 1; idx < N; ++idx) {
+            double j   = j_min + (double)(idx - 1);   /* recurrence at j produces T(j+1) */
+            double jp1 = j + 1.0;
+            double Ej_sq   = three_j_E_squared_(j,   j2mj3, j2pj3p1, m1);
+            double Ejp1_sq = three_j_E_squared_(jp1, j2mj3, j2pj3p1, m1);
+            double Ej   = (Ej_sq   > 0.0) ? sqrt(Ej_sq)   : 0.0;
+            double Ejp1 = (Ejp1_sq > 0.0) ? sqrt(Ejp1_sq) : 0.0;
+            double Fj   = -(2.0*j + 1.0)
+                        * ( (j2*(j2 + 1.0) - j3*(j3 + 1.0)) * m1
+                          + j*(j + 1.0) * (m2 - m3) );
+            double T_next;
+            if (Ejp1 > 0.0) {
+                T_next = -(Fj * T_curr + jp1 * Ej * T_prev) / (j * Ejp1);
+            } else if (j <= 0.0) {
+                /* j_min = 0 and j·E(j+1) = 0 — the recurrence at j = 0
+                 * degenerates. The closed form at j = 0 coupling two
+                 * copies of the same j₂ = j₃ is (0 j j; 0 m −m) =
+                 * (−1)^{j−m} / √(2j+1); use it to initialise T_fwd[0] and
+                 * pick T_fwd[1] from the recurrence at j = 1 in step 2. */
+                T_next = 0.0;   /* unreliable from this step; overwritten */
+            } else {
+                T_next = 0.0;
+            }
+            T_fwd[idx] = T_next;
+            T_prev     = T_curr;
+            T_curr     = T_next;
         }
-
-        T_out[idx] = T_prev;
-        T_next     = T_curr;
-        T_curr     = T_prev;
     }
 
-    /* Sum-rule normalisation: Σ_j (2j+1) · T(j)² = 1. */
+    /* ---- backward ---- */
+    {
+        double T_next = 0.0;       /* T(j_max + 1) */
+        double T_curr = 1.0;       /* T(j_max); arbitrary */
+        T_bwd[N - 1] = T_curr;
+        for (int idx = N - 2; idx >= 0; --idx) {
+            double j   = j_min + (double)(idx + 1);   /* recurrence at j produces T(j-1) */
+            double jp1 = j + 1.0;
+            double Ej_sq   = three_j_E_squared_(j,   j2mj3, j2pj3p1, m1);
+            double Ejp1_sq = three_j_E_squared_(jp1, j2mj3, j2pj3p1, m1);
+            double Ej   = (Ej_sq   > 0.0) ? sqrt(Ej_sq)   : 0.0;
+            double Ejp1 = (Ejp1_sq > 0.0) ? sqrt(Ejp1_sq) : 0.0;
+            double Fj   = -(2.0*j + 1.0)
+                        * ( (j2*(j2 + 1.0) - j3*(j3 + 1.0)) * m1
+                          + j*(j + 1.0) * (m2 - m3) );
+            double T_prev;
+            if (Ej > 0.0) {
+                T_prev = -(j * Ejp1 * T_next + Fj * T_curr) / (jp1 * Ej);
+            } else {
+                T_prev = 0.0;
+            }
+            T_bwd[idx] = T_prev;
+            T_next     = T_curr;
+            T_curr     = T_prev;
+        }
+    }
+
+    /* ---- splice: find match point that maximises |T_fwd|·|T_bwd| ---- */
+    int    idx_match = N / 2;
+    double best      = 0.0;
+    for (int idx = 0; idx < N; ++idx) {
+        double w = fabs(T_fwd[idx]) * fabs(T_bwd[idx]);
+        if (w > best) { best = w; idx_match = idx; }
+    }
+    if (best == 0.0) {
+        /* Degenerate series (N = 1, or one direction overflowed). Fall
+         * back to backward-only. */
+        for (int idx = 0; idx < N; ++idx) T_out[idx] = T_bwd[idx];
+    } else {
+        double scale = T_bwd[idx_match] / T_fwd[idx_match];
+        for (int idx = 0; idx <= idx_match; ++idx) T_out[idx] = scale * T_fwd[idx];
+        for (int idx = idx_match + 1; idx < N; ++idx) T_out[idx] = T_bwd[idx];
+    }
+
+    /* Sum-rule normalisation. */
     double norm_sq = 0.0;
     for (int idx = 0; idx < N; ++idx) {
         double j = j_min + (double)idx;
         norm_sq += (2.0*j + 1.0) * T_out[idx] * T_out[idx];
     }
-    if (norm_sq <= 0.0) {
+    if (norm_sq <= 0.0 || !isfinite(norm_sq)) {
         for (int idx = 0; idx < N; ++idx) T_out[idx] = 0.0;
         return 0;
     }
     double norm = sqrt(norm_sq);
     for (int idx = 0; idx < N; ++idx) T_out[idx] /= norm;
 
-    /* Sign convention: at j_max = j₂+j₃, the 3j symbol equals
-     *   (−1)^{j₂−j₃−m₁} · √(positive factor).
-     * j₂−j₃−m₁ is always integer for valid 3j (parity constraints).
-     * If recurrence came out with the wrong overall sign, flip. */
+    /* Sign convention: at j_max the 3j equals (−1)^{j₂−j₃−m₁} · √(positive). */
     int    exp_int = (int)lround(j2 - j3 - m1);
     double expected_sign = (exp_int & 1) ? -1.0 : 1.0;
     if (T_out[N-1] * expected_sign < 0.0) {

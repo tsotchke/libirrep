@@ -8,20 +8,23 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- **Wigner 3j and Clebsch–Gordan rewritten to Schulten–Gordon recurrence**
- (`src/clebsch_gordan.c`). Replaced the Racah log-gamma single-sum form,
- which lost precision to catastrophic cancellation in the alternating
- sum past `j ≈ 20` (sum-rule err `2 × 10⁻⁹` at `j = 50`, NaN past
- `j ≈ 60` near the triangle edge) with the Luscombe–Luban 1998 backward
- three-term recurrence in `j₁` for fixed `(j₂, j₃, m₂, m₃)`. The full
- 3j series is normalised by `Σ_j (2j+1) · 3j² = 1` and the overall sign
- is anchored at `j_max` by `(−1)^{j₂−j₃−m₁}`. Clebsch–Gordan is now
- derived from 3j via the standard phase relation; the previous
- CG-then-derive-3j direction is inverted. Sum-rule precision: `~1 × 10⁻¹⁶`
- for `j ≤ 50`; degrades to `6 × 10⁻⁴` at `j = 80` due to non-classical
- leakage past the classically allowed range (Miller two-directional
- iteration is the known fix; tracked in TODO.md). Sakurai hand values
- reproduced exactly. No public-API changes; no ABI change.
+- **Wigner 3j / CG now use Miller two-directional iteration**
+ (`src/clebsch_gordan.c`). The Round-2 backward-only Schulten–Gordon
+ recurrence was machine-precision through `j ≈ 50` but leaked
+ subdominant-solution contamination in the lower tail past `j ≈ 80`
+ (sum-rule err `6 × 10⁻⁴` at `j = 80`, diverging at `j = 200`).
+ Upgrade to full Miller iteration: forward pass from `j_min`, backward
+ pass from `j_max`, splice at `argmax |T_fwd|·|T_bwd|`, rescale,
+ normalise by the sum rule, sign-anchor at `j_max`. Measured sum-rule
+ precision now machine-level across the entire tested range:
+
+       j =  20 : 0            j =  80 : 4 × 10⁻¹⁶
+       j =  50 : 2 × 10⁻¹⁶    j = 120 : 0
+       j = 200 : 0
+
+ vs. the prior Racah log-gamma implementation (2 × 10⁻⁹ at `j = 50`,
+ NaN past `j ≈ 60`). Sakurai hand values unchanged. No public-API
+ changes; no ABI change.
 
 - **Wigner-d rewritten to Jacobi-polynomial form** (`src/wigner_d.c`).
  Replaced the Sakurai (3.8.33) direct-sum implementation — which lost

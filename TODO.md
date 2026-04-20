@@ -93,13 +93,10 @@ onwards plus the 1.3 section at the bottom.
  lgamma overflow (j ≈ 170) past that.
 - [x] Wigner 3j + Clebsch–Gordan: replaced Racah log-gamma single-sum
  (unstable past j ≈ 20, NaN past j ≈ 60 near triangle edge) with
- Schulten–Gordon backward three-term recurrence in j₁, normalised by the
- sum rule and sign-anchored at j_max. Machine precision through j ≈ 50.
-- [ ] Miller two-directional iteration for 3j past j ≈ 80. Backward-only
- SG leaks the non-classical solution into the subdominant regime; Miller
- (forward + backward, match + renormalise) recovers machine precision
- through j ≈ 150+. Current regime is documented in tests/test_clebsch_
- gordan.c and the METHODS appendix.
+ Schulten–Gordon three-term recurrence in j₁, now as Miller two-
+ directional iteration (forward + backward passes, splice at
+ argmax |T_fwd|·|T_bwd|, normalise via sum rule, sign-anchor at j_max).
+ Machine precision to at least j ≈ 200 in regression tests.
 
 ## M11 — x86 SIMD hot paths (open)
 - [ ] SSE4.2 + AVX2 variants of the above

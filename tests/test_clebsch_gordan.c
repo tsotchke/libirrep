@@ -193,21 +193,26 @@ int main(void) {
         IRREP_ASSERT(fabs(got - expected) < 1e-12);
     }
 
-    /* -------- large-j stability (Schulten–Gordon regime) --------
+    /* -------- large-j stability (Schulten–Gordon + Miller regime) --------
      *
-     * Replaced-algorithm regression test. The prior Racah-log-gamma
-     * implementation produced 2e-9 sum-rule error at j = 50 and NaN past
-     * j ≈ 60 (catastrophic cancellation in the alternating sum, plus
-     * intermediate exp overflow near the triangle edge). The Schulten–
-     * Gordon backward recurrence reaches machine precision through j ≈ 50
-     * and degrades gradually past that. Measured at (m1 = j/2, m2 = -j/2):
-     *   j = 20 : 1e-16       j = 50 : 0
-     *   j = 30 : 2e-16       j = 80 : 6e-4   (non-classical regime leakage)
-     * Miller two-directional iteration would recover precision past j ≈ 80;
-     * tracked in TODO.md. */
+     * Replaced-algorithm regression test. The prior Racah-log-gamma form
+     * produced 2e-9 sum-rule error at j = 50 and NaN past j ≈ 60
+     * (catastrophic cancellation in the alternating sum, plus intermediate
+     * exp overflow near the triangle edge). A plain backward Schulten–
+     * Gordon recurrence reached machine precision through j ≈ 50 but
+     * leaked subdominant-solution contamination past that (6e-4 at j = 80,
+     * diverging at j = 200).
+     *
+     * The current implementation is Miller two-directional iteration:
+     * forward + backward passes, match at argmax |T_fwd|·|T_bwd|, rescale,
+     * normalise. Measured sum-rule precision at (m1 = j/2, m2 = -j/2):
+     *   j =  20 : 0            j =  80 : 4e-16
+     *   j =  50 : 2e-16        j = 120 : 0
+     *   j = 200 : 0
+     * i.e. machine precision across the entire j range we can exercise. */
     {
-        const int   j_values[] = { 20, 30, 50 };
-        const double tol_at[]  = { 1e-12, 1e-12, 1e-12 };
+        const int   j_values[] = { 20, 50, 80, 120, 200 };
+        const double tol_at[]  = { 1e-13, 1e-13, 1e-13, 1e-13, 1e-13 };
         for (int idx = 0; idx < (int)(sizeof j_values / sizeof *j_values); ++idx) {
             int    j   = j_values[idx];
             double tol = tol_at[idx];

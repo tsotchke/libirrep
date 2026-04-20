@@ -170,6 +170,9 @@ IRREP_API int irrep_tp_2j_enumerate_paths(const irrep_multiset_2j_t *a,
 
 /** @brief Compile a UVW-mode half-integer tensor-product descriptor.
  *
+ *  @param a                   input-A multiset (half-integer labels).
+ *  @param b                   input-B multiset (half-integer labels).
+ *  @param c                   output-C multiset (half-integer labels).
  *  @param selected_paths      triplet list `(i_a, i_b, i_c)`; pass `NULL`
  *                             to auto-enumerate all valid paths.
  *  @param num_selected_paths  number of triplets.

@@ -132,9 +132,17 @@ IRREP_API void irrep_nequip_layer_apply(
  *  Edge-geometry gradients are deliberately not produced here — use
  *  #irrep_nequip_layer_apply_forces if you need them.
  *
- *  @param grad_h_out    pullback of the loss w.r.t. the layer output.
- *  @param grad_h_in     out: accumulated ∂L/∂h_in.
- *  @param grad_tp_weights  out: accumulated ∂L/∂tp_weights. */
+ *  @param layer            layer handle from @ref irrep_nequip_layer_build.
+ *  @param tp_weights       per-path scalar weights (length `num_weights`).
+ *  @param n_nodes          number of nodes.
+ *  @param n_edges          number of edges.
+ *  @param edge_src         source node index per edge (length `n_edges`).
+ *  @param edge_dst         destination node index per edge (length `n_edges`).
+ *  @param edge_vec         edge displacement vectors (length `3 · n_edges`).
+ *  @param h_in             input hidden features (length `n_nodes · h_in_dim`).
+ *  @param grad_h_out       pullback of the loss w.r.t. the layer output.
+ *  @param grad_h_in        out: accumulated `∂L/∂h_in`.
+ *  @param grad_tp_weights  out: accumulated `∂L/∂tp_weights`. */
 IRREP_API void irrep_nequip_layer_apply_backward(
     const irrep_nequip_layer_t *layer,
     const double               *tp_weights,
@@ -161,6 +169,15 @@ IRREP_API void irrep_nequip_layer_apply_backward(
  *  radial component of `∂Y/∂r̂` because the SH gradient is already tangent
  *  to `S²` (asserted to 1e-8 for `l ≤ 3` in the SH test suite).
  *
+ *  @param layer          layer handle from @ref irrep_nequip_layer_build.
+ *  @param tp_weights     per-path scalar weights.
+ *  @param n_nodes        number of nodes.
+ *  @param n_edges        number of edges.
+ *  @param edge_src       source node index per edge.
+ *  @param edge_dst       destination node index per edge.
+ *  @param edge_vec       edge displacement vectors (length `3 · n_edges`).
+ *  @param h_in           input hidden features.
+ *  @param grad_h_out     pullback of the loss w.r.t. the layer output.
  *  @param grad_edge_vec  out: accumulated `∂L/∂edge_vec`, length `n_edges * 3`.
  *                        Caller pre-zeros. */
 IRREP_API void irrep_nequip_layer_apply_forces(

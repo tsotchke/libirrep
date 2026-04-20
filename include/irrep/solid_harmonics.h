@@ -29,11 +29,13 @@ extern "C" {
 IRREP_API void irrep_solid_harm_cart     (int l, double *out, const double r[3]);
 
 /** @brief Write `3 · (2l + 1)` gradient components,
- *         `out[axis · (2l+1) + (m+l)] = ∂R_{l,m}/∂r_axis`. */
+ *         `out[axis · (2l+1) + (m+l)] = ∂R_lm/∂r_axis`. */
 IRREP_API void irrep_solid_harm_cart_grad(int l, double *out, const double r[3]);
 
-/** @brief Write `R_{l, m}(r)` for `l = 0 .. l_max`, packed as
- *         `[l=0 (1); l=1 (3); l=2 (5); …]`, total `(l_max + 1)²` values. */
+/** @brief Write every cartesian solid harmonic from `l = 0` through
+ *         `l = l_max` into @p out, packed as
+ *         `[l=0 (1); l=1 (3); l=2 (5); ...]`, with total
+ *         `(l_max + 1) * (l_max + 1)` values. */
 IRREP_API void irrep_solid_harm_cart_all (int l_max, double *out, const double r[3]);
 
 #ifdef __cplusplus

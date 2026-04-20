@@ -42,20 +42,22 @@ extern "C" {
  *         is 20! = 2 432 902 008 176 640 000. */
 IRREP_API long long irrep_factorial(int n);
 
-/** @brief Sign of a permutation, `(−1)^{# inversions}`. Returns `+1` or `−1`;
- *         invalid input (duplicates, out-of-range entries) returns `0`. */
+/** @brief Sign of a permutation: `(-1)` raised to the number of inversions.
+ *         Returns `+1` or `−1`; invalid input (duplicates, out-of-range
+ *         entries) returns `0`. */
 IRREP_API int irrep_permutation_sign(const int *perm, int n);
 
-/** @brief Write every permutation of `[0, n)` into
- *         `out_perms[n! · n]`, in lexicographic order (Heap's algorithm
+/** @brief Write every permutation of `[0, n)` into a buffer of shape
+ *         `[n factorial][n]`, in lexicographic order (Heap's algorithm
  *         gives a different order; we use a canonical lex sweep so the
- *         identity is at index 0). Requires `n ≤ 10`. Returns #IRREP_OK
- *         or an error. */
+ *         identity permutation is at index 0). Requires `n ≤ 10`. Returns
+ *         #IRREP_OK or an error. */
 IRREP_API irrep_status_t
 irrep_permutations_all(int n, int *out_perms);
 
-/** @brief Hook-length dimension formula `dim(λ) = N! / ∏ h(cell)` for the
- *         irrep of `S_N` labelled by integer partition `λ`.
+/** @brief Hook-length dimension formula for the irrep of `S_N` labelled
+ *         by integer partition `λ`: `dim(λ) = (N factorial) divided by the
+ *         product of hook lengths over cells of the Young diagram`.
  *
  *  @param partition  weakly-decreasing positive parts
  *  @param n_parts    length of @p partition

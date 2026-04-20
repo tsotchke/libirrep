@@ -4,7 +4,7 @@
  *         @ref irrep_multiset_t — e3nn-style direct-sum descriptions of
  *         feature spaces.
  *
- *  Grammar for @ref irrep_multiset_parse:
+ *  Grammar for irrep_multiset_parse():
  *
  *  @verbatim
  *    multiset := ε | term ( '+' term )*

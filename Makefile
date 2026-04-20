@@ -129,10 +129,10 @@ SHARED_LIB_LINK := $(LIB_DIR)/$(SHLIB_LINK)
 # Default / phony targets
 # ---------------------------------------------------------------------------
 .PHONY: all lib lib-static lib-shared test bench examples asan ubsan \
-        fuzz fuzz-driver fuzz-run docs lint check-headers install release \
-        release-artifacts clean distclean dirs print-config
+        fuzz fuzz-driver fuzz-run docs lint check-headers check-abi install \
+        release release-artifacts clean distclean dirs print-config
 
-all: lib test examples check-headers
+all: lib test examples check-headers check-abi
 
 print-config:
 	@echo "CC         = $(CC)"
@@ -283,6 +283,15 @@ $(BIN_DIR)/fuzz_%_driver: tests/fuzz/fuzz_%.c tests/fuzz/driver.c $(STATIC_LIB) 
 
 fuzz: $(FUZZ_BINS)
 fuzz-driver: $(FUZZ_DRIVER_BINS)
+
+# ---------------------------------------------------------------------------
+# ABI regression gate. The first `check-abi` run after a clone writes
+# release/BASELINE_ABI_HASH; subsequent runs compare the current hash to it
+# and fail the build on drift. Bumping MAJOR in VERSION and refreshing the
+# baseline is the intentional-break workflow.
+# ---------------------------------------------------------------------------
+check-abi: lib
+	@bash scripts/check_abi.sh
 
 fuzz-run: fuzz-driver
 	@mkdir -p $(BUILD_DIR)

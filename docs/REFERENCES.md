@@ -274,10 +274,7 @@ the commit log.
 
 ## Coordination and ecosystem
 
-- **libirrep coordination: `spin_based_neural_network`.** The pair of
- coordination documents
- [`docs/libirrep_1_2_coordination.md`](../../spin_based_neural_network/docs/libirrep_1_2_coordination.md)
- (downstream) and the 1.3 CHANGELOG
- (libirrep side) scope-lock deliverables per release cycle. Not a
- scholarly reference, but the authoritative source for API commitments
- between the two trees.
+- **libirrep coordination.** Public ABI + API commitments are pinned
+ in `CHANGELOG.md` per release cycle. Inter-repo notes between
+ libirrep and any downstream consumer live outside the public tree
+ (not reproduced here).

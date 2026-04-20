@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /** @file config_project.h
- *  @brief Configuration-space projection onto a space-group irrep
- *        .
+ *  @brief Configuration-space projection onto a space-group irrep.
  *
  *  The projection operator on functions of a configuration `σ` (a spin
  *  assignment, an occupation pattern, a permutation; whatever the caller's

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /** @file spin_project.h
- *  @brief Total-J projection on spin-½ wavefunctions over N sites
- *        .
+ *  @brief Total-J projection on spin-½ wavefunctions over N sites.
  *
  *  Projects an arbitrary wavefunction |ψ⟩ onto a fixed total-J subspace
  *  via the Wigner-D character-weighted SU(2) integral

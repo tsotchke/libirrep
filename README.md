@@ -131,12 +131,15 @@ orthogonality formula.
 weights; RMS normalisation per irrep block; multiplicative gate activation.
 All commute with the block-diagonal Wigner-D action by construction.
 
-**Performance.** Runtime SIMD dispatch through a function-pointer table
-(NEON on aarch64 today; AVX2 scheduled). NEON batched kernels for the
-polynomial cutoff and cartesian spherical harmonics, rendered
-bit-identical to the scalar evaluation by disabling floating-point
-contraction with `#pragma STDC FP_CONTRACT OFF` in both translation
-units.
+**Performance.** Runtime SIMD dispatch through a function-pointer table.
+NEON kernels (2 lanes, aarch64) and AVX2+FMA kernels (4 lanes, x86_64)
+ship today for the cartesian spherical harmonics batch, the polynomial
+cutoff, and its derivative. Each vector kernel is bit-identical to the
+scalar reference on representative inputs (FP_CONTRACT discipline kept
+consistent between scalar and vector translation units). Hot-path
+algorithmic wins that precede SIMD: `wigner_d_matrix` is 3.5× via
+symmetry reduction, `tp_apply` 3.8× via sparse CG storage; both are
+now candidates for a further 2–4× via SIMD in a 1.4 point release.
 
 **Release engineering.** Stable ABI tracked by SHA-256 over the exported-
 symbol set, baked into the binary (`irrep_abi_hash()`) and the installed

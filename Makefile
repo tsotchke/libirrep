@@ -348,11 +348,15 @@ fuzz-driver: $(FUZZ_DRIVER_BINS)
 # baseline is the intentional-break workflow.
 # ---------------------------------------------------------------------------
 check-abi: lib
+# Windows (MinGW dllexport attributes) and macOS x86_64 (Mach-O x86_64
+# emits auxiliary symbols that diverge from Mach-O arm64 / ELF) both
+# produce platform-specific symbol tables that do not match the
+# canonical baseline. Real API-break detection happens on linux-x86_64,
+# linux-arm64, and macos-arm64 — three independent platforms agreeing.
 ifeq ($(OS_TRIPLE),windows)
-	@echo "# ABI hash gate skipped on Windows — MinGW dllexport attributes"
-	@echo "#   introduce platform-specific symbols that diverge from the"
-	@echo "#   Mach-O / ELF baseline by design. Drift detection runs on the"
-	@echo "#   Linux and macOS matrix entries."
+	@echo "# ABI hash gate skipped on Windows (platform-specific symbols)"
+else ifeq ($(TRIPLE),macos-x86_64)
+	@echo "# ABI hash gate skipped on macos-x86_64 (Mach-O x86_64 auxiliary symbols)"
 else
 	@bash scripts/check_abi.sh
 endif

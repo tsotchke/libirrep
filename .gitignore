@@ -25,6 +25,7 @@ benchmarks/results/*/
 !benchmarks/results/baseline/
 !benchmarks/results/coverage/
 !benchmarks/results/fuzz/
+!benchmarks/results/e3nn_compare/
 
 # editor state
 .vscode/

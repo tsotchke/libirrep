@@ -96,7 +96,7 @@ x86_64 timings land when CI fires post-push.
 |------------------------------------------|-------------:|-----------------------:|
 | `sph_harm_cart_all` @ l=4                |   3.0 ns/op  |   6.8 ns/op            |
 | `sph_harm_cart_all_batch` @ l=4, 4096 edges | 38.0 ns/edge | 175.2 ns/edge         |
-| `tp_apply` on NequIP-like descriptor     | 144.0 ns/call| 229.6 ns/call          |
+| `tp_apply` on NequIP-like descriptor     | 138.3 ns/call| 229.6 ns/call          |
 | `cg` @ j=1⊗1→1                           |  22.1 ns/call|  94.7 ns/call          |
 | `wigner_d_matrix` @ j=8 (17×17)          |   4.8 µs/call|          — [1]         |
 | `rbf_bessel` single call                 |   6.2 ns/op  |  12.5 ns/op            |
@@ -105,8 +105,34 @@ x86_64 timings land when CI fires post-push.
 number reflects the 3.5× algorithmic win from Varshalovich §4.4.1
 symmetry exploitation in [`src/wigner_d.c`](src/wigner_d.c).
 
+### vs e3nn
+
+[`scripts/bench_vs_e3nn.py`](scripts/bench_vs_e3nn.py) times the same
+NequIP-shape tensor product on libirrep and on `e3nn` 0.6.0's
+`FullyConnectedTensorProduct` (Python 3.12, torch 2.11.0 CPU
+single-thread, float64). Same descriptor, same inputs, no batching
+(single-sample per call — the regime equivariant-NN inference engines
+spend most of their time in):
+
+| Side     | ns / call |
+|----------|----------:|
+| libirrep |     138.3 |
+| e3nn     | 339,140.7 |
+
+libirrep is **~2488× faster on a per-call basis**. Numerical agreement
+on unweighted CG output: cosine similarity 1.0000000000, max abs
+error 1.3e-8 (e3nn's internal CG tables are float32-precision;
+libirrep's are double). Run the comparison yourself:
+
+```
+python3 -m venv /tmp/venv && /tmp/venv/bin/pip install e3nn
+/tmp/venv/bin/python scripts/bench_vs_e3nn.py
+```
+
 Baseline JSON at
-[`benchmarks/results/baseline/`](benchmarks/results/baseline/),
+[`benchmarks/results/baseline/`](benchmarks/results/baseline/);
+`bench_vs_e3nn` runs in
+[`benchmarks/results/e3nn_compare/`](benchmarks/results/e3nn_compare/);
 regressions gated by `scripts/perf_compare.sh` at 5%.
 
 ## Precision regime

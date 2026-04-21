@@ -1,0 +1,26 @@
+========================================================================
+libirrep vs e3nn — tensor product on NequIP-like descriptor
+========================================================================
+
+descriptor:
+  a = 1x0e + 1x1o + 1x2e           (dim 9)
+  b = 1x0e + 1x1o + 1x2e + 1x3o    (dim 16)
+  c = 1x0e + 1x1o + 1x2e           (dim 9)
+iters: 100,000
+
+libirrep tp_apply_weighted:
+       136.3 ns / call    (7.34e+06 calls/s)
+
+e3nn FullyConnectedTensorProduct (f64, CPU, 1 thread):
+    339140.7 ns / call    (2.95e+03 calls/s)
+
+libirrep is 2487.86× faster on this descriptor shape.
+
+------------------------------------------------------------------------
+Numerical agreement — unweighted TP on identical input
+------------------------------------------------------------------------
+libirrep:       [+1.089277, +0.604151, -0.154709, +0.428561, +0.841186, +0.133012, +0.036370, +0.893705, -0.612108]
+e3nn:           [+1.089277, +0.604151, -0.154709, +0.428561, +0.841186, +0.133012, +0.036370, +0.893705, -0.612108]
+max abs err:    1.319e-08
+cosine similarity: 1.0000000000
+  OK ✓

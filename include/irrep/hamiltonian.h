@@ -15,8 +15,8 @@
  *  ED should seed the Lanczos starting vector on a single `S_z` sector
  *  (the apply functions preserve it automatically).
  *
- *  All apply functions have the signature required by
- *  @ref irrep_lanczos_eigvals: `(const double _Complex *psi,
+ *  All apply functions have the signature required by the sparse
+ *  eigensolver `irrep_lanczos_eigvals`: `(const double _Complex *psi,
  *  double _Complex *out, void *opaque)`. Pass the returned opaque
  *  handle as the `ctx` argument to Lanczos.
  */

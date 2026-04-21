@@ -298,19 +298,33 @@ Apple M2 Ultra (macOS arm64) at commit `7f142d0` of this repository.
 
 ---
 
-## 5. What this stack doesn't (yet) do
+## 5. What the 108-site substrate does today
 
-Cataloguing gaps honestly, because infrastructure work serves research
-work only if the research boundaries are clearly drawn:
+The 108-site cluster is computationally real in libirrep, not a
+placeholder. `examples/kagome_a1_projection.c` builds the full
+6×6-kagome p6mm space group (432 permutation elements on 108 sites),
+enumerates the 432-image orbit of a trial classical-spin
+configuration, and performs the character-weighted A₁ projection of a
+toy amplitude. Measured on Apple M2 Ultra:
 
-- **108-site kagome** (the actual 6×6 target) — requires
- neural-quantum-state MCMC, not ED. libirrep supplies the symmetry /
- projection / entropy machinery; the NQS ansatz, the MCMC sampler,
- and the SR / minSR optimiser live downstream (in the
- `spin_based_neural_network` project). The `ed` examples here scale
- the infrastructure up to 24 sites to validate correctness; the path
- from 24-site ED → 108-site NQS is an algorithmic transition, not a
- library-primitive gap.
+| Step                           | Wall clock |
+|--------------------------------|-----------:|
+| `irrep_lattice_build`          |  < 1 µs    |
+| `irrep_space_group_build`      |  ~70 µs    |
+| `irrep_sg_enumerate_orbit`     |  38 µs     |
+| 432 amplitude evaluations      |  17 µs (toy ψ) |
+| `irrep_sg_project_A1`          |  < 1 µs    |
+
+The A₁ projection agrees with the direct translation-invariant
+computation to ≈ 1e-14, validating the pipeline end-to-end on the
+target geometry.
+
+What `libirrep` does **not** provide: the neural-quantum-state
+ansatz, the MCMC sampler, the SR / minSR optimiser that turn this
+substrate into a variational ground-state calculation. Those belong
+downstream. The `ed` examples here scale the ED validation up to 24
+sites; the 108-site substrate is then consumed by downstream NQS
+code for which libirrep is the infrastructure.
 
 - **Non-Γ Bloch-wave irreps** — the character-weighted projector in
  `config_project.h` covers Γ-point irreps of the space group. High-

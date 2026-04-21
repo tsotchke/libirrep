@@ -38,6 +38,7 @@
 #include <irrep/space_group.h>
 #include <irrep/config_project.h>
 #include <irrep/rdm.h>
+#include <irrep/hamiltonian.h>
 #include <irrep/spin_project.h>
 #include <irrep/sym_group.h>
 

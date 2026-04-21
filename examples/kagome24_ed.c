@@ -17,6 +17,7 @@
  *   ./build/bin/kagome24_ed
  */
 
+#include <irrep/hamiltonian.h>
 #include <irrep/lattice.h>
 #include <irrep/rdm.h>
 
@@ -30,38 +31,6 @@
 
 #define N   24
 #define DIM (1LL << N)        /* 16 777 216 */
-
-typedef struct {
-    const int *bi;
-    const int *bj;
-    int nb;
-    double J;
-} heisenberg_ctx_t;
-
-static void apply_H_heisenberg(const double _Complex *psi,
-                               double _Complex *out,
-                               void *ctx_opaque) {
-    const heisenberg_ctx_t *ctx = (const heisenberg_ctx_t *)ctx_opaque;
-    const int *bi = ctx->bi, *bj = ctx->bj;
-    int nb = ctx->nb;
-    double J = ctx->J;
-
-    memset(out, 0, (size_t)DIM * sizeof(double _Complex));
-    for (int b = 0; b < nb; ++b) {
-        int i = bi[b], j = bj[b];
-        long long mi = 1LL << i, mj = 1LL << j;
-        for (long long s = 0; s < DIM; ++s) {
-            int zi = (int)((s >> i) & 1);
-            int zj = (int)((s >> j) & 1);
-            double sign = (zi ^ zj) ? -1.0 : +1.0;
-            out[s] += (J * 0.25 * sign) * psi[s];
-            if (zi != zj) {
-                long long s_flip = s ^ mi ^ mj;
-                out[s_flip] += (J * 0.5) * psi[s];
-            }
-        }
-    }
-}
 
 static double now_s_(void) {
     struct timespec ts;
@@ -83,7 +52,9 @@ int main(void) {
     int *bj = malloc(sizeof(int) * nb);
     irrep_lattice_fill_bonds_nn(L, bi, bj);
 
-    heisenberg_ctx_t ctx = { bi, bj, nb, /*J=*/1.0 };
+    /* Promoted to a library primitive; see include/irrep/hamiltonian.h. */
+    irrep_heisenberg_t *H = irrep_heisenberg_new(Nsites, nb, bi, bj, /*J=*/1.0);
+    if (!H) { fprintf(stderr, "heisenberg_new failed\n"); return 1; }
 
     /* Seed in the S_z = 0 sector with pseudo-random amplitudes. */
     printf("allocating & seeding 3 state vectors (%lld MB) ...\n",
@@ -114,7 +85,7 @@ int main(void) {
            max_iters);
     double t0 = now_s_();
     irrep_status_t rc = irrep_lanczos_eigvals(
-        apply_H_heisenberg, &ctx, DIM, k_wanted, max_iters, seed, ev);
+        irrep_heisenberg_apply, H, DIM, k_wanted, max_iters, seed, ev);
     double t1 = now_s_();
     if (rc != IRREP_OK) { fprintf(stderr, "Lanczos failed: %d\n", rc); return 1; }
     printf("  Lanczos: %.2f s  (%.2f s per iteration)\n",
@@ -141,7 +112,7 @@ int main(void) {
     }
     double ev_trip[1];
     t0 = now_s_();
-    rc = irrep_lanczos_eigvals(apply_H_heisenberg, &ctx, DIM,
+    rc = irrep_lanczos_eigvals(irrep_heisenberg_apply, H, DIM,
                                /*k_wanted=*/1, max_iters, seed, ev_trip);
     t1 = now_s_();
     if (rc != IRREP_OK) { fprintf(stderr, "Lanczos Sz=1 failed: %d\n", rc); return 1; }
@@ -216,6 +187,7 @@ int main(void) {
 
     free(seed);
     free(bi); free(bj);
+    irrep_heisenberg_free(H);
     irrep_lattice_free(L);
     return 0;
 }

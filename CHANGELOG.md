@@ -6,6 +6,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **`irrep/hamiltonian.h` — on-the-fly Hamiltonian apply operators.**
+ Every ED example previously re-implemented the same spin-½ Heisenberg
+ `apply_op` callback by hand (~40 LOC each). Promoted to a library
+ primitive: `irrep_heisenberg_new(num_sites, num_bonds, bi, bj, J)` →
+ opaque handle; `irrep_heisenberg_apply` has the signature required by
+ `irrep_lanczos_eigvals` and can be passed directly. Closes the audit
+ item "physics substrate claim is scaffolding, not API."
+ `examples/kagome24_ed.c` migrated to the new primitive; others will
+ follow in a 1.3.x point release. Tested: `tests/test_hamiltonian.c`
+ exercises N=2 closed-form eigenvalues, N=4 ring E₀ = −2J
+ (Bethe-ansatz reference) via Lanczos, plus selection-rule / input
+ validation.
+
+- **`examples/EXPECTED_OUTPUT.md` — reproducibility reference.** Every
+ non-toy example's RNG seed is documented inline in the source; this
+ file catalogues the expected numerical output per example so a reader
+ building from a fresh clone can verify the library matches this tree.
+ Tolerances per-example reflect Lanczos convergence bound, not
+ floating-point precision (the latter is machine-epsilon through every
+ documented `j` regime).
+
 ### Changed
 
 - **Wigner 3j / CG now use Miller two-directional iteration**

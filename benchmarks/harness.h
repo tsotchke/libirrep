@@ -2,6 +2,13 @@
 #ifndef LIBIRREP_BENCH_HARNESS_H
 #define LIBIRREP_BENCH_HARNESS_H
 
+/* CLOCK_MONOTONIC is POSIX.1b. Declare the feature test before any
+ * header is pulled in by a bench translation unit, otherwise glibc
+ * hides the symbol under strict -std=c11. */
+#ifndef _POSIX_C_SOURCE
+#  define _POSIX_C_SOURCE 199309L
+#endif
+
 #include <stdio.h>
 #include <time.h>
 

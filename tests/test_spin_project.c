@@ -22,6 +22,10 @@
 
 #include <irrep/spin_project.h>
 
+#ifndef M_PI
+#  define M_PI 3.14159265358979323846
+#endif
+
 static double norm2_(const double _Complex *psi, long long dim) {
     double s = 0.0;
     for (long long k = 0; k < dim; ++k) {

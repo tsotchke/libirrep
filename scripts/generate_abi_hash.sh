@@ -20,8 +20,18 @@ else
     SYMS="$(nm -g --defined-only "${STATIC_LIB}" 2>/dev/null | awk '{print $NF}' | sort -u)"
 fi
 
-# Filter to irrep-prefixed symbols only.
-EXPORTED="$(printf "%s\n" "${SYMS}" | grep -E '^_?irrep_' || true)"
+# Filter to public irrep-prefixed symbols only. Normalisations for
+# portability across Mach-O / ELF / PE:
+#   - strip the Mach-O leading underscore
+#   - exclude internal SIMD dispatch kernels (suffix _neon / _avx2 /
+#     _avx512 / _scalar): these are platform-specific implementation
+#     details reached only through the internal function-pointer table,
+#     so they must not perturb the public-API hash.
+EXPORTED="$(printf "%s\n" "${SYMS}" \
+    | grep -E '^_?irrep_' \
+    | sed 's/^_//' \
+    | grep -vE '_(neon|avx2|avx512|scalar)(_[a-z_0-9]*)?$' \
+    | sort -u || true)"
 
 if command -v shasum >/dev/null 2>&1; then
     printf "%s" "${EXPORTED}" | shasum -a 256 | awk '{print $1}'

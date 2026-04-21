@@ -24,6 +24,10 @@
 
 #include <irrep/lattice.h>
 
+#ifndef M_PI
+#  define M_PI 3.14159265358979323846
+#endif
+
 static double dist2_(const double a[2], const double b[2]) {
     double dx = a[0] - b[0], dy = a[1] - b[1];
     return dx*dx + dy*dy;

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# Compare current build's ABI hash against the last tagged baseline.
-# Full implementation lands in M13.
+# Compare current build's ABI hash against release/BASELINE_ABI_HASH.
+# Fails with a non-zero exit when the exported public-symbol set has
+# changed, so a MAJOR-bump-or-baseline-refresh decision is forced.
+# Gated into `make all` via the `check-abi` phony target.
 set -euo pipefail
 
 CURRENT="$(bash scripts/generate_abi_hash.sh build/lib)"

@@ -16,6 +16,7 @@
  */
 
 #include <math.h>
+#include <stdatomic.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -55,10 +56,17 @@ static double K4_p2 = 0.0;  /* sqrt(45 /(64 π))  ·  (x²−y²)(7z²−r²)   
 static double K4_p3 = 0.0;  /* sqrt(315/(128π))  ·  xz(x²−3y²)           */
 static double K4_p4 = 0.0;  /* sqrt(315/(256π))  ·  (x⁴−6x²y²+y⁴)        */
 
-static int constants_initialized = 0;
+/* Two-phase atomic init. `initialized` becomes true only *after* every
+ * constant has been written, so a concurrent second thread seeing the
+ * true flag has a happens-before with the first thread's writes
+ * (memory_order_acquire on the fast-path load, memory_order_release on
+ * the slow-path store). Multiple threads may still race to *perform*
+ * the initialization — but each writes identical values, so the
+ * outcome is bit-identical regardless of interleaving. */
+static atomic_bool constants_initialized = false;
 
 static void init_constants_(void) {
-    if (constants_initialized) return;
+    if (atomic_load_explicit(&constants_initialized, memory_order_acquire)) return;
     K0   = sqrt(1.0   / (4.0   * M_PI));
     K1   = sqrt(3.0   / (4.0   * M_PI));
     K2m2 = sqrt(15.0  / (4.0   * M_PI));
@@ -81,7 +89,7 @@ static void init_constants_(void) {
     K4_p2 = sqrt(45.0  / (64.0  * M_PI));
     K4_p3 = sqrt(315.0 / (32.0  * M_PI));
     K4_p4 = sqrt(315.0 / (256.0 * M_PI));
-    constants_initialized = 1;
+    atomic_store_explicit(&constants_initialized, true, memory_order_release);
 }
 
 /* -------------------------------------------------------------------------- *

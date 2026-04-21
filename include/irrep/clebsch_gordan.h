@@ -4,9 +4,11 @@
  *         and half-integer angular momentum, plus a cached table builder.
  *
  *  Coefficients satisfy the Condon-Shortley phase convention and the standard
- *  orthonormality relations. The Racah single-sum formula is evaluated in
- *  log-gamma space, which keeps the result accurate past `j = 50` in double
- *  precision; both positive and negative arguments are supported.
+ *  orthonormality relations. The kernel is Miller two-directional iteration
+ *  over the Schulten–Gordon three-term recurrence for Wigner-3j (Luscombe–
+ *  Luban, *Phys. Rev. E* **57**, 7274, 1998); Clebsch–Gordan is derived from
+ *  3j via `⟨j₁ m₁ j₂ m₂ | J M⟩ = (−1)^{j₁−j₂+M} √(2J+1) (j₁ j₂ J; m₁ m₂ −M)`.
+ *  Machine precision through at least `j = 200` in regression tests.
  *
  *  Every coefficient-returning function returns exactly `0.0` when the
  *  selection rules

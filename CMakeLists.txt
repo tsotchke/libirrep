@@ -2,13 +2,24 @@
 cmake_minimum_required(VERSION 3.16)
 
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" LIBIRREP_VERSION_STR)
+# CMake's `project(VERSION ...)` only accepts X.Y.Z[.T]; strip any
+# prerelease suffix for the numeric project version. Keep the full
+# string (with `-alpha` etc.) for pkg-config, installed metadata, and
+# the user-visible version macro so the two worlds agree on what
+# release this is.
 string(REGEX REPLACE "-.*$" "" LIBIRREP_VERSION_NUM "${LIBIRREP_VERSION_STR}")
+set(LIBIRREP_VERSION_FULL "${LIBIRREP_VERSION_STR}")
 
 project(libirrep
     VERSION     ${LIBIRREP_VERSION_NUM}
     DESCRIPTION "SO(3)/SU(2)/O(3) irreducible-representation machinery"
     LANGUAGES   C
 )
+# Re-attach the full string after project(). CMake's PROJECT_VERSION
+# is now the numeric form; consumers querying pkg-config get the full
+# form; callers querying `irrep_version_string()` also get the full
+# form. The three agree for non-prerelease versions.
+set(PROJECT_VERSION_FULL "${LIBIRREP_VERSION_FULL}")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -41,6 +52,14 @@ target_compile_definitions(libirrep
 target_compile_options(libirrep PRIVATE
     -Wall -Wextra -Wpedantic -Wno-unused-parameter
     -fno-math-errno
+    # Match the Makefile's CFLAGS_OPT so CMake-built binaries produce
+    # bit-identical output to Makefile-built binaries and the same
+    # ABI-hash-baked-at-compile-time string. Without this, gcc's
+    # default contracts differently from clang's, and the SIMD kernels
+    # (which use explicit FMA intrinsics) diverge 1 ulp from the
+    # scalar reference — the exact issue the Linux aarch64 CI hit on
+    # the first cross-platform Docker test.
+    -ffp-contract=on
 )
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
@@ -49,6 +68,14 @@ elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
     target_compile_definitions(libirrep PRIVATE
         USE_SSE42_IF_AVAILABLE
         USE_AVX2_IF_AVAILABLE
+    )
+    # AVX2 TUs need the instruction-set enable to compile their
+    # intrinsics. Matches the Makefile's per-file pattern rule
+    # (see Makefile: `$(OBJ_DIR)/src/%_avx2.o`). NEON TUs don't need
+    # a per-file flag because aarch64 targets have NEON by default.
+    file(GLOB LIBIRREP_AVX2_SOURCES CONFIGURE_DEPENDS "src/*_avx2.c")
+    set_source_files_properties(${LIBIRREP_AVX2_SOURCES}
+        PROPERTIES COMPILE_OPTIONS "-mavx2;-mfma"
     )
 endif()
 

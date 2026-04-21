@@ -9,8 +9,13 @@
  *      D^j_{m'm}(α, β, γ) = e^{−i m' α} · d^j_{m'm}(β) · e^{−i m γ}
  *  @endverbatim
  *
- *  with the small-d evaluated via the Sakurai (3.8.33) direct sum in
- *  log-gamma form — numerically stable past `j = 50` in double precision.
+ *  Small-d is evaluated via the Edmonds (4.1.23) Jacobi-polynomial form
+ *  with symmetry reduction to the canonical `m ≥ |m'|` region
+ *  (Varshalovich §4.4.1); the Jacobi polynomial itself uses the NIST
+ *  DLMF §18.9.1 forward three-term recurrence. Measured unitarity is
+ *  `≤ 10⁻¹²` through at least `j = 80` and bounded only by the
+ *  IEEE-754 `lgamma` overflow limit past that. See `src/wigner_d.c`
+ *  for the implementation and `docs/METHODS.md` §3.2 for references.
  */
 #ifndef IRREP_WIGNER_D_H
 #define IRREP_WIGNER_D_H

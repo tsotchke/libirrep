@@ -6,29 +6,62 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
 jobs:
-  build-per-triple:
+  # ---------------------------------------------------------------------------
+  # Unix triples — builds a per-runner release tarball and uploads it as a
+  # workflow artefact. The publish job gathers all of them and cuts the
+  # GitHub release in a single atomic step.
+  # ---------------------------------------------------------------------------
+  unix:
+    name: release-${{ matrix.triple }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-14,         triple: macos-arm64,   shell: bash        }
-          - { os: macos-13,         triple: macos-x86_64,  shell: bash        }
-          - { os: ubuntu-22.04,     triple: linux-x86_64,  shell: bash        }
-          - { os: ubuntu-24.04-arm, triple: linux-arm64,   shell: bash        }
-          - { os: windows-latest,   triple: windows-x86_64, shell: 'msys2 {0}' }
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: ${{ matrix.shell }}
+          - { triple: macos-arm64,   runner: macos-14         }
+          - { triple: macos-x86_64,  runner: macos-13         }
+          - { triple: linux-x86_64,  runner: ubuntu-22.04     }
+          - { triple: linux-arm64,   runner: ubuntu-24.04-arm }
     steps:
       - uses: actions/checkout@v4
 
-      # Windows: use MSYS2 + MinGW-w64 so the shell-script release path
-      # (scripts/build_release.sh) runs unchanged. Provides gcc, make,
-      # coreutils, and shasum equivalents.
-      - if: matrix.triple == 'windows-x86_64'
-        uses: msys2/setup-msys2@v2
+      - name: extract version from tag
+        id: version
+        shell: bash
+        run: |
+          set -euxo pipefail
+          echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: build release
+        shell: bash
+        run: |
+          set -euxo pipefail
+          bash scripts/build_release.sh ${{ steps.version.outputs.value }}
+
+      - name: upload tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: libirrep-${{ steps.version.outputs.value }}-${{ matrix.triple }}
+          path: release/liblibirrep-${{ steps.version.outputs.value }}-${{ matrix.triple }}.tar.gz
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------------
+  # Windows (MSYS2 MinGW). Same release script, bash-compatible.
+  # ---------------------------------------------------------------------------
+  windows:
+    name: release-windows-x86_64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: 'msys2 {0}'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
           update:  false
@@ -40,31 +73,62 @@ jobs:
             python
             tar
 
-      - name: Extract version from tag
+      - name: extract version from tag
         id: version
-        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: |
+          set -euxo pipefail
+          echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
-      - name: Build release
-        run: bash scripts/build_release.sh ${{ steps.version.outputs.value }}
+      - name: build release
+        run: |
+          set -euxo pipefail
+          bash scripts/build_release.sh ${{ steps.version.outputs.value }}
 
-      - name: Upload
+      - name: upload tarball
         uses: actions/upload-artifact@v4
         with:
-          name: libirrep-${{ steps.version.outputs.value }}-${{ matrix.triple }}
-          path: release/liblibirrep-${{ steps.version.outputs.value }}-${{ matrix.triple }}.tar.gz
+          name: libirrep-${{ steps.version.outputs.value }}-windows-x86_64
+          path: release/liblibirrep-${{ steps.version.outputs.value }}-windows-x86_64.tar.gz
+          if-no-files-found: error
 
+  # ---------------------------------------------------------------------------
+  # Publish step. Gates on every per-triple build succeeding; collects all
+  # tarballs, computes SHA256SUMS.txt centrally, auto-detects prerelease
+  # status from the tag, and cuts a single GitHub release.
+  # ---------------------------------------------------------------------------
   publish:
-    needs: build-per-triple
+    name: publish-release
+    needs: [unix, windows]
     runs-on: ubuntu-22.04
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+
+      - name: download all tarballs
+        uses: actions/download-artifact@v4
         with:
-          path: artifacts
-      - name: Create GitHub release
+          path: dist
+          pattern: libirrep-*
+          merge-multiple: true
+
+      - name: inventory + SHA256SUMS
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cd dist
+          ls -la
+          sha256sum liblibirrep-*.tar.gz | sort > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*.tar.gz
+          name: libirrep ${{ github.ref_name }}
           generate_release_notes: true
+          # Auto-detect pre-release tags by suffix — alpha / beta / rc all
+          # get the prerelease banner on the Releases page.
+          prerelease: ${{ contains(github.ref_name, 'alpha') ||
+                           contains(github.ref_name, 'beta')  ||
+                           contains(github.ref_name, 'rc')    }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/*

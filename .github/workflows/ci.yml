@@ -3,72 +3,101 @@ name: ci
 
 on:
   push:
-    branches: [master]
+    branches: [master, 'feat/**', 'fix/**']
   pull_request:
     branches: [master]
 
 jobs:
-  build-and-test:
+  # ---------------------------------------------------------------------------
+  # Unix matrix (macOS + Linux, both architectures). One matrix entry per
+  # (runner × compiler) — keeps each job tightly scoped so a single platform
+  # failure is immediately localisable instead of buried in a single log.
+  # ---------------------------------------------------------------------------
+  unix:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: macos-14,         triple: macos-arm64,    cc: clang }
-          - { os: macos-13,         triple: macos-x86_64,   cc: clang }
-          - { os: ubuntu-22.04,     triple: linux-x86_64,   cc: gcc   }
-          - { os: ubuntu-22.04,     triple: linux-x86_64,   cc: clang }
-          - { os: ubuntu-24.04-arm, triple: linux-arm64,    cc: gcc   }
-    runs-on: ${{ matrix.os }}
+          - { name: macos-arm64-clang,   runner: macos-14,         cc: clang, sanitize: 'true'  }
+          - { name: macos-x86_64-clang,  runner: macos-13,         cc: clang, sanitize: 'true'  }
+          - { name: linux-x86_64-gcc,    runner: ubuntu-22.04,     cc: gcc,   sanitize: 'false' }
+          - { name: linux-x86_64-clang,  runner: ubuntu-22.04,     cc: clang, sanitize: 'true'  }
+          - { name: linux-arm64-gcc,     runner: ubuntu-24.04-arm, cc: gcc,   sanitize: 'false' }
     env:
       CC: ${{ matrix.cc }}
     steps:
       - uses: actions/checkout@v4
-      - name: print-config
-        run: make print-config
-      - name: build
-        run: make all
-      - name: test
-        run: make test
-      - name: check-headers
-        run: make check-headers
-      - name: asan
-        if: matrix.cc == 'clang'
-        run: make asan
-      - name: ubsan
-        if: matrix.cc == 'clang'
-        run: make ubsan
-      - name: bench
-        run: make bench
-      - name: perf-compare
-        if: matrix.triple == 'macos-arm64'
-        continue-on-error: true
+
+      # Only needed when CC=clang on Linux runners (the default is gcc there).
+      - name: install clang (Linux)
+        if: runner.os == 'Linux' && matrix.cc == 'clang'
+        shell: bash
         run: |
-          latest=$(ls -1d benchmarks/results/2* | tail -n 1)
-          bash scripts/perf_compare.sh \
-              benchmarks/results/baseline/darwin-arm64.json \
-              "$latest/darwin-arm64.json"
-      - name: release
-        run: make release
-      - name: upload release tree
+          set -euxo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang
+
+      - name: print-config
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make print-config
+
+      - name: build + test + check-headers + check-abi
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make all
+
+      - name: asan
+        if: matrix.sanitize == 'true'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make asan
+
+      - name: ubsan
+        if: matrix.sanitize == 'true'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make ubsan
+
+      - name: bench
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make bench
+
+      - name: release artefact
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make release
+
+      - name: upload release tarball
         uses: actions/upload-artifact@v4
         with:
-          name: libirrep-${{ matrix.triple }}-${{ matrix.cc }}
-          # VERSION file drives the release path — `make release` emits
-          # into release/$(cat VERSION)/ and we upload the same path so
-          # future bumps don't need a CI edit.
-          path: release/
+          name: libirrep-${{ matrix.name }}
+          path: release/liblibirrep-*-*.tar.gz
+          if-no-files-found: error
 
-  windows-smoke:
-    # Windows/MinGW build through MSYS2 so the bash-based release and
-    # Makefile rules work unchanged. Runs the full test suite so any
-    # MSVC-incompatible idiom (e.g. `_Thread_local`, atomic_flag) surfaces
-    # before release-cut.
+  # ---------------------------------------------------------------------------
+  # Windows via MSYS2 + MinGW. Keeps the Makefile + bash release path working
+  # unchanged. A separate VS/ClangCL path would ship Windows-native binaries
+  # without the MSYS2 runtime dependency; tracked as a future improvement.
+  # ---------------------------------------------------------------------------
+  windows:
+    name: windows-x86_64-mingw
     runs-on: windows-latest
     defaults:
       run:
         shell: 'msys2 {0}'
     steps:
       - uses: actions/checkout@v4
+
       - uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW64
@@ -80,62 +109,92 @@ jobs:
             coreutils
             python
             tar
-      - name: print-config
-        run: make print-config
-      - name: build
-        run: make all
-      - name: test
-        run: make test
-      - name: check-headers
-        run: make check-headers
 
-  fuzz-smoke:
-    # Builds every libFuzzer target on clang and runs each for a short
-    # wall-clock budget. Catches regressions in parsers and low-level CG /
-    # TP invariants that the deterministic suite misses.
+      - name: print-config
+        run: |
+          set -euxo pipefail
+          make print-config
+
+      - name: build + test + check-headers + check-abi
+        run: |
+          set -euxo pipefail
+          make all
+
+  # ---------------------------------------------------------------------------
+  # libFuzzer smoke run (clang on Linux only — Apple clang strips the runtime
+  # library). Each harness is discovered via a glob so new fuzz targets start
+  # running in CI automatically.
+  # ---------------------------------------------------------------------------
+  fuzz:
+    name: fuzz-smoke
     runs-on: ubuntu-22.04
     env:
       CC: clang
     steps:
       - uses: actions/checkout@v4
+
+      - name: install clang
+        shell: bash
+        run: |
+          set -euxo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang
+
       - name: build fuzz targets
-        run: make fuzz
-      - name: run fuzz_multiset_parse (60s)
-        run: ./build/bin/fuzz_multiset_parse -max_total_time=60 -print_final_stats=1
-      - name: run fuzz_cg (60s)
-        run: ./build/bin/fuzz_cg -max_total_time=60 -print_final_stats=1
-      - name: run fuzz_tp_apply (60s)
-        run: ./build/bin/fuzz_tp_apply -max_total_time=60 -print_final_stats=1
-      - name: run fuzz_nequip_apply_forces (60s)
-        run: ./build/bin/fuzz_nequip_apply_forces -max_total_time=60 -print_final_stats=1
-      - name: run fuzz_nequip_from_spec (60s)
-        run: ./build/bin/fuzz_nequip_from_spec -max_total_time=60 -print_final_stats=1
-      - name: run fuzz_pg_project (60s)
-        run: ./build/bin/fuzz_pg_project -max_total_time=60 -print_final_stats=1
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make fuzz
 
-  abi-check:
+      - name: run each harness for 60 s
+        shell: bash
+        run: |
+          set -euxo pipefail
+          for bin in build/bin/fuzz_*; do
+            [ -f "$bin" ] || continue
+            # Skip the non-libFuzzer _driver companions; they are exercised
+            # by `make fuzz-run` (non-coverage-guided random-byte driver).
+            case "$bin" in *_driver) continue;; esac
+            echo "=== $bin ==="
+            "$bin" -max_total_time=60 -print_final_stats=1
+          done
+
+  # ---------------------------------------------------------------------------
+  # CMake surface. Confirms the second supported build system still works and
+  # ctest picks up every test binary CMake sees.
+  # ---------------------------------------------------------------------------
+  cmake:
+    name: cmake-build
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - name: configure
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
       - name: build
-        run: make lib
-      - name: ABI regression gate
-        # Compares the current build's exported-symbol SHA-256 against
-        # release/BASELINE_ABI_HASH. Intentional breaks bump the major
-        # version in VERSION and refresh the baseline in the same commit.
-        run: make check-abi
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cmake --build build --parallel
+      - name: ctest
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ctest --test-dir build --output-on-failure
 
-  cmake-build:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-      - run: cmake --build build --parallel
-      - run: ctest --test-dir build --output-on-failure
-
+  # ---------------------------------------------------------------------------
+  # Advisory linter. Non-blocking while clang-format rules stabilise.
+  # ---------------------------------------------------------------------------
   lint:
+    name: clang-format
     runs-on: ubuntu-22.04
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: clang-format
-        run: make lint || true     # advisory for now
+        shell: bash
+        run: |
+          set -euxo pipefail
+          make lint

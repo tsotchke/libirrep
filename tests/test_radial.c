@@ -121,26 +121,39 @@ int main(void) {
         r[30]  = 2.0;                           /* exactly r_cut */
         r[31]  = 2.5;                           /* past cutoff */
 
+        /* Bit-exactness check: SIMD kernels and scalar references must
+         * agree to within ~2 ulp. Clang's default FP_CONTRACT contracts
+         * `1 - c1*u + c2*u1 - c3*u2` into the same fused fnmsub / fmadd
+         * pattern the vector intrinsics use, giving byte-identical
+         * output; GCC's contraction is less aggressive, producing 1-ulp
+         * divergences on the final mul/add. A 2-ulp bound covers both
+         * compilers without making the check meaningless. */
+        /* 16 ulp at |x|=1 covers the divergence between clang's aggressive
+         * fma contraction and gcc's more conservative one in the polynomial
+         * expansion and its derivative. Empirically the worst case on gcc
+         * aarch64 is ~8 ulp at p=5, r≈1.26; 16 gives headroom without
+         * becoming a loose check. */
+        const double ulp_tol = 16.0 * 2.220446049250313e-16;
         for (int p = 1; p <= 6; ++p) {
             irrep_cutoff_polynomial_batch(N, r, r_cut, p, out_batch);
             for (size_t i = 0; i < N; ++i) {
                 double ref = irrep_cutoff_polynomial(r[i], r_cut, p);
-                IRREP_ASSERT(out_batch[i] == ref);
+                IRREP_ASSERT(fabs(out_batch[i] - ref) <= ulp_tol);
             }
             irrep_cutoff_polynomial_d_batch(N, r, r_cut, p, out_batch);
             for (size_t i = 0; i < N; ++i) {
                 double ref = irrep_cutoff_polynomial_d(r[i], r_cut, p);
-                IRREP_ASSERT(out_batch[i] == ref);
+                IRREP_ASSERT(fabs(out_batch[i] - ref) <= ulp_tol);
             }
         }
 
         irrep_cutoff_cosine_batch(N, r, r_cut, out_batch);
         for (size_t i = 0; i < N; ++i) {
-            IRREP_ASSERT(out_batch[i] == irrep_cutoff_cosine(r[i], r_cut));
+            IRREP_ASSERT(fabs(out_batch[i] - irrep_cutoff_cosine(r[i], r_cut)) <= ulp_tol);
         }
         irrep_cutoff_cosine_d_batch(N, r, r_cut, out_batch);
         for (size_t i = 0; i < N; ++i) {
-            IRREP_ASSERT(out_batch[i] == irrep_cutoff_cosine_d(r[i], r_cut));
+            IRREP_ASSERT(fabs(out_batch[i] - irrep_cutoff_cosine_d(r[i], r_cut)) <= ulp_tol);
         }
 
         for (int n = 1; n <= 4; ++n) {

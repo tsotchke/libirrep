@@ -22,7 +22,11 @@ SO_MAJOR := 1
 # ---------------------------------------------------------------------------
 CFLAGS_COMMON  = -std=c11 -Iinclude -fvisibility=hidden
 CFLAGS_WARN    = -Wall -Wextra -Wpedantic -Wno-unused-parameter
-CFLAGS_OPT     = -O2 -fno-math-errno
+# -ffp-contract=on: force consistent a*b+c -> fma contraction across
+# compilers so the NEON / AVX2 kernels (which use explicit fma
+# intrinsics) stay bit-exact to the scalar reference under both clang
+# (contract-on by default) and gcc (contract-off by default at -O2).
+CFLAGS_OPT     = -O2 -fno-math-errno -ffp-contract=on
 CFLAGS         = $(CFLAGS_COMMON) $(CFLAGS_WARN) $(CFLAGS_OPT)
 LDFLAGS        = -lm
 

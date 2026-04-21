@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
-/* CLOCK_MONOTONIC is POSIX.1b, not strict C11. */
-#define _POSIX_C_SOURCE 199309L
+/* POSIX feature test. 200112L exposes CLOCK_MONOTONIC and
+ * snprintf on both glibc and Apple's strict-feature-test stdio. */
+#define _POSIX_C_SOURCE 200112L
 /* End-to-end configuration-space A₁ projection on a 6×6 × 3 = 108-site
  * kagome cluster — the target lattice for the symmetric neural-
  * quantum-state pipeline (kagome Heisenberg S = ½ ground-state nature,

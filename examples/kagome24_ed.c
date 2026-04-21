@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: MIT */
-/* glibc feature-test: CLOCK_MONOTONIC is POSIX.1b (1993), not in strict
- * C11. Define before <time.h> is pulled in by any header. */
-#define _POSIX_C_SOURCE 199309L
+/* POSIX feature test. 200112L exposes CLOCK_MONOTONIC and snprintf
+ * across both glibc and Apple's strict-feature-test stdio. */
+#define _POSIX_C_SOURCE 200112L
 /* 24-site kagome Heisenberg ED on a 2×4 torus, via the sparse Lanczos
  * solver in irrep/rdm.h. Hilbert space 2^24 = 16.78 M complex amplitudes
  * (≈ 256 MB per state vector). Demonstrates that the libirrep 1.3

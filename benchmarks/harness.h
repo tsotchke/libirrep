@@ -4,9 +4,12 @@
 
 /* CLOCK_MONOTONIC is POSIX.1b. Declare the feature test before any
  * header is pulled in by a bench translation unit, otherwise glibc
- * hides the symbol under strict -std=c11. */
+ * hides the symbol under strict -std=c11. Use 200112L (POSIX.1-2001)
+ * rather than 199309L so Apple's strict-feature-test stdio still
+ * exposes `snprintf` and friends — 199309L predates the addition of
+ * `snprintf` to POSIX-C space. */
 #ifndef _POSIX_C_SOURCE
-#  define _POSIX_C_SOURCE 199309L
+#  define _POSIX_C_SOURCE 200112L
 #endif
 
 #include <stdio.h>

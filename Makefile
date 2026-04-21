@@ -175,14 +175,13 @@ $(STATIC_LIB): $(LIB_OBJS) | $(LIB_DIR)
 $(SHARED_LIB): $(LIB_OBJS) | $(LIB_DIR)
 	$(CC) $(SHLIB_FLAGS) -o $@ $^ $(LDFLAGS)
 
-# On MinGW the SONAME and the bare link name are the same file
-# (liblibirrep.dll), so there's nothing to symlink — the shared lib itself
-# satisfies the target. On ELF / Mach-O the link name (liblibirrep.so /
-# liblibirrep.dylib) is a versioned-symlink companion to the SONAME.
-ifeq ($(SHLIB_SONAME),$(SHLIB_LINK))
-$(SHARED_LIB_LINK): $(SHARED_LIB)
-	@:
-else
+# On MinGW, SONAME and bare link name resolve to the same file
+# (liblibirrep.dll), so the shared lib itself satisfies the link target
+# and the rule is omitted — declaring it would produce a self-dependency
+# ("Circular X <- X dependency dropped" warning). On ELF / Mach-O, the
+# link name (liblibirrep.so / .dylib) is a versioned-symlink companion
+# to the SONAME (liblibirrep.so.1 / .1.dylib).
+ifneq ($(SHLIB_SONAME),$(SHLIB_LINK))
 $(SHARED_LIB_LINK): $(SHARED_LIB)
 	@cd $(LIB_DIR) && ln -sf $(notdir $(SHARED_LIB)) $(SHLIB_LINK)
 endif
@@ -349,7 +348,14 @@ fuzz-driver: $(FUZZ_DRIVER_BINS)
 # baseline is the intentional-break workflow.
 # ---------------------------------------------------------------------------
 check-abi: lib
+ifeq ($(OS_TRIPLE),windows)
+	@echo "# ABI hash gate skipped on Windows — MinGW dllexport attributes"
+	@echo "#   introduce platform-specific symbols that diverge from the"
+	@echo "#   Mach-O / ELF baseline by design. Drift detection runs on the"
+	@echo "#   Linux and macOS matrix entries."
+else
 	@bash scripts/check_abi.sh
+endif
 
 fuzz-run: fuzz-driver
 	@mkdir -p $(BUILD_DIR)

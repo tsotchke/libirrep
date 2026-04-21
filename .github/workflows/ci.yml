@@ -190,17 +190,8 @@ jobs:
           set -euxo pipefail
           ctest --test-dir build --output-on-failure
 
-  # ---------------------------------------------------------------------------
-  # Advisory linter. Non-blocking while clang-format rules stabilise.
-  # ---------------------------------------------------------------------------
-  lint:
-    name: clang-format
-    runs-on: ubuntu-22.04
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - name: clang-format
-        shell: bash
-        run: |
-          set -euxo pipefail
-          make lint
+  # NOTE: `make lint` is kept as a developer-invoked target and a
+  # pre-commit hook. It is deliberately not wired into CI because
+  # clang-format versions drift between distros (Ubuntu 22.04 ships
+  # clang-format 14; local toolchains commonly run 18+), producing
+  # formatting disagreements that are not meaningful style regressions.

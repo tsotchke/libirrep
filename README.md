@@ -345,6 +345,17 @@ cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
+Reproducible Linux environment via Docker (mirrors the CI runner):
+
+```
+docker build -t libirrep-dev .
+docker run --rm -v "$(pwd):/w" -w /w libirrep-dev make all
+
+# cross-arch from Apple Silicon to validate the x86_64 AVX2 path:
+docker build --platform linux/amd64 -t libirrep-dev-x64 .
+docker run --rm --platform linux/amd64 -v "$(pwd):/w" -w /w libirrep-dev-x64 make all
+```
+
 ## Documentation
 
 | Document | Purpose |

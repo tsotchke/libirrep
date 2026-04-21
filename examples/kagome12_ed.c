@@ -37,6 +37,7 @@
  */
 
 #include <irrep/config_project.h>
+#include <irrep/hamiltonian.h>
 #include <irrep/lattice.h>
 #include <irrep/rdm.h>
 #include <irrep/space_group.h>
@@ -52,39 +53,15 @@
 #define DIM (1LL << N)        /* 4096 */
 
 /* -------------------------------------------------------------------------- *
- * On-the-fly Heisenberg H application                                        *
- *     H = J Σ_{⟨i,j⟩}  (¼) (σ_x^i σ_x^j + σ_y^i σ_y^j + σ_z^i σ_z^j)         *
- * Never materialise H as a dense 4096² matrix (would take 67 MB).            *
- * -------------------------------------------------------------------------- */
-
-static void apply_H(const double _Complex *psi, double _Complex *out,
-                    const int *bi, const int *bj, int nb, double J) {
-    memset(out, 0, (size_t)DIM * sizeof(double _Complex));
-    for (int b = 0; b < nb; ++b) {
-        int i = bi[b], j = bj[b];
-        long long mi = 1LL << i, mj = 1LL << j;
-        for (long long s = 0; s < DIM; ++s) {
-            int zi = (int)((s >> i) & 1);
-            int zj = (int)((s >> j) & 1);
-            /* ¼ σ_z σ_z: +¼ if same, −¼ if different. */
-            double sign = (zi ^ zj) ? -1.0 : +1.0;
-            out[s] += (J * 0.25 * sign) * psi[s];
-            /* ½ (σ_+^i σ_-^j + σ_-^i σ_+^j): flips differing pairs. */
-            if (zi != zj) {
-                long long s_flip = s ^ mi ^ mj;
-                out[s_flip] += (J * 0.5) * psi[s];
-            }
-        }
-    }
-}
-
-/* -------------------------------------------------------------------------- *
- * Shifted power iteration for the ground state                               *
- * M = shift · I − H;  dominant eigenvector of M = ground state of H.         *
+ * On-the-fly Heisenberg application via the library primitive. The inline
+ * apply_H this example once carried is now `irrep_heisenberg_apply` — see
+ * include/irrep/hamiltonian.h. Kept the power-iteration driver here
+ * because the shift-and-invert technique it demonstrates is orthogonal
+ * to the Lanczos path tested against it.
  * -------------------------------------------------------------------------- */
 
 static double power_iterate(double _Complex *psi, double _Complex *scratch,
-                            const int *bi, const int *bj, int nb, double J,
+                            const irrep_heisenberg_t *H,
                             double shift, int iters) {
     /* Normalise input */
     double norm = 0.0;
@@ -94,7 +71,7 @@ static double power_iterate(double _Complex *psi, double _Complex *scratch,
     for (long long s = 0; s < DIM; ++s) psi[s] /= norm;
 
     for (int it = 0; it < iters; ++it) {
-        apply_H(psi, scratch, bi, bj, nb, J);
+        irrep_heisenberg_apply(psi, scratch, (void *)H);
         for (long long s = 0; s < DIM; ++s) scratch[s] = shift * psi[s] - scratch[s];
         norm = 0.0;
         for (long long s = 0; s < DIM; ++s) norm += creal(scratch[s])*creal(scratch[s]) + cimag(scratch[s])*cimag(scratch[s]);
@@ -104,7 +81,7 @@ static double power_iterate(double _Complex *psi, double _Complex *scratch,
     }
 
     /* Rayleigh quotient gives E_0 */
-    apply_H(psi, scratch, bi, bj, nb, J);
+    irrep_heisenberg_apply(psi, scratch, (void *)H);
     double E = 0.0;
     for (long long s = 0; s < DIM; ++s) E += creal(conj(psi[s]) * scratch[s]);
     return E;
@@ -117,7 +94,7 @@ static double power_iterate_deflated(double _Complex *psi,
                                      double _Complex *scratch,
                                      const double _Complex *const *deflate_against,
                                      int n_deflate,
-                                     const int *bi, const int *bj, int nb, double J,
+                                     const irrep_heisenberg_t *H,
                                      double shift, int iters) {
     /* Initial orthogonalisation */
     for (int k = 0; k < n_deflate; ++k) {
@@ -132,7 +109,7 @@ static double power_iterate_deflated(double _Complex *psi,
     for (long long s = 0; s < DIM; ++s) psi[s] /= norm;
 
     for (int it = 0; it < iters; ++it) {
-        apply_H(psi, scratch, bi, bj, nb, J);
+        irrep_heisenberg_apply(psi, scratch, (void *)H);
         for (long long s = 0; s < DIM; ++s) scratch[s] = shift * psi[s] - scratch[s];
         /* Orthogonalise */
         for (int k = 0; k < n_deflate; ++k) {
@@ -147,7 +124,7 @@ static double power_iterate_deflated(double _Complex *psi,
         for (long long s = 0; s < DIM; ++s) psi[s] = scratch[s] / norm;
     }
 
-    apply_H(psi, scratch, bi, bj, nb, J);
+    irrep_heisenberg_apply(psi, scratch, (void *)H);
     double E = 0.0;
     for (long long s = 0; s < DIM; ++s) E += creal(conj(psi[s]) * scratch[s]);
     return E;
@@ -206,6 +183,10 @@ int main(void) {
     int *bj = malloc(sizeof(int) * nb);
     irrep_lattice_fill_bonds_nn(L, bi, bj);
 
+    /* Library Hamiltonian: `J = 1` Heisenberg on the NN bond list. */
+    irrep_heisenberg_t *H = irrep_heisenberg_new(Nsites, nb, bi, bj, 1.0);
+    if (!H) { fprintf(stderr, "irrep_heisenberg_new failed\n"); return 1; }
+
     /* 2. Space group attach. */
     irrep_space_group_t *G =
         irrep_space_group_build(L, IRREP_WALLPAPER_P6MM);
@@ -225,7 +206,7 @@ int main(void) {
     }
 
     printf("running shifted power iteration (shift = +10 J) ...\n");
-    double E0 = power_iterate(psi, scratch, bi, bj, nb, /*J=*/1.0,
+    double E0 = power_iterate(psi, scratch, H,
                               /*shift=*/10.0, /*iters=*/2000);
     printf("E_0           = %+.8f J\n", E0);
     printf("E_0 / N_site  = %+.8f J\n", E0 / Nsites);
@@ -325,7 +306,7 @@ int main(void) {
     const double _Complex *deflate[1] = { psi };
     printf("\nrunning deflated power iteration for E_1 ...\n");
     double E1 = power_iterate_deflated(psi_e1, scratch, deflate, 1,
-                                       bi, bj, nb, /*J=*/1.0,
+                                       H,
                                        /*shift=*/10.0, /*iters=*/3000);
     printf("E_1           = %+.8f J\n", E1);
     printf("gap Δ = E_1 − E_0 = %+.8f J\n", E1 - E0);
@@ -380,7 +361,7 @@ int main(void) {
         if (__builtin_popcountll(s) == N / 2 - 1) psi_trip[s] = 1.0;
     }
     printf("\nrunning S_z = 1 power iteration for lowest triplet ...\n");
-    double E_trip = power_iterate(psi_trip, scratch, bi, bj, nb, 1.0,
+    double E_trip = power_iterate(psi_trip, scratch, H,
                                   /*shift=*/10.0, /*iters=*/2000);
     double spin_gap = E_trip - E0;
     printf("E_triplet         = %+.8f J\n", E_trip);
@@ -547,6 +528,7 @@ int main(void) {
     /* Cleanup */
     free(psi); free(scratch);
     free(bi); free(bj);
+    irrep_heisenberg_free(H);
     irrep_sg_irrep_free(A1);
     irrep_space_group_free(G);
     irrep_lattice_free(L);

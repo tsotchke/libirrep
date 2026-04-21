@@ -20,6 +20,7 @@
  *   ./build/bin/kagome18_ed
  */
 
+#include <irrep/hamiltonian.h>
 #include <irrep/lattice.h>
 #include <irrep/rdm.h>
 #include <irrep/spin_project.h>
@@ -34,27 +35,10 @@
 #define N   18
 #define DIM (1LL << N)        /* 262144 */
 
-static void apply_H(const double _Complex *psi, double _Complex *out,
-                    const int *bi, const int *bj, int nb, double J) {
-    memset(out, 0, (size_t)DIM * sizeof(double _Complex));
-    for (int b = 0; b < nb; ++b) {
-        int i = bi[b], j = bj[b];
-        long long mi = 1LL << i, mj = 1LL << j;
-        for (long long s = 0; s < DIM; ++s) {
-            int zi = (int)((s >> i) & 1);
-            int zj = (int)((s >> j) & 1);
-            double sign = (zi ^ zj) ? -1.0 : +1.0;
-            out[s] += (J * 0.25 * sign) * psi[s];
-            if (zi != zj) {
-                long long s_flip = s ^ mi ^ mj;
-                out[s_flip] += (J * 0.5) * psi[s];
-            }
-        }
-    }
-}
+/* H-apply is `irrep_heisenberg_apply` from <irrep/hamiltonian.h>. */
 
 static double power_iterate(double _Complex *psi, double _Complex *scratch,
-                            const int *bi, const int *bj, int nb, double J,
+                            const irrep_heisenberg_t *H,
                             double shift, int iters) {
     double norm = 0.0;
     for (long long s = 0; s < DIM; ++s) norm += creal(psi[s])*creal(psi[s]) + cimag(psi[s])*cimag(psi[s]);
@@ -64,7 +48,7 @@ static double power_iterate(double _Complex *psi, double _Complex *scratch,
 
     double E_prev = 0.0;
     for (int it = 0; it < iters; ++it) {
-        apply_H(psi, scratch, bi, bj, nb, J);
+        irrep_heisenberg_apply(psi, scratch, (void *)H);
         double E_now = 0.0;
         for (long long s = 0; s < DIM; ++s) E_now += creal(conj(psi[s]) * scratch[s]);
 
@@ -79,7 +63,7 @@ static double power_iterate(double _Complex *psi, double _Complex *scratch,
         E_prev = E_now;
     }
 
-    apply_H(psi, scratch, bi, bj, nb, J);
+    irrep_heisenberg_apply(psi, scratch, (void *)H);
     double E = 0.0;
     for (long long s = 0; s < DIM; ++s) E += creal(conj(psi[s]) * scratch[s]);
     return E;
@@ -98,6 +82,9 @@ int main(void) {
     int *bi = malloc(sizeof(int) * nb);
     int *bj = malloc(sizeof(int) * nb);
     irrep_lattice_fill_bonds_nn(L, bi, bj);
+
+    irrep_heisenberg_t *H = irrep_heisenberg_new(Nsites, nb, bi, bj, /*J=*/1.0);
+    if (!H) { fprintf(stderr, "irrep_heisenberg_new failed\n"); return 1; }
 
     /* Seed in the S_z = 0 sector with a pseudo-random amplitude pattern.
      * A uniform seed can have accidental zero overlap with specific
@@ -120,7 +107,7 @@ int main(void) {
            num_sz0);
 
     printf("running shifted power iteration (shift = +15 J, max 2000 iters) ...\n");
-    double E0 = power_iterate(psi, scratch, bi, bj, nb, /*J=*/1.0,
+    double E0 = power_iterate(psi, scratch, H,
                               /*shift=*/15.0, /*iters=*/2000);
     printf("E_0           = %+.8f J\n", E0);
     printf("E_0 / N_site  = %+.8f J\n", E0 / Nsites);
@@ -212,7 +199,7 @@ int main(void) {
             psi_trip[s] = (double)(rng >> 32) / (double)0xFFFFFFFFULL - 0.5;
         }
     }
-    double E_trip = power_iterate(psi_trip, scratch, bi, bj, nb, 1.0,
+    double E_trip = power_iterate(psi_trip, scratch, H,
                                   /*shift=*/15.0, /*iters=*/2000);
     double spin_gap = E_trip - E0;
     printf("E_triplet         = %+.8f J\n", E_trip);
@@ -222,6 +209,7 @@ int main(void) {
 
     free(psi); free(scratch);
     free(bi); free(bj);
+    irrep_heisenberg_free(H);
     irrep_lattice_free(L);
     return 0;
 }

@@ -50,6 +50,13 @@ cp build/lib/*.dll   "${LIB_OUT}/" 2>/dev/null || true
 cp build/lib/*.dll.a "${LIB_OUT}/" 2>/dev/null || true
 cp include/irrep/*.h "${INC_OUT}/"
 
+# Top-level project docs ship with every tarball so a consumer who
+# downloads a single triple gets the license, changelog, and quickstart
+# without having to visit the upstream repo.
+for doc in README.md LICENSE CHANGELOG.md CITATION.cff; do
+    [ -f "${doc}" ] && cp "${doc}" "${ROOT}/"
+done
+
 echo "${VERSION}" > "${ROOT}/VERSION"
 echo "${PASS1_HASH}" > "${ROOT}/ABI_HASH"
 ABI_HASH_VALUE="${PASS1_HASH}"

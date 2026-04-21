@@ -1,0 +1,11 @@
+[
+{"name":"cg_110_110_110","iterations":1000000,"ops_per_iter":1,"ns_per_op":94.737,"ops_per_sec":1.056e+07},
+{"name":"equivariance_stub","iterations":10000,"ops_per_iter":1,"ns_per_op":1.600,"ops_per_sec":6.250e+08},
+{"name":"rbf_bessel","iterations":1000000,"ops_per_iter":1,"ns_per_op":12.494,"ops_per_sec":8.004e+07},
+{"name":"sph_harm_cart_all_l4","iterations":100000,"ops_per_iter":25,"ns_per_op":6.834,"ops_per_sec":1.463e+08},
+{"name":"sph_harm_cart_all_batch_l4_4096E","iterations":200,"ops_per_iter":4096,"ns_per_op":175.243,"ops_per_sec":5.706e+06},
+{"name":"tp_apply_empty","iterations":100000,"ops_per_iter":1,"ns_per_op":4.300,"ops_per_sec":2.326e+08},
+{"name":"tp_apply_nequip","iterations":500000,"ops_per_iter":1,"ns_per_op":229.618,"ops_per_sec":4.355e+06},
+{"name":"tp_apply_nequip_weighted","iterations":500000,"ops_per_iter":1,"ns_per_op":229.562,"ops_per_sec":4.356e+06},
+{"name":"wigner_D_matrix_j4","iterations":100000,"ops_per_iter":81,"ns_per_op":111.731,"ops_per_sec":8.950e+06}
+]

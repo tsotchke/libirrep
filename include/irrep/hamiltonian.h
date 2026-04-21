@@ -83,6 +83,37 @@ IRREP_API int irrep_heisenberg_num_sites(const irrep_heisenberg_t *H);
  *         sizing Lanczos buffers. */
 IRREP_API long long irrep_heisenberg_dim(const irrep_heisenberg_t *H);
 
+/** @brief Build a J₁-J₂ Heisenberg on two bond sets (NN + NNN):
+ *
+ *    H = J₁ · Σ_{⟨i,j⟩ ∈ nn}  S_i · S_j
+ *      + J₂ · Σ_{⟨i,j⟩ ∈ nnn} S_i · S_j
+ *
+ *  Produced as an `irrep_heisenberg_t` so the apply callback is shared
+ *  with the pure-NN case; internally stored as a concatenated bond list
+ *  with per-bond effective coupling. Callers fill the nn and nnn bond
+ *  arrays from @ref irrep_lattice_fill_bonds_nn and
+ *  @ref irrep_lattice_fill_bonds_nnn.
+ *
+ *  The J₁-J₂ square Heisenberg is one of the standard frustrated-
+ *  magnetism benchmarks; J₂/J₁ ≈ 0.5 sits near the proposed spin-liquid
+ *  window and is the secondary target the 1.3 substrate supports. */
+IRREP_API irrep_heisenberg_t *
+irrep_heisenberg_j1j2_new(int num_sites,
+                          int num_bonds_nn,  const int *nn_i,  const int *nn_j,  double J1,
+                          int num_bonds_nnn, const int *nnn_i, const int *nnn_j, double J2);
+
+/** @brief Build a spin-½ XY chain / lattice:
+ *
+ *    H = J · Σ_{⟨i,j⟩}  (S_i^x S_j^x + S_i^y S_j^y)  =  (J/2) · Σ  (S_i^+ S_j^− + h.c.)
+ *
+ *  No S^z-S^z term. S_z_total is still conserved, but the eigenvalue
+ *  spectrum is continuous-like for large N (Bethe-ansatz soluble in 1D).
+ *  Same apply callback as Heisenberg. */
+IRREP_API irrep_heisenberg_t *
+irrep_xy_new(int num_sites, int num_bonds,
+             const int *bi, const int *bj,
+             double J);
+
 #ifdef __cplusplus
 }
 #endif

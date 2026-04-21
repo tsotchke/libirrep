@@ -11,15 +11,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`irrep/hamiltonian.h` — on-the-fly Hamiltonian apply operators.**
  Every ED example previously re-implemented the same spin-½ Heisenberg
  `apply_op` callback by hand (~40 LOC each). Promoted to a library
- primitive: `irrep_heisenberg_new(num_sites, num_bonds, bi, bj, J)` →
- opaque handle; `irrep_heisenberg_apply` has the signature required by
- `irrep_lanczos_eigvals` and can be passed directly. Closes the audit
- item "physics substrate claim is scaffolding, not API."
- `examples/kagome24_ed.c` migrated to the new primitive; others will
- follow in a 1.3.x point release. Tested: `tests/test_hamiltonian.c`
- exercises N=2 closed-form eigenvalues, N=4 ring E₀ = −2J
- (Bethe-ansatz reference) via Lanczos, plus selection-rule / input
- validation.
+ primitive with three constructors sharing one data-driven apply kernel:
+   - `irrep_heisenberg_new` — NN Heisenberg `J·Σ S_i·S_j`
+   - `irrep_heisenberg_j1j2_new` — J₁–J₂ on separate NN + NNN bond sets
+   - `irrep_xy_new` — XY-only `J·Σ (S^x S^x + S^y S^y)`
+ All three produce an `irrep_heisenberg_t` whose `_apply` function has
+ the signature `irrep_lanczos_eigvals` expects, so they plug directly
+ into the sparse eigensolver. Closes the audit item "physics substrate
+ claim is scaffolding, not API." `examples/kagome24_ed.c` migrated to
+ the new primitive; other examples will follow in a 1.3.x point
+ release. Tested: `tests/test_hamiltonian.c` exercises N=2 closed-form
+ eigenvalues, N=4 Heisenberg-ring E₀ = −2J (Bethe-ansatz reference) via
+ Lanczos, XY flip-only semantics, J₁–J₂ with J₂=0 / J₂=J₁ boundary
+ conditions (E₀ = −¾J at the 3-site equilateral triangle), and input
+ validation — 49 assertions.
 
 - **`examples/EXPECTED_OUTPUT.md` — reproducibility reference.** Every
  non-toy example's RNG seed is documented inline in the source; this

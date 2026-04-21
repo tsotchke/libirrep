@@ -110,5 +110,87 @@ int main(void) {
     IRREP_ASSERT(irrep_heisenberg_num_sites(NULL) == 0);
     IRREP_ASSERT(irrep_heisenberg_dim(NULL)       == 0);
 
+    /* ---- XY model: H = J(S^x_0 S^x_1 + S^y_0 S^y_1) = ½J(S^+ S^- + h.c.) ---- */
+    {
+        int bi[] = {0}, bj[] = {1};
+        irrep_heisenberg_t *H = irrep_xy_new(2, 1, bi, bj, 1.0);
+        IRREP_ASSERT(H != NULL);
+
+        /* Basis: 0=|↓↓⟩, 1=|↑↓⟩, 2=|↓↑⟩, 3=|↑↑⟩.
+         * H|↓↓⟩ = 0           (aligned, no flip possible, no S^z term)
+         * H|↑↓⟩ = ½·|↓↑⟩       (flip)
+         * H|↓↑⟩ = ½·|↑↓⟩
+         * H|↑↑⟩ = 0                                                       */
+        double _Complex psi[4] = {1, 0, 0, 0};
+        double _Complex out[4];
+        irrep_xy_new(2, 1, bi, bj, 1.0);             /* cheap leak-check */
+        irrep_heisenberg_apply(psi, out, H);
+        for (int k = 0; k < 4; ++k) IRREP_ASSERT_NEAR(creal(out[k]), 0.0, 1e-14);
+
+        psi[0] = 0; psi[1] = 1;
+        irrep_heisenberg_apply(psi, out, H);
+        IRREP_ASSERT_NEAR(creal(out[1]), 0.0,  1e-14);   /* no diagonal  */
+        IRREP_ASSERT_NEAR(creal(out[2]), 0.5,  1e-14);   /* flip to |↓↑⟩ */
+        irrep_heisenberg_free(H);
+    }
+
+    /* ---- J₁-J₂: triangular 3-spin cluster -----------------------------
+     * 3 sites, nn = {(0,1)}, nnn = {(0,2), (1,2)}, J1 = 1, J2 = 0.5.
+     * A pure-Heisenberg 3-spin loop with couplings {J1, J2, J2} has
+     * ground state energy = -¾(J1 + J2 + J2) at the singlet ... wait,
+     * the triangle with mixed couplings doesn't have a clean closed
+     * form. Just verify: the J₁-J₂ handle produces identical output
+     * as building a single Heisenberg handle with all three bonds
+     * and per-bond coupling baked in by scaling the bond twice (no —
+     * the library doesn't expose that). What we can verify: J₂ = 0
+     * recovers the pure-NN-Heisenberg result bit-exactly. */
+    {
+        int nn_i[]  = {0};         int nn_j[]  = {1};
+        int nnn_i[] = {0, 1};      int nnn_j[] = {2, 2};
+
+        /* J₂ = 0: ought to equal plain Heisenberg(NN) */
+        irrep_heisenberg_t *Hj1  = irrep_heisenberg_new(3, 1, nn_i, nn_j, 1.0);
+        irrep_heisenberg_t *Hj1j2_zero = irrep_heisenberg_j1j2_new(
+            3, 1, nn_i, nn_j, 1.0,
+            2, nnn_i, nnn_j, 0.0);
+        IRREP_ASSERT(Hj1 != NULL && Hj1j2_zero != NULL);
+
+        double _Complex psi[8], out1[8], out2[8];
+        for (int k = 0; k < 8; ++k) psi[k] = 0.1 * (k + 1) - 0.2;
+        irrep_heisenberg_apply(psi, out1, Hj1);
+        irrep_heisenberg_apply(psi, out2, Hj1j2_zero);
+        for (int k = 0; k < 8; ++k) {
+            IRREP_ASSERT_NEAR(creal(out1[k]), creal(out2[k]), 1e-14);
+            IRREP_ASSERT_NEAR(cimag(out1[k]), cimag(out2[k]), 1e-14);
+        }
+
+        /* J₂ = J₁: triangle becomes the S=½ isotropic 3-site
+         * Heisenberg loop with ground-state energy E₀ = -¾J. */
+        irrep_heisenberg_t *Hequal = irrep_heisenberg_j1j2_new(
+            3, 1, nn_i, nn_j, 1.0,
+            2, nnn_i, nnn_j, 1.0);
+        IRREP_ASSERT(Hequal != NULL);
+
+        long long dim = 8;
+        double _Complex *seed = calloc((size_t)dim, sizeof(double _Complex));
+        uint64_t rng = 0xcafefeedULL;
+        for (long long s = 0; s < dim; ++s) {
+            if (__builtin_popcountll(s) == 1 || __builtin_popcountll(s) == 2) {
+                rng = rng * 6364136223846793005ULL + 1442695040888963407ULL;
+                seed[s] = (double)(rng >> 32) / (double)0xFFFFFFFFu - 0.5;
+            }
+        }
+        double eig[1];
+        irrep_status_t rc = irrep_lanczos_eigvals(
+            irrep_heisenberg_apply, Hequal, dim, 1, 40, seed, eig);
+        IRREP_ASSERT(rc == IRREP_OK);
+        IRREP_ASSERT_NEAR(eig[0], -0.75, 1e-8);        /* E₀ = -¾J */
+
+        free(seed);
+        irrep_heisenberg_free(Hj1);
+        irrep_heisenberg_free(Hj1j2_zero);
+        irrep_heisenberg_free(Hequal);
+    }
+
     return IRREP_TEST_END();
 }

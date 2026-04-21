@@ -1,0 +1,44 @@
+# GitHub-native citation metadata. Surfaces "Cite this repository" in
+# the GitHub UI. Keep in sync with the BibTeX block in README.md.
+cff-version: 1.2.0
+message: "If you use libirrep in academic work, please cite it as below."
+title: "libirrep: SO(3)/SU(2)/O(3) representation-theory primitives for equivariant neural networks and spin systems"
+type: software
+version: 1.3.0-alpha
+date-released: "2026-04-19"
+repository-code: "https://github.com/tsotchke/libirrep"
+license: MIT
+authors:
+  - name: tsotchke
+keywords:
+  - representation theory
+  - SO(3)
+  - SU(2)
+  - spherical harmonics
+  - Wigner-D
+  - Clebsch-Gordan
+  - tensor product
+  - equivariant neural networks
+  - NequIP
+  - MACE
+  - e3nn
+  - frustrated magnetism
+  - kagome Heisenberg
+  - neural quantum states
+  - C11
+abstract: >-
+  A pure-C11 library of SO(3) / SU(2) / O(3) representation-theory
+  primitives — spherical harmonics, Wigner-D rotation matrices, Clebsch-
+  Gordan coupling, e3nn-style tensor products — with a stable ABI, no
+  runtime dependencies beyond libc + libm, and runtime-dispatched NEON
+  and AVX2 kernels on the hot paths. Addressed audiences: equivariant-
+  neural-network inference engines (NequIP, MACE, Allegro, TENN),
+  quantum / spin-system exact diagonalisation, and scientific / graphics
+  code needing disciplined rotation mathematics. Algorithms: Jacobi-
+  polynomial Wigner-d (stable to j > 80 at machine precision),
+  Schulten-Gordon Miller-iterated Wigner 3j / Clebsch-Gordan
+  (machine precision to j = 200), sparse Clebsch-Gordan tensor-product
+  inner kernel. Also ships a physics substrate — 2D lattices, wallpaper-
+  group tables, reduced density matrices, Lanczos — for symmetric
+  neural-quantum-state work on the kagome Heisenberg S = 1/2
+  ground-state-nature problem.

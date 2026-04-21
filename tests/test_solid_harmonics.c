@@ -1,4 +1,17 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for regular solid harmonics R_{l,m}(r) — polynomials in x, y, z
+ * proportional to r^l · Y_{l,m}(r̂).
+ *
+ * Coverage:
+ *   - l = 0 is a constant; l = 1 is (√(3/4π)) · (y, z, x).
+ *   - Homogeneity:  R_{l,m}(α r) = α^l · R_{l,m}(r).
+ *   - At |r| = 1, solid harmonics equal the surface harmonics for every
+ *     supported l.
+ *   - `solid_harmonics_all` concatenation layout matches the per-l path.
+ *   - Analytic gradient agrees with a 5-point finite-difference estimate to
+ *     ≈1e-8 for every l.
+ *   - High-l recurrence stays finite and matches surface × |r|^l.
+ */
 #include "harness.h"
 #include <irrep/solid_harmonics.h>
 #include <irrep/spherical_harmonics.h>

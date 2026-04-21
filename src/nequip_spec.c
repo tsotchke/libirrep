@@ -95,15 +95,6 @@ static int expect_char_(cursor_t *c, char ch) {
     return 0;
 }
 
-/* Consume `->` with optional whitespace on either side. Returns 0 on hit,
- * -1 if not present at current position. */
-static int expect_arrow_(cursor_t *c) {
-    skip_ws_(c);
-    if (c->p[0] != '-' || c->p[1] != '>') return -1;
-    c->p += 2;
-    return 0;
-}
-
 /* Find the "->" separator outside of any brackets. Returns pointer to its
  * first char, or NULL if absent. */
 static const char *find_arrow_outside_brackets_(const char *s) {

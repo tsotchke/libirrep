@@ -70,7 +70,7 @@ backward passes.
 Exact diagonalisation, symmetric-NQS ansätze, and entanglement
 diagnostics on finite spin systems. The library carries explicit
 lattice / space-group / reduced-density-matrix / Lanczos / Kitaev–
-Preskill γ primitives, and now ships
+Preskill γ primitives, plus
 [`irrep/hamiltonian.h`](include/irrep/hamiltonian.h) so the "Heisenberg
 H-apply" that every ED example re-implements is one library call, not
 forty lines of bit-twiddling per project. See
@@ -410,7 +410,7 @@ Per-symbol Doxygen blocks in the headers; `make docs` renders to HTML.
   version = {1.3.0-alpha},
   url     = {https://github.com/tsotchke/libirrep},
   note    = {Pure C11; stable ABI; Jacobi-polynomial Wigner-D,
-             Schulten-Gordon Miller-iterated 3j, sparse-CG tensor
+             Schulten–Gordon Miller-iterated 3j, sparse-CG tensor
              product. Also ships a physics substrate for
              symmetric-NQS work on the kagome Heisenberg S = 1/2
              ground-state-nature problem}

@@ -1,4 +1,23 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for real, complex, and cartesian spherical harmonics up to l_max.
+ *
+ * Coverage:
+ *   - Closed-form: Y_0^0 = 1/√(4π); Y_1^0 at the north pole; Y_{1,m}(x̂, ŷ, ẑ).
+ *   - Cartesian ≡ polar for every (l, m) over a sampled direction.
+ *   - Condon–Shortley phase:  Y_l^{−m} = (−1)^m conj(Y_l^m).
+ *   - Sum rule:  Σ_m |Y_l^m|² = (2l+1)/(4π)  (complex and real bases).
+ *   - Addition theorem on two directions:
+ *       (4π/(2l+1)) Σ_m Y^real(r1) Y^real(r2) = P_l(r1·r2).
+ *   - Closed-form sanity at Y_2^0(π/4).
+ *   - Radial derivative of Y(r̂) is zero (depends only on direction).
+ *   - Complex-to-real transform matrix is unitary.
+ *   - `sph_harm_cart_all` layout matches the concatenated per-l calls.
+ *   - Behaviour at the poles: only Y_{l,0} survives.
+ *   - Orthonormality via tensor-product Gauss-Legendre (θ) × uniform (φ).
+ *   - f32 wrapper agrees with double within float precision.
+ *   - NEON SIMD batch kernel is bit-exact against the scalar path.
+ *   - Batched gradient matches the per-l gradient.
+ */
 #include "harness.h"
 #include <irrep/spherical_harmonics.h>
 #include <irrep/quadrature.h>

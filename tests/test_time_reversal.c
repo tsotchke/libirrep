@@ -1,4 +1,14 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for the anti-unitary time-reversal operator T acting on integer and
+ * half-integer irreps.
+ *
+ * Coverage:
+ *   - Integer l = 1: T permutes |m⟩ ↔ |−m⟩ with phase (−1)^{l+m'}.
+ *   - T² = +I for integer l (multiple l values).
+ *   - Half-integer: T² = −I (Kramers degeneracy).
+ *   - Spin-½: T matrix matches the i σ_y convention used throughout.
+ *   - Multiset path is block-diagonal in the multiset layout.
+ */
 #include "harness.h"
 #include <irrep/time_reversal.h>
 #include <irrep/multiset.h>

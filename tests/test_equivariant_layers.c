@@ -1,4 +1,19 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for the primitive equivariant layers used by NequIP-style networks:
+ * `irrep_linear`, block RMS-norm, and gated nonlinearity.
+ *
+ * Coverage:
+ *   - `linear`: matched multisets route weights as Σ mult_out · mult_in.
+ *   - `linear`: irrep labels with no corresponding out channel contribute
+ *     nothing.
+ *   - `linear`: SO(3) equivariance on a matched multiset (apply `linear`
+ *     before and after a random rotation; compare).
+ *   - `linear` backward pass matches finite difference.
+ *   - RMS norm: output has unit block-RMS when scale = 1.
+ *   - RMS norm backward matches finite difference.
+ *   - Gated nonlinearity: multiplies each irrep block by its gate scalar,
+ *     leaving non-gated blocks untouched.
+ */
 #include "harness.h"
 #include <irrep/equivariant_layers.h>
 #include <irrep/multiset.h>

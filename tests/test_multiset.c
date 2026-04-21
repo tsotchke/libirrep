@@ -1,4 +1,19 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for `irrep_multiset` — the ordered, multiplicity-annotated list of
+ * irreps that describes any equivariant feature layout (e.g. `2x0e + 1x1o`).
+ *
+ * Coverage:
+ *   - Construction: empty multiset via `new`; direct-sum of empties.
+ *   - `append` grows capacity and keeps `total_dim` consistent.
+ *   - Parser: simple cases, tolerant of whitespace and no '+' between single
+ *     terms, empty string → empty multiset, and every error class
+ *     (bad l, bad parity, bad multiplicity, trailing garbage).
+ *   - Format round-trip and the NULL/too-small-buffer convention
+ *     (`format` returns the required length).
+ *   - `simplify` merges duplicate (l, p) pairs and sorts the result.
+ *   - `direct_sum` produces the concatenated multiset.
+ *   - `block_offset` returns the running sum of block dimensions.
+ */
 #include "harness.h"
 #include <irrep/multiset.h>
 

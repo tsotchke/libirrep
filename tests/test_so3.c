@@ -1,4 +1,22 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for the SO(3) rotation surface: rotation matrices, quaternions,
+ * axis-angle, Euler ZYZ, exp/log, SLERP, and the Fréchet/Karcher mean.
+ *
+ * Coverage:
+ *   - Identity round-trips across every representation.
+ *   - Axis-angle ↔ quaternion conversion both directions.
+ *   - Action of R(θ ẑ), R(θ x̂) on canonical basis vectors.
+ *   - Quaternion compose agrees with matrix compose.
+ *   - compose(R, R^{-1}) = I.
+ *   - Euler ZYZ round-trip away from gimbal lock.
+ *   - rot_exp / rot_log round-trip, including the near-π branch.
+ *   - Shoemake quaternion sampling is unit-norm with w ≥ 0.
+ *   - SLERP endpoints and geodesic distance |log(R)| = θ.
+ *   - Fréchet / Karcher mean: single-input identity, two-input midpoint, and
+ *     unequal-distance equidistance.
+ *   - Shortest-arc construction ẑ → x̂.
+ *   - Quaternion validity predicate.
+ */
 #include "harness.h"
 #include <irrep/so3.h>
 #include <math.h>

@@ -1,4 +1,17 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for the library's smallest public surface: status enums, error
+ * strings, the thread-local last-error channel, compile-time limits, parity
+ * constants, and the version accessors.
+ *
+ * Coverage:
+ *   - `irrep_strerror` returns the canonical string for every enumerator and
+ *     falls through to "unknown status" on an out-of-range value.
+ *   - `irrep_last_error` returns a non-null, stable pointer whose contents are
+ *     populated by a failing parse and unchanged by a subsequent read.
+ *   - IRREP_L_MAX / IRREP_TWO_J_MAX / IRREP_EVEN / IRREP_ODD are the values the
+ *     rest of the library assumes.
+ *   - Runtime `irrep_version_*()` accessors agree with the compile-time macros.
+ */
 #include "harness.h"
 #include <irrep/types.h>
 #include <irrep/version.h>

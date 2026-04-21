@@ -1,4 +1,16 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for 1D Gauss–Legendre and sphere quadrature rules
+ * (Lebedev orders 3, 5, 7 and the tensor-product fallback).
+ *
+ * Coverage:
+ *   - Gauss–Legendre weights sum to 2 and integrate every polynomial of
+ *     degree ≤ 2n − 1 exactly.
+ *   - Lebedev rules: cardinalities match the 1999 Lebedev–Laikov counts;
+ *     weights sum to 1 (unit-sphere-normalized); polynomial exactness
+ *     confirmed by integrating x², x⁴, and the order-5 degree-4 monomials.
+ *   - Tensor-product sphere quadrature (Gauss–Legendre in cos θ × uniform φ)
+ *     is exact on its declared degree across all orders offered.
+ */
 #include "harness.h"
 #include <irrep/quadrature.h>
 #include <math.h>

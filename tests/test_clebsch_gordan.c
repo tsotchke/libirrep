@@ -1,4 +1,21 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for Clebsch–Gordan coefficients and Wigner 3j symbols.
+ *
+ * Coverage:
+ *   - Hand-tabulated values from Sakurai Appendix A and Varshalovich
+ *     (table lookups for specific (j1, j2, J, m1, m2, M) tuples).
+ *   - Selection-rule enforcement (zero returned on every violation).
+ *   - Completeness: Σ_J |⟨j1 m1; j2 m2 | J M⟩|² = 1.
+ *   - J-orthogonality: Σ_{m1} CG(·|JM) · CG(·|J'M) = δ_{JJ'}.
+ *   - 3j symbol matches CG up to the standard phase/√(2J+1) factor.
+ *   - 3j cyclic column symmetry.
+ *   - `cg_block` fills the correct (m1, m2, M) layout.
+ *   - Large-j (j = 10, j = 80) numerical stability — probes both the
+ *     Schulten–Gordon and Miller two-directional iteration regimes.
+ *   - `cg_table` lookup agrees with direct computation.
+ *
+ * The random property-based invariants live in `test_cg_invariants.c`.
+ */
 #include "harness.h"
 #include <irrep/clebsch_gordan.h>
 #include "reference_data/cg_reference.h"

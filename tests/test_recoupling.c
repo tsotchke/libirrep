@@ -1,4 +1,16 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for recoupling coefficients: Wigner 6j, Wigner 9j, and the Racah
+ * W coefficient.
+ *
+ * Coverage:
+ *   - Hand-tabulated 6j values from Edmonds / Varshalovich.
+ *   - Selection-rule failure on a broken triangle.
+ *   - 6j column-permutation symmetry: {a b c; d e f} = {b a c; e d f}.
+ *   - 9j with a row of zeros vanishes (exchange-symmetry identity).
+ *   - 9j with j9 = 0 reduces to a 6j times the appropriate phase / √.
+ *   - Racah W matches 6j up to a sign.
+ *   - Larger-j sanity: 6j and 9j stay finite and reasonable.
+ */
 #include "harness.h"
 #include <irrep/recoupling.h>
 #include <math.h>

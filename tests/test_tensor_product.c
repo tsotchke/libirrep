@@ -1,4 +1,21 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for the e3nn-style path-indexed tensor product:
+ * `irrep_tp_build`, `irrep_tp_apply`, and the backward pass.
+ *
+ * Coverage:
+ *   - Path enumeration: 1x1o × 1x1o → {1x0e, 1x1e, 1x2e} (triangle + parity).
+ *   - Hand-computed 1x1o × 1x1o → 1x0e via CG + i^(l_a+l_b−l_c) phase.
+ *   - Build errors: multiplicity mismatch; parity violation.
+ *   - Equivariance under SO(3):  tp(D(R) a, D(R) b) = D(R) tp(a, b).
+ *   - Multiplicity > 1 uses copy-pairing between aligned slots.
+ *   - 1x1o × 1x1o → 1x1e is the cross product (odd-l-sum real-basis path).
+ *   - Batched tp_apply matches single.
+ *   - Backward pass bit-exact against finite differences.
+ *   - UVW connection mode: weight indexing; collapses to UUU when weights
+ *     are diagonal; backward matches FD.
+ *   - Per-path L² regulariser: forward matches brute force, backward matches
+ *     finite difference.
+ */
 #include "harness.h"
 #include <irrep/tensor_product.h>
 #include <irrep/multiset.h>

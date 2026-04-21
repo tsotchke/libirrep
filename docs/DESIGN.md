@@ -301,7 +301,7 @@ one-page summary:
 
 - **Precision**: `double` default; `_f32` wrappers cast from double.
 - **Euler ordering**: ZYZ physics convention.
-- **Phase**: Condon-Shortley, applied once.
+- **Phase**: Condon–Shortley, applied once.
 - **Rotations**: active, right-handed.
 - **Quaternion layout**: `{x, y, z, w}` with scalar `w` last.
 - **Half-integer**: `_2j` suffix takes doubled-integer arguments.
@@ -417,7 +417,7 @@ the 1.2 release produces the current host's triple only.
 - **Downstream-compat tests** in `tests/test_downstream_compat.c` — a
  placeholder that lights up bit-exact assertions once the downstream
  vendored golden-vector fixtures land.
-- **Fuzz targets** in `tests/fuzz/` (six today: CG, multiset parse,
+- **Fuzz targets** in `tests/fuzz/` (currently six: CG, multiset parse,
  tensor product, NequIP apply_forces, NequIP from_spec,
  point-group projection), run in CI for 60 s per target.
 - **Sanitizer CI** — every PR rebuilds and tests under ASan and UBSan.

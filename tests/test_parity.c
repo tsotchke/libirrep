@@ -1,4 +1,14 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for parity (inversion) handling in the O(3) extension of the
+ * library: scalar `parity()` of an irrep label, parity products, and
+ * parity-aware path filtering used when building tensor products in O(3).
+ *
+ * Coverage:
+ *   - `parity()` and `parity_product()` on scalar labels (even × odd = odd).
+ *   - `parity_filter_paths` keeps only paths with p_a · p_b = p_c and
+ *     drops parity-violating ones.
+ *   - Out-of-range indices are silently dropped rather than asserting.
+ */
 #include "harness.h"
 #include <irrep/parity.h>
 #include <irrep/multiset.h>

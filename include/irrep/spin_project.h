@@ -6,7 +6,7 @@
  *  via the Wigner-D character-weighted SU(2) integral
  *
  *  \f[ \mathcal{P}_J = \frac{2J+1}{8\pi^2} \int\!\!\mathrm{d}\Omega\;
- *      \chi_J^\*(\Omega)\; \hat R(\Omega) \f]
+ *      \chi_J^*(\Omega)\; \hat R(\Omega) \f]
  *
  *  where `R(Ω) = [D^{½}(α,β,γ)]^{⊗N}` is the spin-½ tensor-product rotation
  *  on all sites, and `χ_J(Ω) = Tr D^J(α,β,γ)` is the character of the

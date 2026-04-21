@@ -38,7 +38,7 @@ rotations. Quaternion layout in `libirrep` is `{x, y, z, w}` with `w` last
 | `o3.spherical_harmonics(ls, x, normalize=True)` | same — batched over `l = 0..l_max` |
 | `o3.spherical_harmonics_alpha_beta(...)` | `irrep_sph_harm_real(l, m, theta, phi)` |
 
-**Convention.** `libirrep` uses the Condon-Shortley phase and the e3nn sign
+**Convention.** `libirrep` uses the Condon–Shortley phase and the e3nn sign
 choice for real SH (`Y_{1,+1} ∝ +x`). Inputs to `_cart_all` must be unit
 vectors — no normalisation is done internally.
 
@@ -111,7 +111,7 @@ Analytic derivatives are provided for all cutoffs (`_d` suffix).
 | (not provided) | `irrep_gauss_legendre(n, nodes, weights)` |
 
 `libirrep` ships Lebedev rules for orders 3, 5, 7 (6/14/26 points).
-Additional orders arrive as the Lebedev-Laikov 1999 data is imported.
+Additional orders arrive as the Lebedev–Laikov 1999 data is imported.
 
 ## Autograd
 
@@ -171,7 +171,7 @@ helpers in the experimental tree. libirrep ships:
 | ---------------------------------------------------------------- | ----------------------------------------------------------- |
 | `from e3nn.nn.so3 import SymmetricTensorProduct` | `irrep_pg_project(table, mu, spec, in, out)` |
 | `group_projection(..., "A1", ...)` | `irrep_pg_project(table, /*mu=A1*/ 0, spec, in, out)` |
-| Decomposition of a representation under the group | `irrep_pg_reduce(table, spec, out_mult)` (Bradley-Cracknell) |
+| Decomposition of a representation under the group | `irrep_pg_reduce(table, spec, out_mult)` (Bradley–Cracknell) |
 
 Supported groups in 1.2: **C₄ᵥ** (square lattice, 5 irreps) and **D₆**
 (hexagonal / kagome, 6 irreps), C₃ᵥ (triangular, 3 irreps), and D₃

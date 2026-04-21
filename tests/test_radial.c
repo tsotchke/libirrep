@@ -1,4 +1,18 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for the radial basis primitives used by NequIP-style message
+ * passing: Bessel and Gaussian RBFs plus cosine / polynomial smooth
+ * cutoff envelopes.
+ *
+ * Coverage:
+ *   - Bessel RBF: orthogonality on [0, r_cut] with r² weight; batched form
+ *     matches the single-radius form; derivative matches finite difference.
+ *   - Gaussian RBF: peaks centred on μ, grid samples at the right radii.
+ *   - Cosine cutoff: c(0) = 1, c(r_cut) = 0, c'(r_cut⁻) = 0; analytic
+ *     derivative matches FD.
+ *   - Polynomial cutoff: f_p(0) = 1, f_p(r_cut) = 0, smooth at r_cut;
+ *     derivative matches FD.
+ *   - Batched variants agree with scalar single-radius across each basis.
+ */
 #include "harness.h"
 #include <irrep/radial.h>
 #include <irrep/quadrature.h>

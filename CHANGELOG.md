@@ -84,6 +84,46 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
  space group was built over; saves callers from threading the lattice
  pointer alongside the space-group pointer when both are needed.
 
+### Docs
+
+- **Bibliography completion** (`docs/REFERENCES.md`). Nine primary
+ sources cited in source comments but missing from the consolidated
+ bibliography were added: Schulten–Gordon (1975) and Luscombe–Luban
+ (1998) for the CG recurrence / Miller iteration; NIST DLMF §18.9.1 and
+ §34.2 for the Jacobi-polynomial Wigner-d form and the 3j symbol; plus
+ a new "Frustrated magnetism" section (Elser 1989, Lecheminant 1997,
+ Waldtmann 1998, Yan–Huse–White 2011, Läuchli–Sudan–Moessner 2019) and
+ a "Topological entanglement entropy" section (Kitaev–Preskill 2006,
+ Levin–Wen 2006, Jiang–Wang–Balents 2012) that covers the physics
+ substrate shipped in the 1.3 cycle.
+
+- **Typographic consistency across documentation.** Every
+ author-pair citation now uses a proper en-dash (U+2013): Condon–
+ Shortley, Schulten–Gordon, Luscombe–Luban, Yan–Huse–White,
+ Kitaev–Preskill, Läuchli–Moessner, Jiang–Wang–Balents, Bradley–
+ Cracknell, Altmann–Herzig, Lebedev–Laikov, and Limpanuparb–Milthorpe.
+ Sweep applied uniformly across `README.md`, `docs/*.md`,
+ `docs/tutorials/*.md`, and `CHANGELOG.md`.
+
+- **Voice / register pass** for publication-grade presentation: removed
+ first-person-plural phrasing and relative-time words ("now", "today")
+ from the API reference, design document, methods paper, and physics
+ results narrative. No semantic changes to any claim; only register.
+
+- **Test-file narrative headers.** Fourteen test translation units that
+ previously opened straight into `#include` lines now carry a short
+ coverage summary at the top, so a reader inspecting `tests/` can see
+ the invariants each file guards without having to read the body first.
+ `src/error.c` gained an equivalent module header documenting the
+ thread-local last-error channel.
+
+### Fixed
+
+- **`include/irrep/spin_project.h`**: stray backslash in a Doxygen
+ LaTeX formula (`\chi_J^\*(\Omega)` → `\chi_J^*(\Omega)`) that triggered
+ a LaTeX error during `make docs` formula pre-rendering. Fixed; the
+ docs build now exits cleanly with zero warnings.
+
 ## [1.3.0-alpha] — 2026-04-19
 
 First public tag of the 1.3 cycle. The tested 1.2 core
@@ -178,7 +218,7 @@ public headers self-contained.
  - Lowest triplet found by seeding in the S_z = 1 sector: confirmed
  J = 1, giving the cluster spin gap Δ_S = 0.383 J.
  - Bipartite S_VN at an up-triangle (3-site) cut ≈ 1.574 nats.
- - Kitaev-Preskill γ on the 12-site ground state, via an annular
+ - Kitaev–Preskill γ on the 12-site ground state, via an annular
  tripartition (trace out sites {6..11}, split kept {0..5} into
  A={0,1}, B={2,3}, C={4,5}): γ ≈ −0.330 nats. Not clean +ln 2 or 0
  — 2×2 torus is too small for a proper annular KP geometry — but
@@ -211,7 +251,7 @@ public headers self-contained.
  - Spin gap Δ_S = +0.26391 J.
  - **Finite-size-scaling** across the 12/18/24 libirrep ED series:
  linear 1/N extrapolation gives **Δ_S(N→∞) ≈ +0.132 J**, which is
- remarkably close to the Yan-Huse-White 2011 DMRG value of 0.13 J
+ remarkably close to the Yan–Huse–White 2011 DMRG value of 0.13 J
  for the gapped Z₂-spin-liquid picture and distinctly **away from
  zero** (the gapless Dirac SL hypothesis would predict Δ_∞ = 0).
  (E_0/N)(N→∞) ≈ −0.441 J matches the published thermodynamic limit.
@@ -353,7 +393,7 @@ values of `irrep_point_group_t` become build-able.
  per call on Apple M2 Ultra. Lands in the baseline as the first
  per-group cost reference.
 - `IRREP_PG_C3V` and `IRREP_PG_D3` — triangular-lattice symmetry groups
- (order 6, 3 irreps: A₁, A₂, E). Character tables per Bradley-Cracknell.
+ (order 6, 3 irreps: A₁, A₂, E). Character tables per Bradley–Cracknell.
  C₃ᵥ has three improper σᵥ reflections at 120°; D₃ has three proper C₂
  axes at 120° in the xy-plane. The two are isomorphic as abstract groups
  but differ on parity-odd inputs: `_reduce` on `1x1o` under C₃ᵥ gives
@@ -378,7 +418,7 @@ values of `irrep_point_group_t` become build-able.
  INT_MAX overflow, empty hidden_in/out, empty `[]` block, and the
  duplicate-option last-wins behaviour.
 - Point-group reduction tests extended to 252 assertions with hand-
- computed Bradley-Cracknell decompositions: `1x1o → A₁+E` and
+ computed Bradley–Cracknell decompositions: `1x1o → A₁+E` and
  `1x2e → A₁+B₁+B₂+E` under C₄ᵥ; `1x0e → A₁` and `1x1o → A₂+E₁`
  under D₆.
 - NEON SH bit-exactness sweep extended to 4099 assertions across
@@ -412,14 +452,14 @@ Cut for downstream consumer feedback (spin-based neural network vendoring).
  inverse, 2×2 matrix exponential via scaling-and-squaring. Tests pass at
  `1e-12` (277 SO(3) + 32 SU(2) = 309 assertions).
 - **M3 — Spherical harmonics**: associated Legendre via stable three-term
- recurrence with Condon-Shortley phase; complex `irrep_sph_harm`, real
+ recurrence with Condon–Shortley phase; complex `irrep_sph_harm`, real
  `irrep_sph_harm_real`, and cartesian `irrep_sph_harm_cart` /
  `irrep_sph_harm_cart_all` up to `l = IRREP_L_MAX = 16`. Real-SH convention
  matches e3nn / Wikipedia (`Y_{1,+1} ∝ +x`). Complex↔real basis-change matrix
  `irrep_sph_harm_complex_to_real` (unitary to `1e-12`). Finite-difference
  gradient `irrep_sph_harm_cart_grad` (analytic solid-harmonic form deferred
  to M10). `_f32` single-precision wrappers. Tests (386 assertions) cover
- Condon-Shortley identity `Y_l^{-m} = (-1)^m Y_l^{m*}`, sum rule, addition
+ Condon–Shortley identity `Y_l^{-m} = (-1)^m Y_l^{m*}`, sum rule, addition
  theorem against Legendre, pole behaviour, cartesian-vs-polar equivalence,
  and radial-derivative-is-zero tangency.
 - **M4 — Clebsch-Gordan + Wigner 3j**: `irrep_cg_2j` via the Racah single-sum
@@ -484,7 +524,7 @@ Cut for downstream consumer feedback (spin-based neural network vendoring).
  `P_n(x)` starting from a Chebyshev initial guess (any n).
  - `irrep_lebedev_size` / `_fill` for orders 3, 5, 7 (6, 14, 26 points)
  using the a₁/a₂/a₃ generators; higher orders deferred to the full
- Lebedev-Laikov 1999 data import.
+ Lebedev–Laikov 1999 data import.
  - Also closes the M3 orthonormality TODO via a Gauss-Legendre × uniform-φ
  tensor-product quadrature of `∫ Y_l^m Y_{l'}^{m'}* dΩ = δδ`.
  - Tests (13 + 54 + 168 = 235 new assertions, plus 256 added to the SH

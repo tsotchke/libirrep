@@ -1,4 +1,14 @@
 /* SPDX-License-Identifier: MIT */
+/*
+ * Thread-local error channel for the library.
+ *
+ * Every failing entry point returns an `irrep_status_t` enum; `irrep_strerror`
+ * names the enumerator, and `irrep_set_error_` (internal) records a formatted
+ * message consulted via `irrep_last_error`. Storage is `_Thread_local` so
+ * concurrent callers do not race on each other's messages, and so a caller
+ * observing a non-OK status on this thread sees the string that was written
+ * on this thread.
+ */
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>

@@ -27,9 +27,9 @@ NequIP / MACE / Allegro message-passing layer: edge vectors arrive in
 cartesian, and converting to `(θ, φ)` would cost a transcendental plus
 introduce a pole singularity that the cartesian form avoids.
 
-## 2. The Condon-Shortley phase convention
+## 2. The Condon–Shortley phase convention
 
-Libirrep uses the standard Condon-Shortley phase
+Libirrep uses the standard Condon–Shortley phase
 (Sakurai & Napolitano 2020, Appendix A; Jackson 3rd ed., §3.6):
 
 ```
@@ -55,7 +55,7 @@ The orthonormality relation
 ```
 
 holds on the unit sphere with `dΩ = sin θ dθ dφ`; libirrep verifies it
-numerically via Lebedev-Laikov quadrature of order 35 (exact for
+numerically via Lebedev–Laikov quadrature of order 35 (exact for
 polynomials of total degree ≤ 35 on `S²`) to an absolute residual below
 `10⁻¹⁰`.
 
@@ -287,7 +287,7 @@ compounds.
 ## 11. References
 
 - **Sakurai, J. J. & Napolitano, J.** *Modern Quantum Mechanics* (3rd
- ed., Cambridge, 2020), Appendix A — Condon-Shortley phase,
+ ed., Cambridge, 2020), Appendix A — Condon–Shortley phase,
  tabulated `Y_l^m` at low `l`.
 - **Jackson, J. D.** *Classical Electrodynamics* (3rd ed., Wiley,
  1998), §3.5–§3.6 — orthonormality, addition theorem.

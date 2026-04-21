@@ -48,7 +48,7 @@ All tutorials assume the single library-wide convention:
 - **Angles:** radians
 - **Rotations:** active, right-handed
 - **Euler:** ZYZ (Sakurai / physics convention)
-- **Phase:** Condon-Shortley
+- **Phase:** Condon–Shortley
 - **Quaternions:** `{x, y, z, w}`, unit-norm, Shoemake-sampled with `w ≥ 0`
 - **Complex:** `double _Complex` (`<complex.h>`)
 - **Half-integer spin:** doubled-integer API, `_2j` suffix

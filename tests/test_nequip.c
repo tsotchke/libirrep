@@ -1,4 +1,17 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for the NequIP-style message-passing layer:
+ * `irrep_nequip_layer_apply`, `_apply_forces`, and construction via spec.
+ *
+ * Coverage:
+ *   - Equivariance: rotate node features + edge vectors, apply, compare the
+ *     output against the rotated-output-of-the-unrotated call.
+ *   - Backward pass finite-difference cross-check on one node's weight
+ *     gradient.
+ *   - Edge-geometry (position) gradient via `_apply_forces` matches finite
+ *     difference of the energy with respect to node positions.
+ *   - Forces path exercised across both cutoff variants (cosine, polynomial)
+ *     and spherical-harmonic cutoff l_sh_max ∈ {0, 3}.
+ */
 #include "harness.h"
 #include <irrep/nequip.h>
 #include <irrep/multiset.h>

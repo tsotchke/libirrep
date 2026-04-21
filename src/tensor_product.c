@@ -283,7 +283,7 @@ tp_descriptor_t *irrep_tp_build(const irrep_multiset_t *a,
          * loops. Visit (ima, imb, imc) in the same order apply_core_
          * does so iteration is memory-sequential. */
         int n_nz = 0;
-        for (int i = 0; i < nW; ++i) if (p->cg[i] != 0.0) ++n_nz;
+        for (size_t i = 0; i < nW; ++i) if (p->cg[i] != 0.0) ++n_nz;
         p->nz   = (n_nz > 0) ? malloc((size_t)n_nz * sizeof *p->nz) : NULL;
         p->n_nz = n_nz;
         if (n_nz > 0 && !p->nz) goto fail;

@@ -1,4 +1,18 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for SU(2): spin-½ matrices, Pauli algebra, the 2-to-1 cover over
+ * SO(3), and the matrix exponential.
+ *
+ * Coverage:
+ *   - Identity SU(2) = I.
+ *   - SU(2) ↔ unit quaternion round-trip.
+ *   - Double cover: ±q map to the same SO(3) matrix.
+ *   - Pauli algebra: σ_x σ_x = I  and  σ_x σ_y = i σ_z  (anticommutation).
+ *   - Berry phase: D^{1/2}(R(2π, ẑ)) |↑⟩ = −|↑⟩.
+ *   - σ_x |↑⟩ = |↓⟩.
+ *   - SU(2) compose agrees with quaternion compose.
+ *   - SU(2) inverse equals conjugate transpose.
+ *   - `su2_exp(−i π σ_z / 2) = −i σ_z`.
+ */
 #include "harness.h"
 #include <irrep/su2.h>
 #include <irrep/so3.h>

@@ -211,9 +211,9 @@ Libirrep accepts `"1x1o"` for one copy of the polar-vector irrep.
 
 ## 4. Phase and sign conventions
 
-### 4.1. Condon-Shortley phase
+### 4.1. Condon–Shortley phase
 
-The associated Legendre polynomial `P_l^m(x)` with Condon-Shortley phase
+The associated Legendre polynomial `P_l^m(x)` with Condon–Shortley phase
 is
 ```
  P_l^m(x) = (−1)^m · (1 − x²)^{m/2} · (dᵐ / dxᵐ) P_l(x), (4.1)
@@ -273,7 +273,7 @@ The orthonormality relation
  ∫_{S²} Y_l^m(r̂) · [Y_{l'}^{m'}(r̂)]* dΩ = δ_{l, l'} δ_{m, m'} (5.1)
 ```
 holds on the unit 2-sphere with the standard measure `dΩ = sin θ dθ dφ`.
-Libirrep verifies orthonormality to `1e-10` via Lebedev-Laikov quadrature
+Libirrep verifies orthonormality to `1e-10` via Lebedev–Laikov quadrature
 of order 35 (`tests/test_spherical_harmonics.c`; rule tabulated in
 `src/quadrature_lebedev_data.c` with node and weight values from Lebedev
 & Laikov 1999, public domain).

@@ -228,7 +228,7 @@ against central differences.
 
 Lebedev rules at orders 3, 5, 7 (octahedral-orbit form, polynomial
 exactness `l = 1, 2, 3`; Lebedev & Laikov 1999). Higher-order Lebedev
-tables (9..41) are on the roadmap; for arbitrary exactness today, use
+tables (9..41) are on the roadmap; for arbitrary exactness, use
 the tensor-product `irrep_quadrature_sphere_fill` (Gauss-Legendre in
 `cos θ` × uniform φ) at ≈ 2× the point count. Gauss-Legendre on
 `[−1, 1]` is also exposed for generic 1-D integrals.

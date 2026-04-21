@@ -51,8 +51,30 @@ the commit log.
  `irrep_sph_harm_complex_to_real`.
 - **Racah, G.** "Theory of Complex Spectra. II," *Physical Review* **62**
  (9–10), 438–462 (1942). [DOI: 10.1103/PhysRev.62.438](https://doi.org/10.1103/PhysRev.62.438).
- The original single-sum formula for CG coefficients, evaluated in
- log-gamma form in `src/clebsch_gordan.c`.
+ The original single-sum formula for CG coefficients. Retained as an
+ analytical reference; `src/clebsch_gordan.c` evaluates CG via the
+ Schulten–Gordon recurrence (below) rather than direct summation of
+ the Racah formula.
+- **Schulten, K. & Gordon, R. G.** "Exact recursive evaluation of 3j-
+ and 6j-coefficients for quantum-mechanical coupling of angular
+ momenta," *Journal of Mathematical Physics* **16** (10), 1961–1970
+ (1975). [DOI: 10.1063/1.522426](https://doi.org/10.1063/1.522426).
+ The three-term recurrence in `j₁` at fixed `(j₂, j₃, m₁, m₂, m₃)`
+ that `src/clebsch_gordan.c` integrates to produce numerically stable
+ 3j coefficients.
+- **Luscombe, J. H. & Luban, M.** "Simplified recursive algorithm for
+ Wigner 3j and 6j symbols," *Physical Review E* **57** (6), 7274–7277
+ (1998). [DOI: 10.1103/PhysRevE.57.7274](https://doi.org/10.1103/PhysRevE.57.7274).
+ Two-directional Miller-style iteration over the Schulten–Gordon
+ recurrence, with sum-rule normalisation and sign anchoring at
+ `j_max`. The form shipped in `src/clebsch_gordan.c`; machine-
+ precision through at least `j = 200` in the regression tests.
+- **NIST Digital Library of Mathematical Functions.** *DLMF*, Release
+ 1.2.4 of 2025-03-15. [https://dlmf.nist.gov/](https://dlmf.nist.gov/).
+ §18.9.1 — three-term recurrence for Jacobi polynomials
+ `P_n^{(α,β)}(x)`, the stable evaluator used inside the Edmonds
+ Jacobi-polynomial form of Wigner-d in `src/wigner_d.c`. §34.2 —
+ canonical Wigner-d expressed via the same Jacobi polynomial.
 - **Wigner, E. P.** *Group Theory and its Application to the Quantum
  Mechanics of Atomic Spectra* (Academic Press, 1959; translation of 1931
  original). Foundational definitions of `d^j(β)` and the 3j symbol.
@@ -67,7 +89,7 @@ the commit log.
 ## Spherical harmonics and associated Legendre
 
 - **Jackson, J. D.** *Classical Electrodynamics* (3rd ed., Wiley, 1998).
- ISBN 978-0471309321. **§3.5–3.6** — Condon-Shortley phase convention
+ ISBN 978-0471309321. **§3.5–3.6** — Condon–Shortley phase convention
  adopted throughout libirrep, addition theorem (Eq. 3.70), and the
  orthonormality relation `∫ Y_{lm} Y_{l'm'}* dΩ = δ_{ll'} δ_{mm'}`.
 - **Arfken, G. B., Weber, H. J., & Harris, F. E.** *Mathematical Methods
@@ -237,7 +259,7 @@ the commit log.
  authoritative source.
 - **Altmann, S. L. & Herzig, P.** *Point-Group Theory Tables* (2nd ed.,
  online, 1994 / 2011). Independent cross-reference against
- Bradley-Cracknell for every character table shipped in
+ Bradley–Cracknell for every character table shipped in
  `src/point_group.c`.
 - **Tinkham, M.** *Group Theory and Quantum Mechanics* (Dover, 2003;
  reprint of McGraw-Hill, 1964). ISBN 978-0486432472. **§4–5** — full
@@ -269,6 +291,75 @@ the commit log.
 - **Fano, U. & Racah, G.** *Irreducible Tensorial Sets* (Academic
  Press, 1959). Racah's preferred form of the 6j symbol, implemented as
  `irrep_racah_w`.
+
+---
+
+## Frustrated magnetism — kagome Heisenberg benchmarks
+
+The physics substrate is pinned to the kagome Heisenberg S = ½ ground-
+state-nature problem and validated against published finite-size
+exact-diagonalisation and DMRG results. The references below are the
+primary sources for the numerical cross-checks in
+`docs/PHYSICS_RESULTS.md` and `examples/EXPECTED_OUTPUT.md`.
+
+- **Elser, V.** "Nuclear antiferromagnetism in a registered ³He solid,"
+ *Physical Review Letters* **62** (20), 2405–2408 (1989).
+ [DOI: 10.1103/PhysRevLett.62.2405](https://doi.org/10.1103/PhysRevLett.62.2405).
+ 12-site kagome Heisenberg ED; the earliest of the reference values
+ reproduced by `examples/kagome12_ed.c`.
+- **Lecheminant, P., Bernu, B., Lhuillier, C., Pierre, L., & Sindzingre,
+ P.** "Order versus disorder in the quantum Heisenberg antiferromagnet
+ on the kagomé lattice using exact spectra analysis," *Physical Review
+ B* **56** (5), 2521–2529 (1997).
+ [DOI: 10.1103/PhysRevB.56.2521](https://doi.org/10.1103/PhysRevB.56.2521).
+ Symmetry-sector-resolved 12-site and 18-site kagome spectra; the
+ reference used for the B₁ ground-state identification in
+ `examples/kagome12_symmetry_ed.c`.
+- **Waldtmann, Ch., Everts, H.-U., Bernu, B., Lhuillier, C., Sindzingre,
+ P., Lecheminant, P., & Pierre, L.** "First excitations of the spin 1/2
+ Heisenberg antiferromagnet on the kagomé lattice," *European Physical
+ Journal B* **2** (4), 501–507 (1998).
+ [DOI: 10.1007/s100510050274](https://doi.org/10.1007/s100510050274).
+ Finite-size spin-gap extrapolation, cross-referenced in
+ `examples/kagome18_ed.c`.
+- **Yan, S., Huse, D. A., & White, S. R.** "Spin-liquid ground state of
+ the S = 1/2 kagome Heisenberg antiferromagnet," *Science* **332**
+ (6034), 1173–1176 (2011).
+ [DOI: 10.1126/science.1201080](https://doi.org/10.1126/science.1201080).
+ Headline DMRG-cylinder result `Δ_S(N→∞) ≈ 0.13 J` supporting the
+ gapped Z₂ spin-liquid picture; the open problem the 1.3 substrate
+ is sized against.
+- **Läuchli, A. M., Sudan, J., & Moessner, R.** "S = 1/2 kagome
+ Heisenberg antiferromagnet revisited," *Physical Review B* **100**
+ (15), 155142 (2019).
+ [DOI: 10.1103/PhysRevB.100.155142](https://doi.org/10.1103/PhysRevB.100.155142).
+ 36-site and 48-site ED via projective symmetry reduction; the
+ per-site energy −0.4386 J is the tightest ED benchmark libirrep's
+ 24-site result is extrapolated toward.
+
+---
+
+## Topological entanglement entropy
+
+- **Kitaev, A. & Preskill, J.** "Topological entanglement entropy,"
+ *Physical Review Letters* **96** (11), 110404 (2006).
+ [DOI: 10.1103/PhysRevLett.96.110404](https://doi.org/10.1103/PhysRevLett.96.110404).
+ The tripartition formula `γ = S_A + S_B + S_C − S_{AB} − S_{BC} −
+ S_{AC} + S_{ABC}` implemented in `irrep_topological_entanglement_
+ entropy` and exercised on 12-site kagome in `examples/kagome12_ed.c`.
+- **Levin, M. & Wen, X.-G.** "Detecting topological order in a ground
+ state wave function," *Physical Review Letters* **96** (11), 110405
+ (2006).
+ [DOI: 10.1103/PhysRevLett.96.110405](https://doi.org/10.1103/PhysRevLett.96.110405).
+ Independent formulation of the same γ diagnostic; cross-check for
+ the sign convention (γ > 0 for non-trivial topological order).
+- **Jiang, H.-C., Wang, Z., & Balents, L.** "Identifying topological
+ order by entanglement entropy," *Nature Physics* **8** (12), 902–905
+ (2012).
+ [DOI: 10.1038/nphys2465](https://doi.org/10.1038/nphys2465).
+ Practical extraction of `γ = ln 2` on the kagome lattice via DMRG;
+ the signature the substrate is designed to reproduce at the 108-site
+ target size via a downstream neural-quantum-state ansatz.
 
 ---
 

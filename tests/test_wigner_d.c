@@ -1,4 +1,18 @@
 /* SPDX-License-Identifier: MIT */
+/* Tests for the real Wigner small-d matrix and full complex Wigner-D.
+ *
+ * Coverage:
+ *   - Closed forms at j = 1/2 and j = 1 (every entry checked against its
+ *     analytic cos/sin expression).
+ *   - d^j(0) = I  and  d^j(π) reflects m ↔ −m with the (−1)^{j − m'} sign.
+ *   - Unitarity:  D · D† = I  at several (α, β, γ) triples.
+ *   - Composition homomorphism:  D(R1) · D(R2) = D(R1 · R2).
+ *   - Berry phase:  D^{1/2}(2π, ẑ) = −I  (double-cover sanity).
+ *   - Analytic ∂d/∂β matches centered finite difference.
+ *   - Multiset path produces a block-diagonal D with the expected layout.
+ *   - Large-j (j = 80) stability of the Edmonds Jacobi-polynomial form:
+ *     values stay finite and unitarity holds to ≈1e-13.
+ */
 #include "harness.h"
 #include <irrep/wigner_d.h>
 #include <irrep/so3.h>

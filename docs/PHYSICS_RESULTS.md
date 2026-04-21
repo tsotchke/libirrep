@@ -38,7 +38,7 @@ reorthogonalisation).
 - N = 12: Elser 1989, Lecheminant et al. 1997 — matches exactly.
 - N = 18: Waldtmann et al. 1998, Läuchli 2011 — within the published
  range (−0.43 to −0.44 depending on cluster geometry).
-- N = 24: 2×4 torus published ≈ −0.441; our value −0.4483 is on the
+- N = 24: 2×4 torus published ≈ −0.441; the computed value −0.4483 is on the
  lower end of the cited range (−0.438 to −0.443) — consistent.
 
 ### 1.2. Finite-size scaling of the spin gap
@@ -58,7 +58,7 @@ Linear 1/N extrapolation from the three data points:
 ```
 
 **libirrep extrapolation Δ_S(N→∞) ≈ 0.132 J** lies within ~1% of
-Yan-Huse-White's 2011 DMRG estimate (0.13 J) for the gapped Z₂ spin
+Yan–Huse–White's 2011 DMRG estimate (0.13 J) for the gapped Z₂ spin
 liquid picture, and distinctly **above zero** (the gapless Dirac spin
 liquid would require Δ_S(∞) = 0).
 
@@ -168,7 +168,7 @@ whole pipeline is correct, but a useful sanity gate):
 | 18 | −0.223533 | −0.223533 |
 | 24 | — | — |
 
-### 1.8. Kitaev-Preskill topological entanglement entropy γ
+### 1.8. Kitaev–Preskill topological entanglement entropy γ
 
 On the 12-site cluster with an **annular tripartition** (trace out
 sites {6..11}, partition the kept region {0..5} as A={0,1}, B={2,3},

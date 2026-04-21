@@ -39,9 +39,9 @@ lives in the private source of individual ML codebases (with
 mutually incompatible sign conventions), in specialist ED codes (with
 their own coupling geometries), or in general-purpose libraries
 (SymPy, sympy.physics) at prohibitive cost. **libirrep** is a single
-pure-C11 library, MIT-licensed, with a stable ABI, that shipped these
+pure-C11 library, MIT-licensed, with a stable ABI, that ships these
 primitives at `10⁻¹⁰` relative accuracy under one canonical convention
-catalogue (Condon-Shortley phase, ZYZ Euler, right-handed active
+catalogue (Condon–Shortley phase, ZYZ Euler, right-handed active
 rotations, xyzw quaternion layout).
 
 ## 2. Conventions
@@ -55,7 +55,7 @@ Sakurai (1994), Varshalovich *et al.* (1988), and Geiger *et al.* 2022
  sends `x̂ → ŷ`.
 - **Euler** — ZYZ (Sakurai §3.3), with ranges `α ∈ [0, 2π)`,
  `β ∈ [0, π]`, `γ ∈ [0, 2π)`.
-- **Phase** — Condon-Shortley `(-1)^m` applied once, in the
+- **Phase** — Condon–Shortley `(-1)^m` applied once, in the
  associated Legendre polynomial.
 - **Real spherical harmonics** — e3nn sign convention,
  `Y_{1,+1}^{real} ∝ +x` at the equator.
@@ -123,7 +123,7 @@ e3nn-style path-indexed tensor products are implemented in real-basis
 arithmetic for efficiency. The complex-basis CG coefficients connect
 via an `i^(l_a + l_b − l_c)` phase factor on odd-l-sum paths, applied
 internally so that the `(1, 1, 1)` cross-product path — `a × b =
-√2 · (1o ⊗ 1o → 1e)` in our layout — produces guaranteed-real output.
+√2 · (1o ⊗ 1o → 1e)` in the library's real-basis layout — produces guaranteed-real output.
 Cross-checked bit-exactly against a Cartesian reference in
 `examples/torque_net_tp_paths.c`.
 
@@ -138,8 +138,8 @@ matrix-vector multiply. This delivers a sustained ~80× speedup on
 the projection hot path at moderate cache cost (~2–16 KB per group
 table).
 
-Groups supported in 1.3: C₄ᵥ, D₆, C₃ᵥ, D₃ (Bradley-Cracknell 1972,
-cross-checked against Altmann-Herzig 1994).
+Groups supported in 1.3: C₄ᵥ, D₆, C₃ᵥ, D₃ (Bradley–Cracknell 1972,
+cross-checked against Altmann–Herzig 1994).
 
 ### 3.6. Space-group site permutations with inverse-basis lookup
 
@@ -204,7 +204,7 @@ callback infrastructure supports spin gap extraction via S_z = 1
 seeding, deflated first-excited-state extraction, and arbitrary
 Hermitian operators other than Heisenberg.
 
-### 3.9. Kitaev-Preskill topological entanglement entropy
+### 3.9. Kitaev–Preskill topological entanglement entropy
 
 Given a tripartition `A, B, C` of a quantum region and a density
 matrix `ρ` on the full region, the topological entanglement entropy
@@ -301,7 +301,7 @@ relative at the NEON / AVX2 paths.
 
 - **e3nn** (Geiger *et al.* 2022) — libirrep implements the same
  mathematical primitives as the Python `e3nn` package, with
- matched sign conventions (Condon-Shortley + e3nn real-SH sign).
+ matched sign conventions (Condon–Shortley + e3nn real-SH sign).
  The mapping is documented side-by-side in
  [`MIGRATION_FROM_E3NN.md`](MIGRATION_FROM_E3NN.md).
 - **NetKet** (Carleo *et al.* 2019) — Python / JAX NQS framework.

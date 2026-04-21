@@ -70,39 +70,32 @@ extern "C" {
  *  @param rho_A        output `dA × dA` matrix, row-major,
  *                      `dA = local_dim^nA`
  *  @return             #IRREP_OK, or #IRREP_ERR_INVALID_ARG. */
-IRREP_API irrep_status_t
-irrep_partial_trace(int num_sites, int local_dim,
-                    const double _Complex *psi,
-                    const int *sites_A, int nA,
-                    double _Complex *rho_A);
+IRREP_API irrep_status_t irrep_partial_trace(int num_sites, int local_dim,
+                                             const double _Complex *psi, const int *sites_A, int nA,
+                                             double _Complex *rho_A);
 
 /** @brief Cyclic-Jacobi Hermitian eigendecomposition. Destroys @p A (writes
  *         a diagonal matrix on exit). @p eigvals must have room for `n`
  *         entries. Converged when the off-diagonal Frobenius norm drops
  *         below `n · 1e-14 · tr(A)` or after 50 · n sweeps, whichever
  *         comes first. Returns #IRREP_OK or #IRREP_ERR_INVALID_ARG. */
-IRREP_API irrep_status_t
-irrep_hermitian_eigvals(int n, double _Complex *A, double *eigvals);
+IRREP_API irrep_status_t irrep_hermitian_eigvals(int n, double _Complex *A, double *eigvals);
 
 /** @brief von Neumann entropy `− Σ λ_i ln λ_i` from an eigenvalue list.
  *         Treats `λ ≤ 1e-15` as zero (since `0 ln 0 = 0`). */
-IRREP_API double
-irrep_entropy_vonneumann_spectrum(const double *eigvals, int n);
+IRREP_API double irrep_entropy_vonneumann_spectrum(const double *eigvals, int n);
 
 /** @brief Rényi entropy of order `α ≠ 1`,
  *         `S_α = (1/(1−α)) ln Σ λ_i^α`. For `α = 1` falls back to
  *         @ref irrep_entropy_vonneumann_spectrum. */
-IRREP_API double
-irrep_entropy_renyi_spectrum(const double *eigvals, int n, double alpha);
+IRREP_API double irrep_entropy_renyi_spectrum(const double *eigvals, int n, double alpha);
 
 /** @brief Fused: diagonalise @p rho (copy internally so @p rho survives),
  *         then take von Neumann entropy. */
-IRREP_API double
-irrep_entropy_vonneumann(const double _Complex *rho, int n);
+IRREP_API double irrep_entropy_vonneumann(const double _Complex *rho, int n);
 
 /** @brief Fused Rényi counterpart to @ref irrep_entropy_vonneumann. */
-IRREP_API double
-irrep_entropy_renyi(const double _Complex *rho, int n, double alpha);
+IRREP_API double irrep_entropy_renyi(const double _Complex *rho, int n, double alpha);
 
 /** @brief Sparse Hermitian eigenvalue extraction via 3-term-recurrence
  *         Lanczos. Ground-state energy and a few low-lying excited states
@@ -135,17 +128,9 @@ irrep_entropy_renyi(const double _Complex *rho, int n, double alpha);
  *                     spread in a momentum sector that doesn't contain
  *                     the ground state) silently miss the ground state.
  *  @param eigvals_out Length-`k_wanted` output, sorted ascending. */
-IRREP_API irrep_status_t
-irrep_lanczos_eigvals(
-    void (*apply_op)(const double _Complex *x,
-                     double _Complex *y,
-                     void *ctx),
-    void *ctx,
-    long long dim,
-    int k_wanted,
-    int max_iters,
-    const double _Complex *seed,
-    double *eigvals_out);
+IRREP_API irrep_status_t irrep_lanczos_eigvals(
+    void (*apply_op)(const double _Complex *x, double _Complex *y, void *ctx), void *ctx,
+    long long dim, int k_wanted, int max_iters, const double _Complex *seed, double *eigvals_out);
 
 /** @brief Kitaev-Preskill topological entanglement entropy `γ`:
  *
@@ -154,10 +139,8 @@ irrep_lanczos_eigvals(
  *  The caller supplies the seven entropies of the tripartition. A value of
  *  `γ = ln 2` signals Z₂ topological order; `γ = 0` signals no topological
  *  order. */
-IRREP_API double
-irrep_topological_entanglement_entropy(double SA, double SB, double SC,
-                                       double SAB, double SBC, double SAC,
-                                       double SABC);
+IRREP_API double irrep_topological_entanglement_entropy(double SA, double SB, double SC, double SAB,
+                                                        double SBC, double SAC, double SABC);
 
 #ifdef __cplusplus
 }

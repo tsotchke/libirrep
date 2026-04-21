@@ -25,16 +25,15 @@
 #include <irrep/lattice.h>
 
 #ifndef M_PI
-#  define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846
 #endif
 
 static double dist2_(const double a[2], const double b[2]) {
     double dx = a[0] - b[0], dy = a[1] - b[1];
-    return dx*dx + dy*dy;
+    return dx * dx + dy * dy;
 }
 
-static void check_all_bonds_at_(const irrep_lattice_t *L,
-                                int nb, const int *ii, const int *jj,
+static void check_all_bonds_at_(const irrep_lattice_t *L, int nb, const int *ii, const int *jj,
                                 double expected_len, double tol) {
     for (int k = 0; k < nb; ++k) {
         double pi[2], pj[2];
@@ -46,15 +45,16 @@ static void check_all_bonds_at_(const irrep_lattice_t *L,
          * taking the lattice-primitive-vector-modulo nearest image. */
         double a1[2], a2[2];
         irrep_lattice_primitive_vectors(L, a1, a2);
-        int Lx = irrep_lattice_Lx(L), Ly = irrep_lattice_Ly(L);
+        int    Lx = irrep_lattice_Lx(L), Ly = irrep_lattice_Ly(L);
         double min_d = d;
         for (int tx = -1; tx <= 1; ++tx) {
             for (int ty = -1; ty <= 1; ++ty) {
-                double shift[2] = { tx * Lx * a1[0] + ty * Ly * a2[0],
-                                    tx * Lx * a1[1] + ty * Ly * a2[1] };
-                double p[2] = { pj[0] + shift[0], pj[1] + shift[1] };
+                double shift[2] = {tx * Lx * a1[0] + ty * Ly * a2[0],
+                                   tx * Lx * a1[1] + ty * Ly * a2[1]};
+                double p[2] = {pj[0] + shift[0], pj[1] + shift[1]};
                 double trial = sqrt(dist2_(pi, p));
-                if (trial < min_d) min_d = trial;
+                if (trial < min_d)
+                    min_d = trial;
             }
         }
         IRREP_ASSERT_NEAR(min_d, expected_len, tol);
@@ -62,9 +62,10 @@ static void check_all_bonds_at_(const irrep_lattice_t *L,
 }
 
 static void check_bonds_sorted_unique_(int nb, const int *ii, const int *jj) {
-    for (int k = 0; k < nb; ++k) IRREP_ASSERT(ii[k] < jj[k]);
+    for (int k = 0; k < nb; ++k)
+        IRREP_ASSERT(ii[k] < jj[k]);
     for (int k = 1; k < nb; ++k) {
-        IRREP_ASSERT(ii[k-1] < ii[k] || (ii[k-1] == ii[k] && jj[k-1] < jj[k]));
+        IRREP_ASSERT(ii[k - 1] < ii[k] || (ii[k - 1] == ii[k] && jj[k - 1] < jj[k]));
     }
 }
 
@@ -87,15 +88,15 @@ int main(void) {
     /* ------------------------------------------------------------------ */
     irrep_lattice_t *sq = irrep_lattice_build(IRREP_LATTICE_SQUARE, 4, 4);
     IRREP_ASSERT(sq != NULL);
-    IRREP_ASSERT(irrep_lattice_num_sites(sq)       == 16);
-    IRREP_ASSERT(irrep_lattice_num_cells(sq)       == 16);
-    IRREP_ASSERT(irrep_lattice_sites_per_cell(sq)  == 1);
-    IRREP_ASSERT(irrep_lattice_kind(sq)            == IRREP_LATTICE_SQUARE);
+    IRREP_ASSERT(irrep_lattice_num_sites(sq) == 16);
+    IRREP_ASSERT(irrep_lattice_num_cells(sq) == 16);
+    IRREP_ASSERT(irrep_lattice_sites_per_cell(sq) == 1);
+    IRREP_ASSERT(irrep_lattice_kind(sq) == IRREP_LATTICE_SQUARE);
 
     /* 4 NN per site × 16 sites / 2 = 32 */
-    IRREP_ASSERT(irrep_lattice_num_bonds_nn(sq)    == 32);
+    IRREP_ASSERT(irrep_lattice_num_bonds_nn(sq) == 32);
     /* 4 NNN per site × 16 sites / 2 = 32 */
-    IRREP_ASSERT(irrep_lattice_num_bonds_nnn(sq)   == 32);
+    IRREP_ASSERT(irrep_lattice_num_bonds_nnn(sq) == 32);
 
     double a1[2], a2[2], b1[2], b2[2];
     irrep_lattice_primitive_vectors(sq, a1, a2);
@@ -106,10 +107,10 @@ int main(void) {
 
     irrep_lattice_reciprocal_vectors(sq, b1, b2);
     /* a_i · b_j = 2π δ_{ij} */
-    IRREP_ASSERT_NEAR(a1[0]*b1[0] + a1[1]*b1[1], 2.0*M_PI, 1e-12);
-    IRREP_ASSERT_NEAR(a2[0]*b2[0] + a2[1]*b2[1], 2.0*M_PI, 1e-12);
-    IRREP_ASSERT_NEAR(a1[0]*b2[0] + a1[1]*b2[1], 0.0,      1e-12);
-    IRREP_ASSERT_NEAR(a2[0]*b1[0] + a2[1]*b1[1], 0.0,      1e-12);
+    IRREP_ASSERT_NEAR(a1[0] * b1[0] + a1[1] * b1[1], 2.0 * M_PI, 1e-12);
+    IRREP_ASSERT_NEAR(a2[0] * b2[0] + a2[1] * b2[1], 2.0 * M_PI, 1e-12);
+    IRREP_ASSERT_NEAR(a1[0] * b2[0] + a1[1] * b2[1], 0.0, 1e-12);
+    IRREP_ASSERT_NEAR(a2[0] * b1[0] + a2[1] * b1[1], 0.0, 1e-12);
 
     int *ii = malloc(sizeof(int) * 64);
     int *jj = malloc(sizeof(int) * 64);
@@ -150,19 +151,20 @@ int main(void) {
     irrep_lattice_fill_bonds_nnn(tri, ii_t, jj_t);
     check_bonds_sorted_unique_(48, ii_t, jj_t);
     check_all_bonds_at_(tri, 48, ii_t, jj_t, sqrt(3.0), 1e-12);
-    free(ii_t); free(jj_t);
+    free(ii_t);
+    free(jj_t);
 
     /* ------------------------------------------------------------------ */
     /* HONEYCOMB 3×3                                                      */
     /* ------------------------------------------------------------------ */
     irrep_lattice_t *hc = irrep_lattice_build(IRREP_LATTICE_HONEYCOMB, 3, 3);
     IRREP_ASSERT(hc != NULL);
-    IRREP_ASSERT(irrep_lattice_num_sites(hc)      == 18);
-    IRREP_ASSERT(irrep_lattice_sites_per_cell(hc) ==  2);
+    IRREP_ASSERT(irrep_lattice_num_sites(hc) == 18);
+    IRREP_ASSERT(irrep_lattice_sites_per_cell(hc) == 2);
     /* 3 NN per site × 18 / 2 = 27 */
-    IRREP_ASSERT(irrep_lattice_num_bonds_nn(hc)   == 27);
+    IRREP_ASSERT(irrep_lattice_num_bonds_nn(hc) == 27);
     /* 6 NNN per site × 18 / 2 = 54 */
-    IRREP_ASSERT(irrep_lattice_num_bonds_nnn(hc)  == 54);
+    IRREP_ASSERT(irrep_lattice_num_bonds_nnn(hc) == 54);
 
     int *ii_h = malloc(sizeof(int) * 108);
     int *jj_h = malloc(sizeof(int) * 108);
@@ -172,33 +174,35 @@ int main(void) {
     irrep_lattice_fill_bonds_nnn(hc, ii_h, jj_h);
     check_bonds_sorted_unique_(54, ii_h, jj_h);
     check_all_bonds_at_(hc, 54, ii_h, jj_h, sqrt(3.0), 1e-12);
-    free(ii_h); free(jj_h);
+    free(ii_h);
+    free(jj_h);
 
     /* All NN bonds must cross sublattices on honeycomb */
-    irrep_lattice_fill_bonds_nn(hc, NULL, NULL);  /* smoke: NULL fill ok */
-    int n_nn = irrep_lattice_num_bonds_nn(hc);
-    int *ii_hnn = malloc(sizeof(int)*n_nn), *jj_hnn = malloc(sizeof(int)*n_nn);
+    irrep_lattice_fill_bonds_nn(hc, NULL, NULL); /* smoke: NULL fill ok */
+    int  n_nn = irrep_lattice_num_bonds_nn(hc);
+    int *ii_hnn = malloc(sizeof(int) * n_nn), *jj_hnn = malloc(sizeof(int) * n_nn);
     irrep_lattice_fill_bonds_nn(hc, ii_hnn, jj_hnn);
     for (int k = 0; k < n_nn; ++k) {
         int si = irrep_lattice_sublattice_of(hc, ii_hnn[k]);
         int sj = irrep_lattice_sublattice_of(hc, jj_hnn[k]);
         IRREP_ASSERT(si != sj);
     }
-    free(ii_hnn); free(jj_hnn);
+    free(ii_hnn);
+    free(jj_hnn);
 
     /* ------------------------------------------------------------------ */
     /* KAGOME — 6×6 cluster.  6×6 = 108 sites.                    */
     /* ------------------------------------------------------------------ */
     irrep_lattice_t *kg = irrep_lattice_build(IRREP_LATTICE_KAGOME, 6, 6);
     IRREP_ASSERT(kg != NULL);
-    IRREP_ASSERT(irrep_lattice_num_sites(kg)      == 108);
-    IRREP_ASSERT(irrep_lattice_sites_per_cell(kg) ==   3);
-    IRREP_ASSERT(irrep_lattice_num_cells(kg)      ==  36);
+    IRREP_ASSERT(irrep_lattice_num_sites(kg) == 108);
+    IRREP_ASSERT(irrep_lattice_sites_per_cell(kg) == 3);
+    IRREP_ASSERT(irrep_lattice_num_cells(kg) == 36);
 
     /* NN: 4 per site × 108 / 2 = 216 */
-    IRREP_ASSERT(irrep_lattice_num_bonds_nn(kg)   == 216);
+    IRREP_ASSERT(irrep_lattice_num_bonds_nn(kg) == 216);
     /* NNN (across hexagon, mixed sublattice): 4 per site × 108 / 2 = 216 */
-    IRREP_ASSERT(irrep_lattice_num_bonds_nnn(kg)  == 216);
+    IRREP_ASSERT(irrep_lattice_num_bonds_nnn(kg) == 216);
 
     int *ii_k = malloc(sizeof(int) * 432);
     int *jj_k = malloc(sizeof(int) * 432);
@@ -220,12 +224,18 @@ int main(void) {
 
     /* Every site has exactly 4 NN on 6×6 kagome */
     int *deg = calloc(108, sizeof(int));
-    for (int k = 0; k < 216; ++k) { deg[ii_k[k]]++; deg[jj_k[k]]++; }
+    for (int k = 0; k < 216; ++k) {
+        deg[ii_k[k]]++;
+        deg[jj_k[k]]++;
+    }
     int all4 = 1;
-    for (int s = 0; s < 108; ++s) if (deg[s] != 4) all4 = 0;
+    for (int s = 0; s < 108; ++s)
+        if (deg[s] != 4)
+            all4 = 0;
     IRREP_ASSERT(all4);
     free(deg);
-    free(ii_k); free(jj_k);
+    free(ii_k);
+    free(jj_k);
 
     /* Cell / index round-trip */
     for (int s = 0; s < 108; s += 17) {
@@ -254,12 +264,14 @@ int main(void) {
     int unique = 1;
     for (int a = 0; a < 36 && unique; ++a) {
         for (int b = a + 1; b < 36 && unique; ++b) {
-            double dkx = kx[a]-kx[b], dky = ky[a]-ky[b];
-            if (dkx*dkx + dky*dky < 1e-16) unique = 0;
+            double dkx = kx[a] - kx[b], dky = ky[a] - ky[b];
+            if (dkx * dkx + dky * dky < 1e-16)
+                unique = 0;
         }
     }
     IRREP_ASSERT(unique);
-    free(kx); free(ky);
+    free(kx);
+    free(ky);
 
     /* ------------------------------------------------------------------ */
     /* Small-cluster sanity: 2×2 square — PBC collapses the system to a
@@ -273,7 +285,8 @@ int main(void) {
     irrep_lattice_free(sq22);
 
     /* Cleanup */
-    free(ii); free(jj);
+    free(ii);
+    free(jj);
     irrep_lattice_free(sq);
     irrep_lattice_free(tri);
     irrep_lattice_free(hc);

@@ -33,33 +33,33 @@
 static irrep_cpu_features_t g_features;
 static irrep_dispatch_t     g_dispatch;
 static atomic_bool          g_initialized = false;
-static atomic_flag          g_init_lock   = ATOMIC_FLAG_INIT;
+static atomic_flag          g_init_lock = ATOMIC_FLAG_INIT;
 
-static void detect_features(void) {
+static void                 detect_features(void) {
 #if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
     g_features.neon = true;
 #endif
 
 #if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
-#  if defined(__GNUC__) || defined(__clang__)
+#if defined(__GNUC__) || defined(__clang__)
     __builtin_cpu_init();
-    g_features.sse42    = __builtin_cpu_supports("sse4.2") ? true : false;
-    g_features.avx2     = __builtin_cpu_supports("avx2")   ? true : false;
-    g_features.fma      = __builtin_cpu_supports("fma")    ? true : false;
-    g_features.avx512f  = __builtin_cpu_supports("avx512f")  ? true : false;
+    g_features.sse42 = __builtin_cpu_supports("sse4.2") ? true : false;
+    g_features.avx2 = __builtin_cpu_supports("avx2") ? true : false;
+    g_features.fma = __builtin_cpu_supports("fma") ? true : false;
+    g_features.avx512f = __builtin_cpu_supports("avx512f") ? true : false;
     g_features.avx512dq = __builtin_cpu_supports("avx512dq") ? true : false;
-#  endif
+#endif
 #endif
 }
 
 static void populate_dispatch(void) {
     /* Start with scalar fallbacks — always correct. */
-    g_dispatch.cutoff_cosine_batch        = irrep_cutoff_cosine_batch_scalar;
-    g_dispatch.cutoff_cosine_d_batch      = irrep_cutoff_cosine_d_batch_scalar;
-    g_dispatch.cutoff_polynomial_batch    = irrep_cutoff_polynomial_batch_scalar;
-    g_dispatch.cutoff_polynomial_d_batch  = irrep_cutoff_polynomial_d_batch_scalar;
-    g_dispatch.rbf_bessel_batch           = irrep_rbf_bessel_batch_scalar;
-    g_dispatch.sph_harm_cart_all_batch    = irrep_sph_harm_cart_all_batch_scalar;
+    g_dispatch.cutoff_cosine_batch = irrep_cutoff_cosine_batch_scalar;
+    g_dispatch.cutoff_cosine_d_batch = irrep_cutoff_cosine_d_batch_scalar;
+    g_dispatch.cutoff_polynomial_batch = irrep_cutoff_polynomial_batch_scalar;
+    g_dispatch.cutoff_polynomial_d_batch = irrep_cutoff_polynomial_d_batch_scalar;
+    g_dispatch.rbf_bessel_batch = irrep_rbf_bessel_batch_scalar;
+    g_dispatch.sph_harm_cart_all_batch = irrep_sph_harm_cart_all_batch_scalar;
 
 #if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
     if (g_features.neon) {
@@ -67,26 +67,26 @@ static void populate_dispatch(void) {
          * variants still route through the scalar path: vectorized cos() would
          * require either Accelerate (non-portable) or a polynomial kernel that
          * isn't worth the precision trade-off at this size. */
-        g_dispatch.cutoff_polynomial_batch   = irrep_cutoff_polynomial_batch_neon;
+        g_dispatch.cutoff_polynomial_batch = irrep_cutoff_polynomial_batch_neon;
         g_dispatch.cutoff_polynomial_d_batch = irrep_cutoff_polynomial_d_batch_neon;
         /* SH batch: lane-paired iteration over edges. Bit-exact against the
          * scalar kernel on odd-N-included fixtures. */
-        g_dispatch.sph_harm_cart_all_batch   = irrep_sph_harm_cart_all_batch_neon;
+        g_dispatch.sph_harm_cart_all_batch = irrep_sph_harm_cart_all_batch_neon;
     }
 #endif
 
 #if (defined(__x86_64__) || defined(_M_X64)) && defined(__AVX2__) && defined(__FMA__)
     extern void irrep_sph_harm_cart_all_batch_avx2(int, size_t, const double *, double *);
-    extern void irrep_cutoff_polynomial_batch_avx2  (size_t, const double *, double, int, double *);
+    extern void irrep_cutoff_polynomial_batch_avx2(size_t, const double *, double, int, double *);
     extern void irrep_cutoff_polynomial_d_batch_avx2(size_t, const double *, double, int, double *);
     if (g_features.avx2 && g_features.fma) {
         /* SH batch: 4 edges per __m256d, Chebyshev trig recurrence
          * vectorised across lanes; per-lane Legendre grid. Bit-exact
          * against the scalar kernel on tail-included fixtures. */
-        g_dispatch.sph_harm_cart_all_batch   = irrep_sph_harm_cart_all_batch_avx2;
+        g_dispatch.sph_harm_cart_all_batch = irrep_sph_harm_cart_all_batch_avx2;
         /* Polynomial cutoff: 4 elements per vector, fnmadd / fmadd to
          * match the scalar-contracted pattern bit-exactly. */
-        g_dispatch.cutoff_polynomial_batch   = irrep_cutoff_polynomial_batch_avx2;
+        g_dispatch.cutoff_polynomial_batch = irrep_cutoff_polynomial_batch_avx2;
         g_dispatch.cutoff_polynomial_d_batch = irrep_cutoff_polynomial_d_batch_avx2;
     }
 #endif
@@ -94,12 +94,14 @@ static void populate_dispatch(void) {
 
 static void init_once(void) {
     /* Fast path: already initialised. */
-    if (atomic_load_explicit(&g_initialized, memory_order_acquire)) return;
+    if (atomic_load_explicit(&g_initialized, memory_order_acquire))
+        return;
 
     /* Slow path: acquire the init lock. Losers spin until the winner
      * publishes `g_initialized`. */
     while (atomic_flag_test_and_set_explicit(&g_init_lock, memory_order_acquire)) {
-        if (atomic_load_explicit(&g_initialized, memory_order_acquire)) return;
+        if (atomic_load_explicit(&g_initialized, memory_order_acquire))
+            return;
     }
 
     /* Double-check after locking — another thread may have finished between
@@ -122,8 +124,23 @@ const irrep_dispatch_t *irrep_dispatch_get(void) {
     return &g_dispatch;
 }
 
-bool irrep_cpu_has_neon   (void) { init_once(); return g_features.neon;    }
-bool irrep_cpu_has_sse42  (void) { init_once(); return g_features.sse42;   }
-bool irrep_cpu_has_avx2   (void) { init_once(); return g_features.avx2;    }
-bool irrep_cpu_has_avx512f(void) { init_once(); return g_features.avx512f; }
-bool irrep_cpu_has_fma    (void) { init_once(); return g_features.fma;     }
+bool irrep_cpu_has_neon(void) {
+    init_once();
+    return g_features.neon;
+}
+bool irrep_cpu_has_sse42(void) {
+    init_once();
+    return g_features.sse42;
+}
+bool irrep_cpu_has_avx2(void) {
+    init_once();
+    return g_features.avx2;
+}
+bool irrep_cpu_has_avx512f(void) {
+    init_once();
+    return g_features.avx512f;
+}
+bool irrep_cpu_has_fma(void) {
+    init_once();
+    return g_features.fma;
+}

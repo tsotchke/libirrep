@@ -31,11 +31,13 @@ extern void irrep_set_error_(const char *fmt, ...);
  * -------------------------------------------------------------------------- */
 
 irrep_multiset_t *irrep_multiset_new(int capacity) {
-    if (capacity < 0) return NULL;
+    if (capacity < 0)
+        return NULL;
     irrep_multiset_t *m = calloc(1, sizeof(*m));
-    if (!m) return NULL;
+    if (!m)
+        return NULL;
     if (capacity > 0) {
-        m->labels         = calloc((size_t)capacity, sizeof(*m->labels));
+        m->labels = calloc((size_t)capacity, sizeof(*m->labels));
         m->multiplicities = calloc((size_t)capacity, sizeof(*m->multiplicities));
         if (!m->labels || !m->multiplicities) {
             free(m->labels);
@@ -44,14 +46,15 @@ irrep_multiset_t *irrep_multiset_new(int capacity) {
             return NULL;
         }
     }
-    m->capacity  = capacity;
+    m->capacity = capacity;
     m->num_terms = 0;
     m->total_dim = 0;
     return m;
 }
 
 void irrep_multiset_free(irrep_multiset_t *m) {
-    if (!m) return;
+    if (!m)
+        return;
     free(m->labels);
     free(m->multiplicities);
     free(m);
@@ -61,31 +64,33 @@ void irrep_multiset_free(irrep_multiset_t *m) {
  * Append with amortized growth                                               *
  * -------------------------------------------------------------------------- */
 
-irrep_status_t irrep_multiset_append(irrep_multiset_t *m,
-                                     irrep_label_t label, int multiplicity) {
-    if (!m)                                        return IRREP_ERR_INVALID_ARG;
-    if (multiplicity <= 0)                         return IRREP_ERR_INVALID_ARG;
-    if (label.l < 0)                               return IRREP_ERR_INVALID_ARG;
+irrep_status_t irrep_multiset_append(irrep_multiset_t *m, irrep_label_t label, int multiplicity) {
+    if (!m)
+        return IRREP_ERR_INVALID_ARG;
+    if (multiplicity <= 0)
+        return IRREP_ERR_INVALID_ARG;
+    if (label.l < 0)
+        return IRREP_ERR_INVALID_ARG;
     if (label.parity != IRREP_EVEN && label.parity != IRREP_ODD)
         return IRREP_ERR_INVALID_ARG;
 
     if (m->num_terms >= m->capacity) {
-        int new_cap = m->capacity > 0 ? m->capacity * 2 : 4;
-        irrep_label_t *nl = realloc(m->labels,
-                                    (size_t)new_cap * sizeof(*m->labels));
-        int           *nm = realloc(m->multiplicities,
-                                    (size_t)new_cap * sizeof(*m->multiplicities));
+        int            new_cap = m->capacity > 0 ? m->capacity * 2 : 4;
+        irrep_label_t *nl = realloc(m->labels, (size_t)new_cap * sizeof(*m->labels));
+        int *nm = realloc(m->multiplicities, (size_t)new_cap * sizeof(*m->multiplicities));
         if (!nl || !nm) {
             /* best-effort: partial realloc may have freed old buffer */
-            if (nl) m->labels = nl;
-            if (nm) m->multiplicities = nm;
+            if (nl)
+                m->labels = nl;
+            if (nm)
+                m->multiplicities = nm;
             return IRREP_ERR_OUT_OF_MEMORY;
         }
-        m->labels         = nl;
+        m->labels = nl;
         m->multiplicities = nm;
-        m->capacity       = new_cap;
+        m->capacity = new_cap;
     }
-    m->labels[m->num_terms]         = label;
+    m->labels[m->num_terms] = label;
     m->multiplicities[m->num_terms] = multiplicity;
     m->num_terms++;
     m->total_dim += multiplicity * (2 * label.l + 1);
@@ -97,7 +102,8 @@ irrep_status_t irrep_multiset_append(irrep_multiset_t *m,
  * -------------------------------------------------------------------------- */
 
 static void skip_ws_(const char **p) {
-    while (**p && isspace((unsigned char)**p)) (*p)++;
+    while (**p && isspace((unsigned char)**p))
+        (*p)++;
 }
 
 irrep_multiset_t *irrep_multiset_parse(const char *spec) {
@@ -106,16 +112,18 @@ irrep_multiset_t *irrep_multiset_parse(const char *spec) {
         return NULL;
     }
     irrep_multiset_t *m = irrep_multiset_new(4);
-    if (!m) return NULL;
+    if (!m)
+        return NULL;
 
     const char *p = spec;
     skip_ws_(&p);
-    if (!*p) return m;               /* empty spec → empty multiset */
+    if (!*p)
+        return m; /* empty spec → empty multiset */
 
     while (*p) {
         /* multiplicity */
         char *end;
-        long mult = strtol(p, &end, 10);
+        long  mult = strtol(p, &end, 10);
         if (end == p || mult <= 0 || mult > INT_MAX) {
             irrep_set_error_("irrep_multiset_parse: invalid multiplicity near '%s'", p);
             irrep_multiset_free(m);
@@ -144,8 +152,10 @@ irrep_multiset_t *irrep_multiset_parse(const char *spec) {
 
         /* parity */
         int parity;
-        if      (*p == 'e') parity = IRREP_EVEN;
-        else if (*p == 'o') parity = IRREP_ODD;
+        if (*p == 'e')
+            parity = IRREP_EVEN;
+        else if (*p == 'o')
+            parity = IRREP_ODD;
         else {
             irrep_set_error_("irrep_multiset_parse: expected 'e' or 'o' near '%s'", p);
             irrep_multiset_free(m);
@@ -153,7 +163,7 @@ irrep_multiset_t *irrep_multiset_parse(const char *spec) {
         }
         p++;
 
-        irrep_label_t lbl = { .l = (int)l, .parity = parity };
+        irrep_label_t lbl = {.l = (int)l, .parity = parity};
         if (irrep_multiset_append(m, lbl, (int)mult) != IRREP_OK) {
             irrep_multiset_free(m);
             return NULL;
@@ -170,7 +180,8 @@ irrep_multiset_t *irrep_multiset_parse(const char *spec) {
             }
             continue;
         }
-        if (*p == '\0') break;
+        if (*p == '\0')
+            break;
 
         irrep_set_error_("irrep_multiset_parse: expected '+' or end near '%s'", p);
         irrep_multiset_free(m);
@@ -185,19 +196,19 @@ irrep_multiset_t *irrep_multiset_parse(const char *spec) {
 
 int irrep_multiset_format(const irrep_multiset_t *m, char *buf, size_t buflen) {
     if (!m || m->num_terms == 0) {
-        if (buf && buflen > 0) buf[0] = '\0';
+        if (buf && buflen > 0)
+            buf[0] = '\0';
         return 0;
     }
     size_t written = 0;
-    size_t total   = 0;
+    size_t total = 0;
     for (int i = 0; i < m->num_terms; ++i) {
         char chunk[64];
-        int  n = snprintf(chunk, sizeof(chunk), "%s%dx%d%c",
-                          i == 0 ? "" : " + ",
-                          m->multiplicities[i],
-                          m->labels[i].l,
-                          m->labels[i].parity == IRREP_ODD ? 'o' : 'e');
-        if (n < 0) return -1;
+        int  n =
+            snprintf(chunk, sizeof(chunk), "%s%dx%d%c", i == 0 ? "" : " + ", m->multiplicities[i],
+                     m->labels[i].l, m->labels[i].parity == IRREP_ODD ? 'o' : 'e');
+        if (n < 0)
+            return -1;
         if (buf && written + 1 < buflen) {
             size_t copy = (size_t)n < buflen - 1 - written ? (size_t)n : buflen - 1 - written;
             memcpy(buf + written, chunk, copy);
@@ -205,7 +216,8 @@ int irrep_multiset_format(const irrep_multiset_t *m, char *buf, size_t buflen) {
         }
         total += (size_t)n;
     }
-    if (buf && buflen > 0) buf[written < buflen ? written : buflen - 1] = '\0';
+    if (buf && buflen > 0)
+        buf[written < buflen ? written : buflen - 1] = '\0';
     return (int)total;
 }
 
@@ -214,26 +226,29 @@ int irrep_multiset_format(const irrep_multiset_t *m, char *buf, size_t buflen) {
  * -------------------------------------------------------------------------- */
 
 void irrep_multiset_simplify(irrep_multiset_t *m) {
-    if (!m || m->num_terms <= 0) return;
+    if (!m || m->num_terms <= 0)
+        return;
 
     int n = m->num_terms;
     /* Bubble sort — n is small in practice. Stable enough, and we're about to
      * merge anyway. Order: l ascending, then parity even (+1) before odd (-1). */
     for (int i = 0; i < n - 1; ++i) {
         for (int k = 0; k < n - 1 - i; ++k) {
-            int lk  = m->labels[k].l;
+            int lk = m->labels[k].l;
             int lkp = m->labels[k + 1].l;
-            int pk  = m->labels[k].parity;
+            int pk = m->labels[k].parity;
             int pkp = m->labels[k + 1].parity;
             int swap = 0;
-            if (lk > lkp)                      swap = 1;
-            else if (lk == lkp && pk < pkp)    swap = 1;  /* −1 before +1 → swap */
+            if (lk > lkp)
+                swap = 1;
+            else if (lk == lkp && pk < pkp)
+                swap = 1; /* −1 before +1 → swap */
             if (swap) {
                 irrep_label_t lt = m->labels[k];
                 int           mt = m->multiplicities[k];
-                m->labels[k]         = m->labels[k + 1];
+                m->labels[k] = m->labels[k + 1];
                 m->multiplicities[k] = m->multiplicities[k + 1];
-                m->labels[k + 1]         = lt;
+                m->labels[k + 1] = lt;
                 m->multiplicities[k + 1] = mt;
             }
         }
@@ -241,13 +256,13 @@ void irrep_multiset_simplify(irrep_multiset_t *m) {
 
     int write = 0;
     for (int r = 0; r < n; ++r) {
-        if (m->multiplicities[r] == 0) continue;
-        if (write > 0
-            && m->labels[write - 1].l      == m->labels[r].l
-            && m->labels[write - 1].parity == m->labels[r].parity) {
+        if (m->multiplicities[r] == 0)
+            continue;
+        if (write > 0 && m->labels[write - 1].l == m->labels[r].l &&
+            m->labels[write - 1].parity == m->labels[r].parity) {
             m->multiplicities[write - 1] += m->multiplicities[r];
         } else {
-            m->labels[write]         = m->labels[r];
+            m->labels[write] = m->labels[r];
             m->multiplicities[write] = m->multiplicities[r];
             write++;
         }
@@ -267,13 +282,13 @@ void irrep_multiset_simplify(irrep_multiset_t *m) {
 
 irrep_multiset_t *irrep_multiset_direct_sum(const irrep_multiset_t *m1,
                                             const irrep_multiset_t *m2) {
-    int cap = (m1 ? m1->num_terms : 0) + (m2 ? m2->num_terms : 0);
+    int               cap = (m1 ? m1->num_terms : 0) + (m2 ? m2->num_terms : 0);
     irrep_multiset_t *out = irrep_multiset_new(cap > 0 ? cap : 1);
-    if (!out) return NULL;
+    if (!out)
+        return NULL;
     if (m1) {
         for (int i = 0; i < m1->num_terms; ++i) {
-            if (irrep_multiset_append(out, m1->labels[i],
-                                      m1->multiplicities[i]) != IRREP_OK) {
+            if (irrep_multiset_append(out, m1->labels[i], m1->multiplicities[i]) != IRREP_OK) {
                 irrep_multiset_free(out);
                 return NULL;
             }
@@ -281,8 +296,7 @@ irrep_multiset_t *irrep_multiset_direct_sum(const irrep_multiset_t *m1,
     }
     if (m2) {
         for (int i = 0; i < m2->num_terms; ++i) {
-            if (irrep_multiset_append(out, m2->labels[i],
-                                      m2->multiplicities[i]) != IRREP_OK) {
+            if (irrep_multiset_append(out, m2->labels[i], m2->multiplicities[i]) != IRREP_OK) {
                 irrep_multiset_free(out);
                 return NULL;
             }
@@ -301,8 +315,10 @@ int irrep_multiset_dim(const irrep_multiset_t *m) {
 }
 
 int irrep_multiset_block_offset(const irrep_multiset_t *m, int term_idx) {
-    if (!m || term_idx <= 0) return 0;
-    if (term_idx > m->num_terms) term_idx = m->num_terms;
+    if (!m || term_idx <= 0)
+        return 0;
+    if (term_idx > m->num_terms)
+        term_idx = m->num_terms;
     int offset = 0;
     for (int i = 0; i < term_idx; ++i) {
         offset += m->multiplicities[i] * (2 * m->labels[i].l + 1);

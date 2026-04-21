@@ -30,16 +30,15 @@ extern "C" {
 #endif
 
 /** @brief Allocate an empty multiset with room for @p capacity terms. */
-IRREP_API irrep_multiset_t *irrep_multiset_new  (int capacity);
+IRREP_API irrep_multiset_t *irrep_multiset_new(int capacity);
 
 /** @brief Release a multiset built by any constructor in this header. */
-IRREP_API void              irrep_multiset_free (irrep_multiset_t *m);
+IRREP_API void irrep_multiset_free(irrep_multiset_t *m);
 
 /** @brief Append a `(label, multiplicity)` term. Grows the backing storage
  *         when necessary. Returns #IRREP_OK, or an error code on bad input. */
-IRREP_API irrep_status_t    irrep_multiset_append(irrep_multiset_t *m,
-                                                  irrep_label_t label,
-                                                  int multiplicity);
+IRREP_API irrep_status_t irrep_multiset_append(irrep_multiset_t *m, irrep_label_t label,
+                                               int multiplicity);
 
 /** @brief Parse an e3nn-style spec (e.g. `"1x0e + 2x1o + 1x2e"`).
  *  @return freshly-allocated multiset, or @c NULL on malformed input; the
@@ -48,7 +47,7 @@ IRREP_API irrep_multiset_t *irrep_multiset_parse(const char *spec);
 
 /** @brief Format into @p buf. Writes at most `buflen - 1` chars plus a NUL.
  *  @return the required length (excluding terminator); may exceed @p buflen. */
-IRREP_API int  irrep_multiset_format(const irrep_multiset_t *m, char *buf, size_t buflen);
+IRREP_API int irrep_multiset_format(const irrep_multiset_t *m, char *buf, size_t buflen);
 
 /** @brief Merge like terms, sort canonically by `(l ascending, even-before-odd)`.
  *         Idempotent. */
@@ -59,7 +58,7 @@ IRREP_API irrep_multiset_t *irrep_multiset_direct_sum(const irrep_multiset_t *m1
                                                       const irrep_multiset_t *m2);
 
 /** @brief Total dimension (synonym for `m->total_dim`). */
-IRREP_API int irrep_multiset_dim         (const irrep_multiset_t *m);
+IRREP_API int irrep_multiset_dim(const irrep_multiset_t *m);
 
 /** @brief Start offset of term @p term_idx in a feature vector laid out by
  *         this multiset. Returns -1 on out-of-range input. */

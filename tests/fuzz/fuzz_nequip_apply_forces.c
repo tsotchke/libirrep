@@ -45,9 +45,9 @@ static void init_once_(void) {
     for (int i = 0; i < g_nw; ++i) g_w[i] = 0.013 * (i + 1);
 }
 
-/* Minimum input to cover every buffer: edge_vec (6*3) + h_in (4*4) + gho (4*4)
- * = 34 doubles = 272 bytes. Guard with a small slack. */
-#define MIN_INPUT 288u
+/* Minimum input to cover every buffer: edge_vec (6*3=18) + h_in (4*4=16) +
+ * grad_out (4*4=16) = 50 doubles = 400 bytes. Round up with slack. */
+#define MIN_INPUT 512u
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
     init_once_();

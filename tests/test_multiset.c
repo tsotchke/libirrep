@@ -24,7 +24,7 @@ int main(void) {
     {
         irrep_multiset_t *m = irrep_multiset_new(4);
         IRREP_ASSERT(m != NULL);
-        IRREP_ASSERT(m->capacity  == 4);
+        IRREP_ASSERT(m->capacity == 4);
         IRREP_ASSERT(m->num_terms == 0);
         IRREP_ASSERT(m->total_dim == 0);
         irrep_multiset_free(m);
@@ -34,32 +34,27 @@ int main(void) {
     {
         irrep_multiset_t *m = irrep_multiset_new(0);
         IRREP_ASSERT(m != NULL);
-        irrep_status_t s = irrep_multiset_append(m,
-            (irrep_label_t){ .l = 0, .parity = IRREP_EVEN }, 1);
+        irrep_status_t s =
+            irrep_multiset_append(m, (irrep_label_t){.l = 0, .parity = IRREP_EVEN}, 1);
         IRREP_ASSERT(s == IRREP_OK);
         IRREP_ASSERT(m->num_terms == 1);
         IRREP_ASSERT(m->total_dim == 1);
-        IRREP_ASSERT(m->capacity  >= 1);
+        IRREP_ASSERT(m->capacity >= 1);
 
-        irrep_multiset_append(m,
-            (irrep_label_t){ .l = 1, .parity = IRREP_ODD }, 2);
+        irrep_multiset_append(m, (irrep_label_t){.l = 1, .parity = IRREP_ODD}, 2);
         IRREP_ASSERT(m->num_terms == 2);
-        IRREP_ASSERT(m->total_dim == 1 + 2 * 3);     /* 0e + 2·1o = 1 + 6 */
+        IRREP_ASSERT(m->total_dim == 1 + 2 * 3); /* 0e + 2·1o = 1 + 6 */
 
-        irrep_multiset_append(m,
-            (irrep_label_t){ .l = 2, .parity = IRREP_EVEN }, 1);
+        irrep_multiset_append(m, (irrep_label_t){.l = 2, .parity = IRREP_EVEN}, 1);
         IRREP_ASSERT(m->total_dim == 1 + 6 + 5);
 
         /* reject invalid args */
-        IRREP_ASSERT(irrep_multiset_append(m,
-            (irrep_label_t){ .l = -1, .parity = IRREP_EVEN }, 1)
-            == IRREP_ERR_INVALID_ARG);
-        IRREP_ASSERT(irrep_multiset_append(m,
-            (irrep_label_t){ .l = 0, .parity = 7 }, 1)
-            == IRREP_ERR_INVALID_ARG);
-        IRREP_ASSERT(irrep_multiset_append(m,
-            (irrep_label_t){ .l = 0, .parity = IRREP_EVEN }, 0)
-            == IRREP_ERR_INVALID_ARG);
+        IRREP_ASSERT(irrep_multiset_append(m, (irrep_label_t){.l = -1, .parity = IRREP_EVEN}, 1) ==
+                     IRREP_ERR_INVALID_ARG);
+        IRREP_ASSERT(irrep_multiset_append(m, (irrep_label_t){.l = 0, .parity = 7}, 1) ==
+                     IRREP_ERR_INVALID_ARG);
+        IRREP_ASSERT(irrep_multiset_append(m, (irrep_label_t){.l = 0, .parity = IRREP_EVEN}, 0) ==
+                     IRREP_ERR_INVALID_ARG);
 
         irrep_multiset_free(m);
     }
@@ -99,20 +94,20 @@ int main(void) {
     }
 
     /* -------- parse error cases -------- */
-    IRREP_ASSERT(irrep_multiset_parse(NULL)          == NULL);
-    IRREP_ASSERT(irrep_multiset_parse("0x0e")        == NULL);  /* zero mult */
-    IRREP_ASSERT(irrep_multiset_parse("1x0q")        == NULL);  /* bad parity */
-    IRREP_ASSERT(irrep_multiset_parse("1x-1e")       == NULL);  /* negative l */
-    IRREP_ASSERT(irrep_multiset_parse("1y0e")        == NULL);  /* missing x */
-    IRREP_ASSERT(irrep_multiset_parse("1x0e + ")     == NULL);  /* trailing + */
+    IRREP_ASSERT(irrep_multiset_parse(NULL) == NULL);
+    IRREP_ASSERT(irrep_multiset_parse("0x0e") == NULL);    /* zero mult */
+    IRREP_ASSERT(irrep_multiset_parse("1x0q") == NULL);    /* bad parity */
+    IRREP_ASSERT(irrep_multiset_parse("1x-1e") == NULL);   /* negative l */
+    IRREP_ASSERT(irrep_multiset_parse("1y0e") == NULL);    /* missing x */
+    IRREP_ASSERT(irrep_multiset_parse("1x0e + ") == NULL); /* trailing + */
 
     /* -------- format round-trip -------- */
     {
-        const char *src = "1x0e + 2x1o + 1x2e";
+        const char       *src = "1x0e + 2x1o + 1x2e";
         irrep_multiset_t *m = irrep_multiset_parse(src);
         IRREP_ASSERT(m != NULL);
         char buf[64];
-        int n = irrep_multiset_format(m, buf, sizeof(buf));
+        int  n = irrep_multiset_format(m, buf, sizeof(buf));
         IRREP_ASSERT(n > 0);
         IRREP_ASSERT(strcmp(buf, src) == 0);
         irrep_multiset_free(m);
@@ -121,10 +116,10 @@ int main(void) {
     /* -------- format returns required length when buf is NULL or too small -------- */
     {
         irrep_multiset_t *m = irrep_multiset_parse("1x0e + 2x1o");
-        char small[4];
-        int  full_len = irrep_multiset_format(m, NULL, 0);
-        int  short_len = irrep_multiset_format(m, small, sizeof(small));
-        IRREP_ASSERT(full_len == short_len);   /* required length */
+        char              small[4];
+        int               full_len = irrep_multiset_format(m, NULL, 0);
+        int               short_len = irrep_multiset_format(m, small, sizeof(small));
+        IRREP_ASSERT(full_len == short_len); /* required length */
         IRREP_ASSERT(small[sizeof(small) - 1] == '\0');
         irrep_multiset_free(m);
     }
@@ -174,10 +169,10 @@ int main(void) {
     {
         irrep_multiset_t *m = irrep_multiset_parse("1x0e + 2x1o + 1x2e");
         IRREP_ASSERT(irrep_multiset_block_offset(m, 0) == 0);
-        IRREP_ASSERT(irrep_multiset_block_offset(m, 1) == 1);        /* + 1·(1) */
-        IRREP_ASSERT(irrep_multiset_block_offset(m, 2) == 1 + 6);    /* + 2·(3) */
+        IRREP_ASSERT(irrep_multiset_block_offset(m, 1) == 1);     /* + 1·(1) */
+        IRREP_ASSERT(irrep_multiset_block_offset(m, 2) == 1 + 6); /* + 2·(3) */
         IRREP_ASSERT(irrep_multiset_block_offset(m, 3) == 1 + 6 + 5);
-        IRREP_ASSERT(irrep_multiset_dim(m)              == 1 + 6 + 5);
+        IRREP_ASSERT(irrep_multiset_dim(m) == 1 + 6 + 5);
         irrep_multiset_free(m);
     }
 

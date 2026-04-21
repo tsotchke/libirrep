@@ -31,38 +31,33 @@ IRREP_API double irrep_cg(int j1, int m1, int j2, int m2, int J, int M);
 
 /** @brief Doubled-integer (half-spin) variant. Every argument is `2 ·` its
  *         physical value; e.g. `j = 1/2` → `two_j = 1`. */
-IRREP_API double irrep_cg_2j(int two_j1, int two_m1,
-                             int two_j2, int two_m2,
-                             int two_J,  int two_M);
+IRREP_API double irrep_cg_2j(int two_j1, int two_m1, int two_j2, int two_m2, int two_J, int two_M);
 
 /** @brief Wigner 3j symbol — same information as CG with a cleaner column
  *         symmetry, related by
  *         `⟨j1 m1; j2 m2 | j3 m3⟩ = (−1)^{j1−j2+m3} √(2j3+1) · (j1 j2 j3 / m1 m2 −m3)`. */
-IRREP_API double irrep_wigner_3j   (int j1, int m1, int j2, int m2, int j3, int m3);
+IRREP_API double irrep_wigner_3j(int j1, int m1, int j2, int m2, int j3, int m3);
 /** @brief Doubled-integer Wigner 3j symbol. */
-IRREP_API double irrep_wigner_3j_2j(int two_j1, int two_m1,
-                                    int two_j2, int two_m2,
-                                    int two_j3, int two_m3);
+IRREP_API double irrep_wigner_3j_2j(int two_j1, int two_m1, int two_j2, int two_m2, int two_j3,
+                                    int two_m3);
 
 /** @brief Opaque pre-built CG lookup table. */
 typedef struct cg_table cg_table_t;
 
 /** @brief Build a CG lookup table covering integer `j1 ≤ j1_max`, `j2 ≤ j2_max`. */
-IRREP_API cg_table_t *irrep_cg_table_build   (int j1_max, int j2_max);
+IRREP_API cg_table_t *irrep_cg_table_build(int j1_max, int j2_max);
 /** @brief Doubled-integer variant — covers half-spins too. */
 IRREP_API cg_table_t *irrep_cg_table_build_2j(int two_j1_max, int two_j2_max);
 /** @brief Release a table built by either #irrep_cg_table_build variant. */
-IRREP_API void        irrep_cg_table_free    (cg_table_t *table);
+IRREP_API void irrep_cg_table_free(cg_table_t *table);
 
 /** @brief O(1) lookup; returns `0.0` for out-of-range queries (same contract
  *         as the direct computation). */
-IRREP_API double      irrep_cg_lookup   (const cg_table_t *table,
-                                         int j1, int m1, int j2, int m2, int J, int M);
+IRREP_API double irrep_cg_lookup(const cg_table_t *table, int j1, int m1, int j2, int m2, int J,
+                                 int M);
 /** @brief Doubled-integer lookup. */
-IRREP_API double      irrep_cg_lookup_2j(const cg_table_t *table,
-                                         int two_j1, int two_m1,
-                                         int two_j2, int two_m2,
-                                         int two_J,  int two_M);
+IRREP_API double irrep_cg_lookup_2j(const cg_table_t *table, int two_j1, int two_m1, int two_j2,
+                                    int two_m2, int two_J, int two_M);
 
 /** @brief Fill a flat `(2j1+1) · (2j2+1) · (2J+1)` block.
  *  Index layout: `[(m1 + j1) · (2j2+1) + (m2 + j2)] · (2J+1) + (M + J)`. */

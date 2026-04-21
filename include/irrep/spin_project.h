@@ -58,11 +58,9 @@ extern "C" {
  *
  *         The rotation follows the physics ZYZ Euler-angle convention used
  *         throughout libirrep. */
-IRREP_API void
-irrep_spin_half_apply_rotation(int N,
-                               double alpha, double beta, double gamma,
-                               const double _Complex *psi_in,
-                               double _Complex *psi_out);
+IRREP_API void irrep_spin_half_apply_rotation(int N, double alpha, double beta, double gamma,
+                                              const double _Complex *psi_in,
+                                              double _Complex       *psi_out);
 
 /** @brief Project @p psi_in onto the total-`J = two_J_target/2` subspace
  *         on `N` spin-½ sites. Uses a tensor-product quadrature of size
@@ -80,11 +78,10 @@ irrep_spin_half_apply_rotation(int N,
  *  @param psi_in       input wavefunction, length `2^N`
  *  @param psi_out      output wavefunction, length `2^N`
  *  @return             #IRREP_OK, or an error code. */
-IRREP_API irrep_status_t
-irrep_spin_project_spin_half(int two_J_target, int N,
-                             int n_alpha, int n_beta, int n_gamma,
-                             const double _Complex *psi_in,
-                             double _Complex *psi_out);
+IRREP_API irrep_status_t irrep_spin_project_spin_half(int two_J_target, int N, int n_alpha,
+                                                      int n_beta, int n_gamma,
+                                                      const double _Complex *psi_in,
+                                                      double _Complex       *psi_out);
 
 #ifdef __cplusplus
 }

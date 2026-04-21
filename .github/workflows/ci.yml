@@ -65,10 +65,16 @@ jobs:
           set -euxo pipefail
           make ubsan
 
+      # asan/ubsan instrument the static library with sanitizer hooks. Bench
+      # binaries link against the library without -fsanitize=…, so on Apple
+      # clang (which does not ship libubsan for linking) the link step fails
+      # with "undefined symbols: ___ubsan_handle_*". Wipe the build dir first
+      # to force a clean, non-instrumented lib rebuild.
       - name: bench
         shell: bash
         run: |
           set -euxo pipefail
+          make distclean
           make bench
 
       - name: release artefact

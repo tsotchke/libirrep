@@ -37,8 +37,8 @@ extern "C" {
 
 /** @brief Doubled-spin irrep label: `two_j ∈ {0, 1, 2, …}`. */
 typedef struct {
-    int two_j;     /**< doubled-integer spin label */
-    int parity;    /**< +1 (even) or -1 (odd) */
+    int two_j;  /**< doubled-integer spin label */
+    int parity; /**< +1 (even) or -1 (odd) */
 } irrep_label_2j_t;
 
 /** @brief Direct sum of doubled-integer irreps. `total_dim = Σ mult_i · (two_j_i + 1)`. */
@@ -51,15 +51,14 @@ typedef struct {
 } irrep_multiset_2j_t;
 
 /** @brief Allocate an empty multiset with room for @p capacity terms. */
-IRREP_API irrep_multiset_2j_t *irrep_multiset_2j_new  (int capacity);
+IRREP_API irrep_multiset_2j_t *irrep_multiset_2j_new(int capacity);
 
 /** @brief Release a multiset. */
-IRREP_API void                  irrep_multiset_2j_free (irrep_multiset_2j_t *m);
+IRREP_API void irrep_multiset_2j_free(irrep_multiset_2j_t *m);
 
 /** @brief Append `(label, mult)`. Grows backing storage if necessary. */
-IRREP_API irrep_status_t        irrep_multiset_2j_append(irrep_multiset_2j_t *m,
-                                                         irrep_label_2j_t label,
-                                                         int multiplicity);
+IRREP_API irrep_status_t irrep_multiset_2j_append(irrep_multiset_2j_t *m, irrep_label_2j_t label,
+                                                  int multiplicity);
 
 /** @brief Parse a spec string supporting both integer (e.g. `"1x0e"`)
  *         and half-integer (e.g. `"2x1/2o"`) terms. */
@@ -67,15 +66,14 @@ IRREP_API irrep_multiset_2j_t *irrep_multiset_2j_parse(const char *spec);
 
 /** @brief Format into @p buf. Writes at most `buflen - 1` chars + NUL.
  *  @return required length (excluding terminator). */
-IRREP_API int  irrep_multiset_2j_format(const irrep_multiset_2j_t *m,
-                                        char *buf, size_t buflen);
+IRREP_API int irrep_multiset_2j_format(const irrep_multiset_2j_t *m, char *buf, size_t buflen);
 
 /** @brief Total dimension (synonym for `m->total_dim`). */
-IRREP_API int  irrep_multiset_2j_dim   (const irrep_multiset_2j_t *m);
+IRREP_API int irrep_multiset_2j_dim(const irrep_multiset_2j_t *m);
 
 /** @brief Check whether any block has odd `two_j` (half-integer spin).
  *         Returns 1 if yes, 0 if purely integer-spin. */
-IRREP_API int  irrep_multiset_2j_has_half_integer(const irrep_multiset_2j_t *m);
+IRREP_API int irrep_multiset_2j_has_half_integer(const irrep_multiset_2j_t *m);
 
 /** @brief Kramers-sign check: returns `−1` if `two_j_total` (the sum of
  *         `(two_j + 1) · mult` reduced mod 4) falls in the half-integer
@@ -90,7 +88,7 @@ IRREP_API int  irrep_multiset_2j_has_half_integer(const irrep_multiset_2j_t *m);
  *  integer one just inherits `+1` and the overall `T²` is the direct
  *  sum. Callers wanting the per-block sign should iterate the multiset
  *  directly. */
-IRREP_API int  irrep_time_reversal_square_sign_2j(const irrep_multiset_2j_t *m);
+IRREP_API int irrep_time_reversal_square_sign_2j(const irrep_multiset_2j_t *m);
 
 #ifdef __cplusplus
 }

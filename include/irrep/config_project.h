@@ -59,8 +59,7 @@ typedef struct irrep_sg_irrep irrep_sg_irrep_t;
  *  @param irrep_dim   dimension `d_μ` of the target irrep
  *  @return            new handle, or `NULL` on OOM / bad input. */
 IRREP_API irrep_sg_irrep_t *irrep_sg_irrep_new(const irrep_space_group_t *G,
-                                               const double _Complex *characters,
-                                               int irrep_dim);
+                                               const double _Complex *characters, int irrep_dim);
 
 /** @brief Release a handle returned by @ref irrep_sg_irrep_new or
  *         @ref irrep_sg_trivial. */
@@ -88,16 +87,14 @@ IRREP_API irrep_sg_irrep_t *irrep_sg_sign_rep(const irrep_space_group_t *G);
  *                    `NULL` input (zero is a legitimate result, so we use
  *                    IEEE-754 NaN to distinguish error from answer; caller
  *                    may check with `isnan(creal(·))`). */
-IRREP_API double _Complex
-irrep_sg_project_amplitude(const irrep_sg_irrep_t *mu,
-                           const double _Complex *psi_of_g);
+IRREP_API double _Complex irrep_sg_project_amplitude(const irrep_sg_irrep_t *mu,
+                                                     const double _Complex  *psi_of_g);
 
 /** @brief Shortcut: totally-symmetric projection,
  *         `(1/|G|) Σ_g ψ(g·σ)`.
  *         Returns `NaN + NaN·i` on `NULL` input. */
-IRREP_API double _Complex
-irrep_sg_project_A1(const irrep_space_group_t *G,
-                    const double _Complex *psi_of_g);
+IRREP_API double _Complex irrep_sg_project_A1(const irrep_space_group_t *G,
+                                              const double _Complex     *psi_of_g);
 
 /** @brief Enumerate the orbit of a real-valued configuration `σ` under `G`.
  *
@@ -105,10 +102,8 @@ irrep_sg_project_A1(const irrep_space_group_t *G,
  *  element `g`: the pullback of `σ` by `g`, i.e. `(g·σ)(s) = σ(g⁻¹·s)`.
  *
  *  The output buffer must have capacity `order(G) · num_sites`. */
-IRREP_API void
-irrep_sg_enumerate_orbit(const irrep_space_group_t *G,
-                         const double *sigma,
-                         double *out_orbit);
+IRREP_API void irrep_sg_enumerate_orbit(const irrep_space_group_t *G, const double *sigma,
+                                        double *out_orbit);
 
 /** @brief Build an orthonormal basis for the `μ`-irrep sector of a
  *         `local_dim^num_sites`-dimensional Hilbert space on which `G` acts
@@ -149,12 +144,9 @@ irrep_sg_enumerate_orbit(const irrep_space_group_t *G,
  *
  *  @return            Actual basis size (≤ `n_max`); `-1` on error
  *                     (NULL pointer, overflow, OOM). */
-IRREP_API int
-irrep_sg_adapted_basis(const irrep_space_group_t *G,
-                       const irrep_sg_irrep_t *mu,
-                       int num_sites, int local_dim,
-                       double _Complex *basis_out,
-                       int n_max);
+IRREP_API int irrep_sg_adapted_basis(const irrep_space_group_t *G, const irrep_sg_irrep_t *mu,
+                                     int num_sites, int local_dim, double _Complex *basis_out,
+                                     int n_max);
 
 /** @brief Project an amplitude onto Bloch momentum `k = (kx/Lx) b1 + (ky/Ly) b2`.
  *
@@ -176,10 +168,8 @@ irrep_sg_adapted_basis(const irrep_space_group_t *G,
  *                   wavefunction evaluation
  *  @return          projected amplitude on success; `NaN + NaN·i` on NULL
  *                   input or if the space group has no lattice handle. */
-IRREP_API double _Complex
-irrep_sg_bloch_amplitude(const irrep_space_group_t *G,
-                         int kx, int ky,
-                         const double _Complex *psi_of_g);
+IRREP_API double _Complex irrep_sg_bloch_amplitude(const irrep_space_group_t *G, int kx, int ky,
+                                                   const double _Complex *psi_of_g);
 
 /** @brief Build an orthonormal basis for the Bloch-momentum-`k` sector of
  *         `local_dim^num_sites`-dimensional Hilbert space.
@@ -202,12 +192,8 @@ irrep_sg_bloch_amplitude(const irrep_space_group_t *G,
  *  @param n_max      row capacity of @p basis_out; pass the full Hilbert-space
  *                    dimension for safety
  *  @return           actual basis size, or `-1` on error */
-IRREP_API int
-irrep_sg_bloch_basis(const irrep_space_group_t *G,
-                     int kx, int ky,
-                     int num_sites, int local_dim,
-                     double _Complex *basis_out,
-                     int n_max);
+IRREP_API int irrep_sg_bloch_basis(const irrep_space_group_t *G, int kx, int ky, int num_sites,
+                                   int local_dim, double _Complex *basis_out, int n_max);
 
 #ifdef __cplusplus
 }

@@ -25,7 +25,7 @@
 #include <math.h>
 
 #ifndef M_PI
-#  define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846
 #endif
 
 int main(void) {
@@ -53,7 +53,7 @@ int main(void) {
         double yv = sin(theta) * sin(phi);
         double zv = cos(theta);
         double k = sqrt(3.0 / (4.0 * M_PI));
-        IRREP_ASSERT_NEAR(irrep_sph_harm_real(1,  0, theta, phi), k * zv, tol);
+        IRREP_ASSERT_NEAR(irrep_sph_harm_real(1, 0, theta, phi), k * zv, tol);
         IRREP_ASSERT_NEAR(irrep_sph_harm_real(1, +1, theta, phi), k * xv, tol);
         IRREP_ASSERT_NEAR(irrep_sph_harm_real(1, -1, theta, phi), k * yv, tol);
     }
@@ -61,7 +61,7 @@ int main(void) {
     /* ---- cartesian ≡ polar for a fully populated direction, every l,m ---- */
     {
         double theta = 0.73, phi = 1.44;
-        double r_hat[3] = { sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta) };
+        double r_hat[3] = {sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta)};
         for (int l = 0; l <= 6; ++l) {
             double cart[2 * 6 + 1];
             irrep_sph_harm_cart(l, cart, r_hat);
@@ -77,9 +77,9 @@ int main(void) {
         double theta = 0.4, phi = 0.6;
         for (int l = 1; l <= 5; ++l) {
             for (int m = 1; m <= l; ++m) {
-                double _Complex yp = irrep_sph_harm(l,  m, theta, phi);
+                double _Complex yp = irrep_sph_harm(l, m, theta, phi);
                 double _Complex yn = irrep_sph_harm(l, -m, theta, phi);
-                double          s  = (m & 1) ? -1.0 : 1.0;
+                double s = (m & 1) ? -1.0 : 1.0;
                 IRREP_ASSERT(cabs(yn - s * conj(yp)) < tol);
             }
         }
@@ -100,24 +100,28 @@ int main(void) {
 
     /* ---- sum rule (real basis) via cartesian ---- */
     {
-        double r_hat[3] = { 0.3, 0.4, sqrt(1.0 - 0.09 - 0.16) };
+        double r_hat[3] = {0.3, 0.4, sqrt(1.0 - 0.09 - 0.16)};
         for (int l = 0; l <= 6; ++l) {
             double cart[2 * 6 + 1];
             irrep_sph_harm_cart(l, cart, r_hat);
             double sum = 0.0;
-            for (int i = 0; i < 2 * l + 1; ++i) sum += cart[i] * cart[i];
+            for (int i = 0; i < 2 * l + 1; ++i)
+                sum += cart[i] * cart[i];
             IRREP_ASSERT_NEAR(sum, (2 * l + 1) / (4.0 * M_PI), 1e-10);
         }
     }
 
     /* ---- addition theorem:  (4π/(2l+1)) Σ_m Y^real(r1) Y^real(r2) = P_l(r1·r2) ---- */
     {
-        double r1[3] = { 0.5, 0.3, 0.8 };
-        double r2[3] = { -0.2, 0.7, 0.68 };
-        double n1 = sqrt(r1[0]*r1[0] + r1[1]*r1[1] + r1[2]*r1[2]);
-        double n2 = sqrt(r2[0]*r2[0] + r2[1]*r2[1] + r2[2]*r2[2]);
-        for (int i = 0; i < 3; ++i) { r1[i] /= n1; r2[i] /= n2; }
-        double dot = r1[0]*r2[0] + r1[1]*r2[1] + r1[2]*r2[2];
+        double r1[3] = {0.5, 0.3, 0.8};
+        double r2[3] = {-0.2, 0.7, 0.68};
+        double n1 = sqrt(r1[0] * r1[0] + r1[1] * r1[1] + r1[2] * r1[2]);
+        double n2 = sqrt(r2[0] * r2[0] + r2[1] * r2[1] + r2[2] * r2[2]);
+        for (int i = 0; i < 3; ++i) {
+            r1[i] /= n1;
+            r2[i] /= n2;
+        }
+        double dot = r1[0] * r2[0] + r1[1] * r2[1] + r1[2] * r2[2];
         /* Tolerance here is *machine-precision* — a degradation to ~1e-10
          * would mean the real-SH normalisation constants have drifted (seen
          * when a downstream observed 2.5e-10 on Y_2^0(π/4) against the stale
@@ -127,7 +131,8 @@ int main(void) {
             irrep_sph_harm_cart(l, ha, r1);
             irrep_sph_harm_cart(l, hb, r2);
             double sum = 0.0;
-            for (int i = 0; i < 2 * l + 1; ++i) sum += ha[i] * hb[i];
+            for (int i = 0; i < 2 * l + 1; ++i)
+                sum += ha[i] * hb[i];
             sum *= 4.0 * M_PI / (2 * l + 1);
             double pl = irrep_legendre_assoc(l, 0, dot);
             IRREP_ASSERT_NEAR(sum, pl, 5e-14);
@@ -140,17 +145,15 @@ int main(void) {
      * current bit-exact behaviour in. */
     {
         double theta = M_PI / 4.0;
-        double phi   = 0.0;
-        double c     = cos(theta);
+        double phi = 0.0;
+        double c = cos(theta);
         double expected = sqrt(5.0 / (16.0 * M_PI)) * (3.0 * c * c - 1.0);
 
         /* Polar form. */
         IRREP_ASSERT(fabs(irrep_sph_harm_real(2, 0, theta, phi) - expected) < 1e-14);
 
         /* Cartesian form — should agree bit-for-bit with polar. */
-        double r_hat[3] = { sin(theta) * cos(phi),
-                            sin(theta) * sin(phi),
-                            cos(theta) };
+        double r_hat[3] = {sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta)};
         double buf[5];
         irrep_sph_harm_cart(2, buf, r_hat);
         IRREP_ASSERT(fabs(buf[2] - expected) < 1e-14);
@@ -158,15 +161,14 @@ int main(void) {
 
     /* ---- radial derivative of Y(r̂) is zero ---- */
     {
-        double r_hat[3] = { 0.4, 0.6, sqrt(1.0 - 0.16 - 0.36) };
+        double r_hat[3] = {0.4, 0.6, sqrt(1.0 - 0.16 - 0.36)};
         for (int l = 1; l <= 3; ++l) {
             double grad[3 * (2 * 3 + 1)];
             irrep_sph_harm_cart_grad(l, grad, r_hat);
             int d = 2 * l + 1;
             for (int m = 0; m < d; ++m) {
-                double radial = r_hat[0] * grad[0 * d + m]
-                              + r_hat[1] * grad[1 * d + m]
-                              + r_hat[2] * grad[2 * d + m];
+                double radial = r_hat[0] * grad[0 * d + m] + r_hat[1] * grad[1 * d + m] +
+                                r_hat[2] * grad[2 * d + m];
                 IRREP_ASSERT(fabs(radial) < 1e-8);
             }
         }
@@ -181,7 +183,8 @@ int main(void) {
             for (int i = 0; i < d; ++i) {
                 for (int j = 0; j < d; ++j) {
                     double _Complex s = 0.0;
-                    for (int k = 0; k < d; ++k) s += U[i * d + k] * conj(U[j * d + k]);
+                    for (int k = 0; k < d; ++k)
+                        s += U[i * d + k] * conj(U[j * d + k]);
                     double target = (i == j) ? 1.0 : 0.0;
                     IRREP_ASSERT(cabs(s - target) < 1e-12);
                 }
@@ -191,7 +194,7 @@ int main(void) {
 
     /* ---- sph_harm_cart_all layout matches concatenated sph_harm_cart ---- */
     {
-        double r_hat[3] = { 0.3, 0.4, sqrt(1.0 - 0.25) };
+        double r_hat[3] = {0.3, 0.4, sqrt(1.0 - 0.25)};
         double flat[(6 + 1) * (6 + 1)];
         irrep_sph_harm_cart_all(6, flat, r_hat);
         int offset = 0;
@@ -207,8 +210,8 @@ int main(void) {
 
     /* ---- poles: only Y_{l,0} is nonzero; Y_{l,±m}(±ẑ) = 0 for m > 0 ---- */
     {
-        double north[3] = { 0, 0,  1 };
-        double south[3] = { 0, 0, -1 };
+        double north[3] = {0, 0, 1};
+        double south[3] = {0, 0, -1};
         for (int l = 1; l <= 5; ++l) {
             double cart[2 * 5 + 1];
             irrep_sph_harm_cart(l, cart, north);
@@ -228,10 +231,10 @@ int main(void) {
     /* ---- orthonormality via Gauss-Legendre (θ) × uniform (φ) tensor product
      *      ∫ Y_l^m Y_{l'}^{m'}* dΩ = δ_{ll'} δ_{mm'} ---- */
     {
-        int n_theta = 32;
+        int    n_theta = 32;
         double nodes[32], weights[32];
         irrep_gauss_legendre(n_theta, nodes, weights);
-        int n_phi = 40;
+        int    n_phi = 40;
         double dphi = 2.0 * M_PI / (double)n_phi;
         for (int l1 = 0; l1 <= 3; ++l1) {
             for (int l2 = 0; l2 <= 3; ++l2) {
@@ -259,9 +262,9 @@ int main(void) {
 
     /* ---- f32 wrapper agrees with double within float precision ---- */
     {
-        float r_hat[3] = { 0.3f, 0.4f, (float)sqrt(1.0 - 0.25) };
-        float cart_f[2 * 4 + 1];
-        double r_hat_d[3] = { r_hat[0], r_hat[1], r_hat[2] };
+        float  r_hat[3] = {0.3f, 0.4f, (float)sqrt(1.0 - 0.25)};
+        float  cart_f[2 * 4 + 1];
+        double r_hat_d[3] = {r_hat[0], r_hat[1], r_hat[2]};
         double cart_d[2 * 4 + 1];
         for (int l = 0; l <= 4; ++l) {
             irrep_sph_harm_cart_f32(l, cart_f, r_hat);
@@ -280,47 +283,59 @@ int main(void) {
      * scalar elsewhere) must match the per-edge scalar call byte-for-byte. */
     {
         const size_t N = 23;
-        double rhats[23 * 3];
+        double       rhats[23 * 3];
         /* Deterministic generic inputs for the first 17 entries. */
         for (size_t i = 0; i < 17; ++i) {
             double t = 0.37 * (double)i + 0.11;
             double x = sin(t), y = cos(0.7 * t), z = sin(1.3 * t);
-            double n = sqrt(x*x + y*y + z*z);
-            rhats[3*i+0] = x / n;
-            rhats[3*i+1] = y / n;
-            rhats[3*i+2] = z / n;
+            double n = sqrt(x * x + y * y + z * z);
+            rhats[3 * i + 0] = x / n;
+            rhats[3 * i + 1] = y / n;
+            rhats[3 * i + 2] = z / n;
         }
         /* Edge-case stressors: exact poles and r_xy ≪ 1. */
-        rhats[17*3+0] = 0.0;    rhats[17*3+1] = 0.0;    rhats[17*3+2] =  1.0;  /* +ẑ pole */
-        rhats[18*3+0] = 0.0;    rhats[18*3+1] = 0.0;    rhats[18*3+2] = -1.0;  /* −ẑ pole */
-        {   /* near-pole: r_xy just above the scalar threshold (1e-14). */
+        rhats[17 * 3 + 0] = 0.0;
+        rhats[17 * 3 + 1] = 0.0;
+        rhats[17 * 3 + 2] = 1.0; /* +ẑ pole */
+        rhats[18 * 3 + 0] = 0.0;
+        rhats[18 * 3 + 1] = 0.0;
+        rhats[18 * 3 + 2] = -1.0; /* −ẑ pole */
+        {                         /* near-pole: r_xy just above the scalar threshold (1e-14). */
             double rxy = 1e-12;
-            double z   = sqrt(1.0 - rxy * rxy);
-            rhats[19*3+0] = rxy; rhats[19*3+1] = 0.0; rhats[19*3+2] = z;
+            double z = sqrt(1.0 - rxy * rxy);
+            rhats[19 * 3 + 0] = rxy;
+            rhats[19 * 3 + 1] = 0.0;
+            rhats[19 * 3 + 2] = z;
         }
-        {   /* near-pole: r_xy just below threshold — scalar falls into (cp, sp) = (1, 0). */
+        { /* near-pole: r_xy just below threshold — scalar falls into (cp, sp) = (1, 0). */
             double rxy = 1e-16;
-            double z   = sqrt(1.0 - rxy * rxy);
-            rhats[20*3+0] = rxy; rhats[20*3+1] = 0.0; rhats[20*3+2] = z;
+            double z = sqrt(1.0 - rxy * rxy);
+            rhats[20 * 3 + 0] = rxy;
+            rhats[20 * 3 + 1] = 0.0;
+            rhats[20 * 3 + 2] = z;
         }
-        rhats[21*3+0] = 1.0;    rhats[21*3+1] = 0.0;    rhats[21*3+2] = 0.0;  /* +x̂ equator */
-        rhats[22*3+0] = 0.0;    rhats[22*3+1] = 1.0;    rhats[22*3+2] = 0.0;  /* +ŷ equator */
+        rhats[21 * 3 + 0] = 1.0;
+        rhats[21 * 3 + 1] = 0.0;
+        rhats[21 * 3 + 2] = 0.0; /* +x̂ equator */
+        rhats[22 * 3 + 0] = 0.0;
+        rhats[22 * 3 + 1] = 1.0;
+        rhats[22 * 3 + 2] = 0.0; /* +ŷ equator */
 
         for (int l_max = 0; l_max <= 6; ++l_max) {
-            int block = (l_max + 1) * (l_max + 1);
+            int     block = (l_max + 1) * (l_max + 1);
             double *batch_out = calloc(N * (size_t)block, sizeof(double));
-            double *ref_out   = calloc(N * (size_t)block, sizeof(double));
+            double *ref_out = calloc(N * (size_t)block, sizeof(double));
             IRREP_ASSERT(batch_out != NULL && ref_out != NULL);
 
             irrep_sph_harm_cart_all_batch(l_max, N, rhats, batch_out);
             for (size_t i = 0; i < N; ++i) {
-                irrep_sph_harm_cart_all(l_max, ref_out + i * (size_t)block,
-                                        rhats + i * 3);
+                irrep_sph_harm_cart_all(l_max, ref_out + i * (size_t)block, rhats + i * 3);
             }
             for (size_t i = 0; i < N * (size_t)block; ++i) {
                 IRREP_ASSERT(batch_out[i] == ref_out[i]);
             }
-            free(batch_out); free(ref_out);
+            free(batch_out);
+            free(ref_out);
         }
     }
 
@@ -329,19 +344,19 @@ int main(void) {
      * produce the same values as a direct per-l call to _grad. Bit-exact
      * (single call path on both sides). */
     {
-        const int l_max = 4;
-        const int block = (l_max + 1) * (l_max + 1);
+        const int    l_max = 4;
+        const int    block = (l_max + 1) * (l_max + 1);
         const size_t N = 3;
-        double r_hats[3 * 3] = {
-            0.6, -0.3,  0.7,
-           -0.4,  0.8,  0.2,
-            0.0,  0.0,  1.0,
+        double       r_hats[3 * 3] = {
+            0.6, -0.3, 0.7, -0.4, 0.8, 0.2, 0.0, 0.0, 1.0,
         };
         /* Normalise. */
         for (size_t e = 0; e < N; ++e) {
             double *v = r_hats + e * 3;
-            double n = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-            v[0] /= n; v[1] /= n; v[2] /= n;
+            double  n = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+            v[0] /= n;
+            v[1] /= n;
+            v[2] /= n;
         }
         double batch_grad[3 * 3 * (4 + 1) * (4 + 1)];
         irrep_sph_harm_cart_all_grad_batch(l_max, N, r_hats, batch_grad);

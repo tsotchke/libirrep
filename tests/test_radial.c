@@ -21,7 +21,7 @@
 #include <stdlib.h>
 
 #ifndef M_PI
-#  define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846
 #endif
 
 int main(void) {
@@ -33,7 +33,7 @@ int main(void) {
     /* Use Gauss-Legendre on [0, r_cut]: change of variables x = 2r/r_cut − 1. */
     {
         double r_cut = 2.5;
-        int n = 64;
+        int    n = 64;
         double nodes[64], weights[64];
         irrep_gauss_legendre(n, nodes, weights);
 
@@ -89,8 +89,8 @@ int main(void) {
     /* -------- cosine cutoff derivative matches finite difference -------- */
     {
         double r_cut = 2.0, r = 0.7, h = 1e-6;
-        double fd = (irrep_cutoff_cosine(r + h, r_cut)
-                   - irrep_cutoff_cosine(r - h, r_cut)) / (2 * h);
+        double fd =
+            (irrep_cutoff_cosine(r + h, r_cut) - irrep_cutoff_cosine(r - h, r_cut)) / (2 * h);
         IRREP_ASSERT(fabs(fd - irrep_cutoff_cosine_d(r, r_cut)) < 1e-8);
     }
 
@@ -111,8 +111,9 @@ int main(void) {
         double h = 1e-6;
         for (int p = 2; p <= 6; ++p) {
             double r = 1.3;
-            double fd = (irrep_cutoff_polynomial(r + h, r_cut, p)
-                       - irrep_cutoff_polynomial(r - h, r_cut, p)) / (2 * h);
+            double fd = (irrep_cutoff_polynomial(r + h, r_cut, p) -
+                         irrep_cutoff_polynomial(r - h, r_cut, p)) /
+                        (2 * h);
             double an = irrep_cutoff_polynomial_d(r, r_cut, p);
             IRREP_ASSERT(fabs(fd - an) < 1e-7);
         }
@@ -125,15 +126,15 @@ int main(void) {
      * bar is equality to the element-wise scalar function (bit-exact for the
      * polynomial cutoff — no reduction reassociations across lanes). */
     {
-        const size_t N = 37;                    /* odd → hits the tail branch */
-        double r_cut = 2.0;
-        double r[37], out_batch[37];
+        const size_t N = 37; /* odd → hits the tail branch */
+        double       r_cut = 2.0;
+        double       r[37], out_batch[37];
         for (size_t i = 0; i < N; ++i) {
-            r[i] = (double)i * 0.06;            /* covers r < 0, 0..r_cut, past r_cut */
+            r[i] = (double)i * 0.06; /* covers r < 0, 0..r_cut, past r_cut */
         }
-        r[0]   = -0.1;                          /* explicit negative */
-        r[30]  = 2.0;                           /* exactly r_cut */
-        r[31]  = 2.5;                           /* past cutoff */
+        r[0] = -0.1; /* explicit negative */
+        r[30] = 2.0; /* exactly r_cut */
+        r[31] = 2.5; /* past cutoff */
 
         /* Bit-exactness check: SIMD kernels and scalar references must
          * agree to within ~2 ulp. Clang's default FP_CONTRACT contracts
@@ -183,11 +184,12 @@ int main(void) {
         double r_cut = 2.5;
         double h = 1e-6;
         for (int n = 1; n <= 4; ++n) {
-            double rs[] = { 0.2, 0.9, 1.5, 2.3 };
+            double rs[] = {0.2, 0.9, 1.5, 2.3};
             for (size_t i = 0; i < sizeof(rs) / sizeof(rs[0]); ++i) {
                 double rv = rs[i];
-                double fd = (irrep_rbf_bessel(n, rv + h, r_cut)
-                           - irrep_rbf_bessel(n, rv - h, r_cut)) / (2 * h);
+                double fd =
+                    (irrep_rbf_bessel(n, rv + h, r_cut) - irrep_rbf_bessel(n, rv - h, r_cut)) /
+                    (2 * h);
                 double an = irrep_rbf_bessel_d(n, rv, r_cut);
                 IRREP_ASSERT(fabs(fd - an) < 1e-6);
             }
@@ -207,7 +209,7 @@ int main(void) {
             }
 
             /* _batch matches per-element. */
-            double rb[4] = { 0.1, 0.6, 1.2, 2.0 };
+            double rb[4] = {0.1, 0.6, 1.2, 2.0};
             double ob[4];
             irrep_rbf_bessel_d_batch(n, 4, rb, r_cut, ob);
             for (int i = 0; i < 4; ++i) {
@@ -217,17 +219,17 @@ int main(void) {
             /* Small-r three-term Taylor cross-check. Covers the branch where
              * the naive `(a cos − sin/r)/r` form would catastrophically
              * cancel. Sweep r so the |ar| < 1e-3 switch-over is crossed. */
-            double r_small[] = { 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3 };
+            double r_small[] = {1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3};
             for (size_t i = 0; i < sizeof(r_small) / sizeof(r_small[0]); ++i) {
                 double rv = r_small[i];
-                if (rv >= r_cut) continue;
+                if (rv >= r_cut)
+                    continue;
                 double an = irrep_rbf_bessel_d(n, rv, r_cut);
-                double C  = sqrt(2.0 / r_cut);
-                double a  = (double)n * M_PI / r_cut;
+                double C = sqrt(2.0 / r_cut);
+                double a = (double)n * M_PI / r_cut;
                 double ar = a * rv;
                 double ar2 = ar * ar;
-                double ref = -C * a * a * a * rv / 3.0
-                            * (1.0 - ar2 / 10.0 + ar2 * ar2 / 280.0);
+                double ref = -C * a * a * a * rv / 3.0 * (1.0 - ar2 / 10.0 + ar2 * ar2 / 280.0);
                 /* Taylor truncation error at ar = 1e-3 is < 1e-14 relative;
                  * tolerance is generous to allow round-off in both forms. */
                 double tol = 1e-14 + 1e-9 * fabs(ref);

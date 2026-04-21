@@ -31,12 +31,11 @@ static double sm64_unit_(uint64_t *s) {
  * identity representation and reading off traces. Instead we inspect the
  * known hand-entered table through the projector sum identity — covered by
  * test 4 — and here assert the dim + order invariants directly. */
-static void test_metadata_(irrep_point_group_t g,
-                            int expect_num_irreps, int expect_order) {
+static void test_metadata_(irrep_point_group_t g, int expect_num_irreps, int expect_order) {
     irrep_pg_table_t *t = irrep_pg_table_build(g);
     IRREP_ASSERT(t != NULL);
     IRREP_ASSERT(irrep_pg_num_irreps(t) == expect_num_irreps);
-    IRREP_ASSERT(irrep_pg_order(t)      == expect_order);
+    IRREP_ASSERT(irrep_pg_order(t) == expect_order);
     for (int mu = 0; mu < expect_num_irreps; ++mu) {
         const char *lbl = irrep_pg_irrep_label(t, mu);
         IRREP_ASSERT(lbl != NULL);
@@ -51,23 +50,26 @@ static void test_idempotence_(irrep_point_group_t g, const char *spec) {
     IRREP_ASSERT(t != NULL);
     irrep_multiset_t *m = irrep_multiset_parse(spec);
     IRREP_ASSERT(m != NULL);
-    int N = m->total_dim;
+    int      N = m->total_dim;
 
-    double *v  = calloc((size_t)N, sizeof(double));
-    double *p1 = calloc((size_t)N, sizeof(double));
-    double *p2 = calloc((size_t)N, sizeof(double));
+    double  *v = calloc((size_t)N, sizeof(double));
+    double  *p1 = calloc((size_t)N, sizeof(double));
+    double  *p2 = calloc((size_t)N, sizeof(double));
 
     uint64_t s = 0xDEADBEEFCAFEBABEULL;
-    for (int i = 0; i < N; ++i) v[i] = 2.0 * sm64_unit_(&s) - 1.0;
+    for (int i = 0; i < N; ++i)
+        v[i] = 2.0 * sm64_unit_(&s) - 1.0;
 
     for (int mu = 0; mu < irrep_pg_num_irreps(t); ++mu) {
-        irrep_pg_project(t, mu, m, v,  p1);
+        irrep_pg_project(t, mu, m, v, p1);
         irrep_pg_project(t, mu, m, p1, p2);
         for (int i = 0; i < N; ++i) {
             IRREP_ASSERT(fabs(p2[i] - p1[i]) < 1e-10);
         }
     }
-    free(v); free(p1); free(p2);
+    free(v);
+    free(p1);
+    free(p2);
     irrep_multiset_free(m);
     irrep_pg_table_free(t);
 }
@@ -78,22 +80,27 @@ static void test_projector_sum_(irrep_point_group_t g, const char *spec) {
     IRREP_ASSERT(t != NULL);
     irrep_multiset_t *m = irrep_multiset_parse(spec);
     IRREP_ASSERT(m != NULL);
-    int N = m->total_dim;
+    int      N = m->total_dim;
 
-    double *v    = calloc((size_t)N, sizeof(double));
-    double *acc  = calloc((size_t)N, sizeof(double));
-    double *tmp  = calloc((size_t)N, sizeof(double));
+    double  *v = calloc((size_t)N, sizeof(double));
+    double  *acc = calloc((size_t)N, sizeof(double));
+    double  *tmp = calloc((size_t)N, sizeof(double));
 
     uint64_t s = 0x0123456789ABCDEFULL;
-    for (int i = 0; i < N; ++i) v[i] = 2.0 * sm64_unit_(&s) - 1.0;
+    for (int i = 0; i < N; ++i)
+        v[i] = 2.0 * sm64_unit_(&s) - 1.0;
 
     for (int mu = 0; mu < irrep_pg_num_irreps(t); ++mu) {
         irrep_pg_project(t, mu, m, v, tmp);
-        for (int i = 0; i < N; ++i) acc[i] += tmp[i];
+        for (int i = 0; i < N; ++i)
+            acc[i] += tmp[i];
     }
-    for (int i = 0; i < N; ++i) IRREP_ASSERT(fabs(acc[i] - v[i]) < 1e-10);
+    for (int i = 0; i < N; ++i)
+        IRREP_ASSERT(fabs(acc[i] - v[i]) < 1e-10);
 
-    free(v); free(acc); free(tmp);
+    free(v);
+    free(acc);
+    free(tmp);
     irrep_multiset_free(m);
     irrep_pg_table_free(t);
 }
@@ -108,7 +115,7 @@ static void test_projector_sum_(irrep_point_group_t g, const char *spec) {
 static void test_scalar_projection_(irrep_point_group_t g, int trivial_mu) {
     irrep_pg_table_t *t = irrep_pg_table_build(g);
     irrep_multiset_t *m = irrep_multiset_parse("1x0e");
-    double v = 1.0, p = 0.0;
+    double            v = 1.0, p = 0.0;
     for (int mu = 0; mu < irrep_pg_num_irreps(t); ++mu) {
         irrep_pg_project(t, mu, m, &v, &p);
         if (mu == trivial_mu) {
@@ -126,29 +133,29 @@ int main(void) {
 
     /* (1) Metadata for all four groups. */
     test_metadata_(IRREP_PG_C4V, 5, 8);
-    test_metadata_(IRREP_PG_D6,  6, 12);
+    test_metadata_(IRREP_PG_D6, 6, 12);
     test_metadata_(IRREP_PG_C3V, 3, 6);
-    test_metadata_(IRREP_PG_D3,  3, 6);
+    test_metadata_(IRREP_PG_D3, 3, 6);
 
     /* (3) Idempotence across small and larger feature specs. */
     test_idempotence_(IRREP_PG_C4V, "1x0e + 1x1o");
     test_idempotence_(IRREP_PG_C4V, "2x0e + 1x1o + 1x2e");
-    test_idempotence_(IRREP_PG_D6,  "1x0e + 1x1o");
-    test_idempotence_(IRREP_PG_D6,  "2x0e + 1x1o + 1x2e");
+    test_idempotence_(IRREP_PG_D6, "1x0e + 1x1o");
+    test_idempotence_(IRREP_PG_D6, "2x0e + 1x1o + 1x2e");
     test_idempotence_(IRREP_PG_C3V, "1x0e + 1x1o + 1x2e");
-    test_idempotence_(IRREP_PG_D3,  "1x0e + 1x1o + 1x2e");
+    test_idempotence_(IRREP_PG_D3, "1x0e + 1x1o + 1x2e");
 
     /* (4) Projector sum reproduces the input vector. */
     test_projector_sum_(IRREP_PG_C4V, "1x0e + 1x1o + 1x2e");
-    test_projector_sum_(IRREP_PG_D6,  "1x0e + 1x1o + 1x2e");
+    test_projector_sum_(IRREP_PG_D6, "1x0e + 1x1o + 1x2e");
     test_projector_sum_(IRREP_PG_C3V, "1x0e + 1x1o + 1x2e");
-    test_projector_sum_(IRREP_PG_D3,  "1x0e + 1x1o + 1x2e");
+    test_projector_sum_(IRREP_PG_D3, "1x0e + 1x1o + 1x2e");
 
     /* (2) Scalar-projection trace equality (orthogonality fingerprint). */
     test_scalar_projection_(IRREP_PG_C4V, /*trivial=*/0);
-    test_scalar_projection_(IRREP_PG_D6,  /*trivial=*/0);
+    test_scalar_projection_(IRREP_PG_D6, /*trivial=*/0);
     test_scalar_projection_(IRREP_PG_C3V, /*trivial=*/0);
-    test_scalar_projection_(IRREP_PG_D3,  /*trivial=*/0);
+    test_scalar_projection_(IRREP_PG_D3, /*trivial=*/0);
 
     /* (5) Hand-reducible decomposition spot checks (Bradley-Cracknell). */
 
@@ -163,34 +170,35 @@ int main(void) {
 
         {
             irrep_multiset_t *m = irrep_multiset_parse("1x0e");
-            int mult[5];
+            int               mult[5];
             irrep_pg_reduce(t, m, mult);
             IRREP_ASSERT(mult[0] == 1);
-            for (int i = 1; i < 5; ++i) IRREP_ASSERT(mult[i] == 0);
+            for (int i = 1; i < 5; ++i)
+                IRREP_ASSERT(mult[i] == 0);
             irrep_multiset_free(m);
         }
         {
             irrep_multiset_t *m = irrep_multiset_parse("1x1o");
-            int mult[5];
+            int               mult[5];
             irrep_pg_reduce(t, m, mult);
             /* A1 (z) + E (x, y). Sum of dims = 1 + 2 = 3 = dim(l=1). */
-            IRREP_ASSERT(mult[0] == 1);   /* A1 */
+            IRREP_ASSERT(mult[0] == 1); /* A1 */
             IRREP_ASSERT(mult[1] == 0);
             IRREP_ASSERT(mult[2] == 0);
             IRREP_ASSERT(mult[3] == 0);
-            IRREP_ASSERT(mult[4] == 1);   /* E  */
+            IRREP_ASSERT(mult[4] == 1); /* E  */
             irrep_multiset_free(m);
         }
         {
             irrep_multiset_t *m = irrep_multiset_parse("1x2e");
-            int mult[5];
+            int               mult[5];
             irrep_pg_reduce(t, m, mult);
             /* A1 + B1 + B2 + E. Sum of dims = 1 + 1 + 1 + 2 = 5 = dim(l=2). */
-            IRREP_ASSERT(mult[0] == 1);   /* A1 */
+            IRREP_ASSERT(mult[0] == 1); /* A1 */
             IRREP_ASSERT(mult[1] == 0);
-            IRREP_ASSERT(mult[2] == 1);   /* B1 */
-            IRREP_ASSERT(mult[3] == 1);   /* B2 */
-            IRREP_ASSERT(mult[4] == 1);   /* E  */
+            IRREP_ASSERT(mult[2] == 1); /* B1 */
+            IRREP_ASSERT(mult[3] == 1); /* B2 */
+            IRREP_ASSERT(mult[4] == 1); /* E  */
             irrep_multiset_free(m);
         }
         irrep_pg_table_free(t);
@@ -210,7 +218,7 @@ int main(void) {
 
         {
             irrep_multiset_t *m = irrep_multiset_parse("1x0e");
-            int mult[3];
+            int               mult[3];
             irrep_pg_reduce(t, m, mult);
             IRREP_ASSERT(mult[0] == 1);
             IRREP_ASSERT(mult[1] == 0);
@@ -219,23 +227,23 @@ int main(void) {
         }
         {
             irrep_multiset_t *m = irrep_multiset_parse("1x1o");
-            int mult[3];
+            int               mult[3];
             irrep_pg_reduce(t, m, mult);
             /* Sum of dims = 1 + 2 = 3 = dim(l=1). */
-            IRREP_ASSERT(mult[0] == 1);   /* A1 (z) */
+            IRREP_ASSERT(mult[0] == 1); /* A1 (z) */
             IRREP_ASSERT(mult[1] == 0);
-            IRREP_ASSERT(mult[2] == 1);   /* E (x, y) */
+            IRREP_ASSERT(mult[2] == 1); /* E (x, y) */
             irrep_multiset_free(m);
         }
         {
             /* Same rotation content as 1x1o, but σ_v multiplies by parity
              * = +1 instead of −1, so z transforms as A₁ → A₂ flips. */
             irrep_multiset_t *m = irrep_multiset_parse("1x1e");
-            int mult[3];
+            int               mult[3];
             irrep_pg_reduce(t, m, mult);
             IRREP_ASSERT(mult[0] == 0);
-            IRREP_ASSERT(mult[1] == 1);   /* A2 */
-            IRREP_ASSERT(mult[2] == 1);   /* E  */
+            IRREP_ASSERT(mult[1] == 1); /* A2 */
+            IRREP_ASSERT(mult[2] == 1); /* E  */
             irrep_multiset_free(m);
         }
         irrep_pg_table_free(t);
@@ -251,7 +259,7 @@ int main(void) {
 
         {
             irrep_multiset_t *m = irrep_multiset_parse("1x0e");
-            int mult[3];
+            int               mult[3];
             irrep_pg_reduce(t, m, mult);
             IRREP_ASSERT(mult[0] == 1);
             IRREP_ASSERT(mult[1] == 0);
@@ -261,14 +269,15 @@ int main(void) {
         {
             irrep_multiset_t *m1 = irrep_multiset_parse("1x1o");
             irrep_multiset_t *m2 = irrep_multiset_parse("1x1e");
-            int mult1[3], mult2[3];
+            int               mult1[3], mult2[3];
             irrep_pg_reduce(t, m1, mult1);
             irrep_pg_reduce(t, m2, mult2);
             /* Both reduce the same way in a purely proper group. */
-            for (int i = 0; i < 3; ++i) IRREP_ASSERT(mult1[i] == mult2[i]);
+            for (int i = 0; i < 3; ++i)
+                IRREP_ASSERT(mult1[i] == mult2[i]);
             IRREP_ASSERT(mult1[0] == 0);
-            IRREP_ASSERT(mult1[1] == 1);  /* A2 (z) */
-            IRREP_ASSERT(mult1[2] == 1);  /* E (x, y) */
+            IRREP_ASSERT(mult1[1] == 1); /* A2 (z) */
+            IRREP_ASSERT(mult1[2] == 1); /* E (x, y) */
             irrep_multiset_free(m1);
             irrep_multiset_free(m2);
         }
@@ -284,26 +293,27 @@ int main(void) {
 
         {
             irrep_multiset_t *m = irrep_multiset_parse("1x0e");
-            int mult[6];
+            int               mult[6];
             irrep_pg_reduce(t, m, mult);
             IRREP_ASSERT(mult[0] == 1);
-            for (int i = 1; i < 6; ++i) IRREP_ASSERT(mult[i] == 0);
+            for (int i = 1; i < 6; ++i)
+                IRREP_ASSERT(mult[i] == 0);
             irrep_multiset_free(m);
         }
         {
             irrep_multiset_t *m = irrep_multiset_parse("1x1o");
-            int mult[6];
+            int               mult[6];
             irrep_pg_reduce(t, m, mult);
             /* l=1 under D6 (purely proper rotations) decomposes as A2 + E1:
              *   z transforms as A2 (+1 under main-axis rotations, −1 under C2' / C2''
              *     which flip z because they are π rotations about horizontal axes),
-             *   (x, y) transforms as E1 (the 2-dim rep with character 2, 1, -1, -2, -1, 1 on the main axis).
-             * Sum of dims = 1 + 2 = 3 = dim(l=1). */
-            IRREP_ASSERT(mult[0] == 0);   /* A1 */
-            IRREP_ASSERT(mult[1] == 1);   /* A2 (z) */
+             *   (x, y) transforms as E1 (the 2-dim rep with character 2, 1, -1, -2, -1, 1 on the
+             * main axis). Sum of dims = 1 + 2 = 3 = dim(l=1). */
+            IRREP_ASSERT(mult[0] == 0); /* A1 */
+            IRREP_ASSERT(mult[1] == 1); /* A2 (z) */
             IRREP_ASSERT(mult[2] == 0);
             IRREP_ASSERT(mult[3] == 0);
-            IRREP_ASSERT(mult[4] == 1);   /* E1 (x, y) */
+            IRREP_ASSERT(mult[4] == 1); /* E1 (x, y) */
             IRREP_ASSERT(mult[5] == 0);
             irrep_multiset_free(m);
         }

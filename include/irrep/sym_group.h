@@ -2,7 +2,7 @@
 /** @file sym_group.h
  *  @brief Symmetric group `S_N`, Young tableaux, hook-length dimension formula,
  *         and antisymmetric / totally-symmetric projectors on tensor-factored
- *         wavefunctions. 
+ *         wavefunctions.
  *
  *  Required for the 2D-Hubbard / fermion-sign-problem target: the
  *  antisymmetric projector implements the Slater-determinant structure of a
@@ -52,8 +52,7 @@ IRREP_API int irrep_permutation_sign(const int *perm, int n);
  *         gives a different order; we use a canonical lex sweep so the
  *         identity permutation is at index 0). Requires `n ≤ 10`. Returns
  *         #IRREP_OK or an error. */
-IRREP_API irrep_status_t
-irrep_permutations_all(int n, int *out_perms);
+IRREP_API irrep_status_t irrep_permutations_all(int n, int *out_perms);
 
 /** @brief Hook-length dimension formula for the irrep of `S_N` labelled
  *         by integer partition `λ`: `dim(λ) = (N factorial) divided by the
@@ -83,18 +82,16 @@ IRREP_API long long irrep_young_dim(const int *partition, int n_parts);
  *  @param psi_in     input state, length `local_dim^N`
  *  @param psi_out    output state, length `local_dim^N` (may alias)
  *  @return           #IRREP_OK, #IRREP_ERR_INVALID_ARG, or #IRREP_ERR_OUT_OF_MEMORY. */
-IRREP_API irrep_status_t
-irrep_sym_group_antisymmetrize(int N, int local_dim,
-                               const double _Complex *psi_in,
-                               double _Complex *psi_out);
+IRREP_API irrep_status_t irrep_sym_group_antisymmetrize(int N, int local_dim,
+                                                        const double _Complex *psi_in,
+                                                        double _Complex       *psi_out);
 
 /** @brief Totally-symmetric (boson, trivial-representation) projector.
  *         Same conventions as @ref irrep_sym_group_antisymmetrize but
  *         sums over permutations without sign. */
-IRREP_API irrep_status_t
-irrep_sym_group_symmetrize(int N, int local_dim,
-                           const double _Complex *psi_in,
-                           double _Complex *psi_out);
+IRREP_API irrep_status_t irrep_sym_group_symmetrize(int N, int local_dim,
+                                                    const double _Complex *psi_in,
+                                                    double _Complex       *psi_out);
 
 #ifdef __cplusplus
 }

@@ -175,8 +175,17 @@ $(STATIC_LIB): $(LIB_OBJS) | $(LIB_DIR)
 $(SHARED_LIB): $(LIB_OBJS) | $(LIB_DIR)
 	$(CC) $(SHLIB_FLAGS) -o $@ $^ $(LDFLAGS)
 
+# On MinGW the SONAME and the bare link name are the same file
+# (liblibirrep.dll), so there's nothing to symlink — the shared lib itself
+# satisfies the target. On ELF / Mach-O the link name (liblibirrep.so /
+# liblibirrep.dylib) is a versioned-symlink companion to the SONAME.
+ifeq ($(SHLIB_SONAME),$(SHLIB_LINK))
+$(SHARED_LIB_LINK): $(SHARED_LIB)
+	@:
+else
 $(SHARED_LIB_LINK): $(SHARED_LIB)
 	@cd $(LIB_DIR) && ln -sf $(notdir $(SHARED_LIB)) $(SHLIB_LINK)
+endif
 
 # ---------------------------------------------------------------------------
 # Tests

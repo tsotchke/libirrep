@@ -72,18 +72,18 @@ int main(void) {
     IRREP_ASSERT(irrep_multiset_2j_parse(NULL) == NULL);
     IRREP_ASSERT(irrep_multiset_2j_parse("foo") == NULL);
     IRREP_ASSERT(irrep_multiset_2j_parse("-1x0e") == NULL);
-    IRREP_ASSERT(irrep_multiset_2j_parse("1x2/2e") == NULL);    /* even numerator */
-    IRREP_ASSERT(irrep_multiset_2j_parse("1x0/2e") == NULL);    /* zero numerator */
-    IRREP_ASSERT(irrep_multiset_2j_parse("1x1/3e") == NULL);    /* denominator ≠ 2 */
-    IRREP_ASSERT(irrep_multiset_2j_parse("1x0e + ") == NULL);   /* trailing + */
-    IRREP_ASSERT(irrep_multiset_2j_parse("1x0x") == NULL);      /* bad parity */
+    IRREP_ASSERT(irrep_multiset_2j_parse("1x2/2e") == NULL);  /* even numerator */
+    IRREP_ASSERT(irrep_multiset_2j_parse("1x0/2e") == NULL);  /* zero numerator */
+    IRREP_ASSERT(irrep_multiset_2j_parse("1x1/3e") == NULL);  /* denominator ≠ 2 */
+    IRREP_ASSERT(irrep_multiset_2j_parse("1x0e + ") == NULL); /* trailing + */
+    IRREP_ASSERT(irrep_multiset_2j_parse("1x0x") == NULL);    /* bad parity */
 
     /* ---- Format round trip. ---- */
     {
         irrep_multiset_2j_t *m = irrep_multiset_2j_parse("2x0e + 1x1/2o + 3x1e");
         IRREP_ASSERT(m != NULL);
         char buf[128];
-        int n = irrep_multiset_2j_format(m, buf, sizeof(buf));
+        int  n = irrep_multiset_2j_format(m, buf, sizeof(buf));
         IRREP_ASSERT(n > 0);
         IRREP_ASSERT(strstr(buf, "2x0e") != NULL);
         IRREP_ASSERT(strstr(buf, "1x1/2o") != NULL);
@@ -101,9 +101,11 @@ int main(void) {
         IRREP_ASSERT(m->total_dim == 2 * 4);
         IRREP_ASSERT(irrep_time_reversal_square_sign_2j(m) == -1);
         /* Invalid append: negative two_j */
-        IRREP_ASSERT(irrep_multiset_2j_append(m, (irrep_label_2j_t){-1, +1}, 1) == IRREP_ERR_INVALID_ARG);
+        IRREP_ASSERT(irrep_multiset_2j_append(m, (irrep_label_2j_t){-1, +1}, 1) ==
+                     IRREP_ERR_INVALID_ARG);
         /* Invalid append: zero multiplicity */
-        IRREP_ASSERT(irrep_multiset_2j_append(m, (irrep_label_2j_t){0, +1}, 0) == IRREP_ERR_INVALID_ARG);
+        IRREP_ASSERT(irrep_multiset_2j_append(m, (irrep_label_2j_t){0, +1}, 0) ==
+                     IRREP_ERR_INVALID_ARG);
         irrep_multiset_2j_free(m);
     }
 

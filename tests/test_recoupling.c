@@ -26,9 +26,9 @@ int main(void) {
     /* j6 = 0 reduction: {j1 j2 j3; j4 j5 0} = δ_{j4 j2} δ_{j1 j5}
      *                     · (−1)^{j1+j2+j3} / √((2j1+1)(2j2+1)).
      * For (1/2, 1/2, 1, 1/2, 1/2, 0): phase = (−1)^2 = +1, result = 1/2. */
-    IRREP_ASSERT_NEAR(irrep_wigner_6j_2j(1, 1, 2, 1, 1, 0),  0.5, tol);
+    IRREP_ASSERT_NEAR(irrep_wigner_6j_2j(1, 1, 2, 1, 1, 0), 0.5, tol);
     /* j3 = 0 reduction (column-swapped equivalent): same value. */
-    IRREP_ASSERT_NEAR(irrep_wigner_6j_2j(1, 1, 0, 1, 1, 2),  0.5, tol);
+    IRREP_ASSERT_NEAR(irrep_wigner_6j_2j(1, 1, 0, 1, 1, 2), 0.5, tol);
     /* {1 1 2; 1 1 0}: phase = (−1)^4 = 1, result = 1/3. */
     IRREP_ASSERT_NEAR(irrep_wigner_6j(1, 1, 2, 1, 1, 0), 1.0 / 3.0, tol);
     /* {1 1 0; 1 1 1}: phase = (−1)^3, result = −1/3. */
@@ -61,12 +61,12 @@ int main(void) {
     /* {j1 j2 j3; j4 j5 j6; j7 j8 0} = δ_{j3 j6} δ_{j7 j8} (−1)^{j2+j3+j4+j7}
      *                               / √((2j3+1)(2j7+1)) · {j1 j2 j3; j5 j4 j7} */
     {
-        int j1=1, j2=1, j3=2, j4=1, j5=1, j6=2, j7=1, j8=1;
-        double ninej = irrep_wigner_9j(j1,j2,j3, j4,j5,j6, j7,j8,0);
-        int phase_int = j2 + j3 + j4 + j7;
+        int    j1 = 1, j2 = 1, j3 = 2, j4 = 1, j5 = 1, j6 = 2, j7 = 1, j8 = 1;
+        double ninej = irrep_wigner_9j(j1, j2, j3, j4, j5, j6, j7, j8, 0);
+        int    phase_int = j2 + j3 + j4 + j7;
         double phase = (phase_int & 1) ? -1.0 : 1.0;
         double sixj = irrep_wigner_6j(j1, j2, j3, j5, j4, j7);
-        double expected = phase * sixj / sqrt((2*j3 + 1.0) * (2*j7 + 1.0));
+        double expected = phase * sixj / sqrt((2 * j3 + 1.0) * (2 * j7 + 1.0));
         IRREP_ASSERT_NEAR(ninej, expected, 1e-10);
     }
 

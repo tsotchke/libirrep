@@ -44,9 +44,11 @@ static inline double ipow_(double x, int n) {
     double r = 1.0;
     double base = x;
     while (n > 0) {
-        if (n & 1) r *= base;
+        if (n & 1)
+            r *= base;
         n >>= 1;
-        if (n) base *= base;
+        if (n)
+            base *= base;
     }
     return r;
 }
@@ -57,20 +59,23 @@ static inline double ipow_(double x, int n) {
  * -------------------------------------------------------------------------- */
 
 static double jacobi_P_(int n, int alpha, int beta, double x) {
-    if (n < 0)  return 0.0;
-    if (n == 0) return 1.0;
-    double a  = (double)alpha;
-    double b  = (double)beta;
+    if (n < 0)
+        return 0.0;
+    if (n == 0)
+        return 1.0;
+    double a = (double)alpha;
+    double b = (double)beta;
     double p0 = 1.0;
     double p1 = 0.5 * ((a - b) + (a + b + 2.0) * x);
-    if (n == 1) return p1;
+    if (n == 1)
+        return p1;
     for (int k = 1; k < n; ++k) {
         double dk = (double)k;
         double two_k_ab = 2.0 * dk + a + b;
         double denom = 2.0 * (dk + 1.0) * (dk + a + b + 1.0) * two_k_ab;
-        double c1    = (two_k_ab + 1.0) * (two_k_ab * (two_k_ab + 2.0) * x + (a * a - b * b));
-        double c2    = 2.0 * (dk + a) * (dk + b) * (two_k_ab + 2.0);
-        double p2    = (c1 * p1 - c2 * p0) / denom;
+        double c1 = (two_k_ab + 1.0) * (two_k_ab * (two_k_ab + 2.0) * x + (a * a - b * b));
+        double c2 = 2.0 * (dk + a) * (dk + b) * (two_k_ab + 2.0);
+        double p2 = (c1 * p1 - c2 * p0) / denom;
         p0 = p1;
         p1 = p2;
     }
@@ -79,7 +84,8 @@ static double jacobi_P_(int n, int alpha, int beta, double x) {
 
 /* (d/dx) P_n^{(α,β)}(x) = (n + α + β + 1)/2 · P_{n-1}^{(α+1, β+1)}(x) */
 static double jacobi_dP_dx_(int n, int alpha, int beta, double x) {
-    if (n <= 0) return 0.0;
+    if (n <= 0)
+        return 0.0;
     double factor = 0.5 * (double)(n + alpha + beta + 1);
     return factor * jacobi_P_(n - 1, alpha + 1, beta + 1, x);
 }
@@ -92,53 +98,63 @@ static double jacobi_dP_dx_(int n, int alpha, int beta, double x) {
  * the Varshalovich §4.4.1 symmetries. Returns the accumulated sign. */
 static double canonicalise_(int two_j, int *two_mp, int *two_m) {
     double sign = 1.0;
-    int    mp   = *two_mp;
-    int    m    = *two_m;
+    int    mp = *two_mp;
+    int    m = *two_m;
     if (m < mp) {
         /* d^j_{m',m} = (−1)^{m'−m} · d^j_{m,m'}  (parity guarantees 2m−2m' is even) */
         int delta_half = (mp - m) / 2;
-        if (delta_half & 1) sign = -sign;
-        int tmp = mp; mp = m; m = tmp;
+        if (delta_half & 1)
+            sign = -sign;
+        int tmp = mp;
+        mp = m;
+        m = tmp;
     }
     if (m < -mp) {
         /* d^j_{m',m} = d^j_{-m,-m'}  (no sign change) */
-        int tmp = -mp; mp = -m; m = tmp;
+        int tmp = -mp;
+        mp = -m;
+        m = tmp;
     }
     (void)two_j;
     *two_mp = mp;
-    *two_m  = m;
+    *two_m = m;
     return sign;
 }
 
 double irrep_wigner_d_small_2j(int two_j, int two_mp, int two_m, double beta) {
-    if (two_j < 0) return 0.0;
-    if (two_m  < -two_j || two_m  > two_j ) return 0.0;
-    if (two_mp < -two_j || two_mp > two_j ) return 0.0;
-    if ((two_j + two_m ) & 1) return 0.0;
-    if ((two_j + two_mp) & 1) return 0.0;
+    if (two_j < 0)
+        return 0.0;
+    if (two_m < -two_j || two_m > two_j)
+        return 0.0;
+    if (two_mp < -two_j || two_mp > two_j)
+        return 0.0;
+    if ((two_j + two_m) & 1)
+        return 0.0;
+    if ((two_j + two_mp) & 1)
+        return 0.0;
 
     double sign = canonicalise_(two_j, &two_mp, &two_m);
     /* Canonical region: two_m ≥ |two_mp|. Integer labels: */
-    int mu_int = (two_m - two_mp) / 2;   /* m − m' ≥ 0 */
-    int nu_int = (two_m + two_mp) / 2;   /* m + m' ≥ 0 */
-    int n      = (two_j - two_m ) / 2;   /* j − m     ≥ 0 */
+    int    mu_int = (two_m - two_mp) / 2; /* m − m' ≥ 0 */
+    int    nu_int = (two_m + two_mp) / 2; /* m + m' ≥ 0 */
+    int    n = (two_j - two_m) / 2;       /* j − m     ≥ 0 */
 
-    int jpm  = (two_j + two_m ) / 2;
-    int jmm  = (two_j - two_m ) / 2;
-    int jpmp = (two_j + two_mp) / 2;
-    int jmmp = (two_j - two_mp) / 2;
+    int    jpm = (two_j + two_m) / 2;
+    int    jmm = (two_j - two_m) / 2;
+    int    jpmp = (two_j + two_mp) / 2;
+    int    jmmp = (two_j - two_mp) / 2;
 
-    double lg_norm = 0.5 * (lgamma(jpm + 1.0) + lgamma(jmm + 1.0)
-                          - lgamma(jpmp + 1.0) - lgamma(jmmp + 1.0));
-    double norm    = exp(lg_norm);
+    double lg_norm =
+        0.5 * (lgamma(jpm + 1.0) + lgamma(jmm + 1.0) - lgamma(jpmp + 1.0) - lgamma(jmmp + 1.0));
+    double norm = exp(lg_norm);
 
     double cb2 = cos(0.5 * beta);
     double sb2 = sin(0.5 * beta);
-    double x   = cos(beta);
+    double x = cos(beta);
 
     double cb2_pow = ipow_(cb2, nu_int);
     double sb2_pow = ipow_(sb2, mu_int);
-    double Pn      = jacobi_P_(n, mu_int, nu_int, x);
+    double Pn = jacobi_P_(n, mu_int, nu_int, x);
 
     return sign * norm * cb2_pow * sb2_pow * Pn;
 }
@@ -151,22 +167,22 @@ double irrep_wigner_d_small(int j, int mp, int m, double beta) {
  * Full D = e^{−i m' α} · d^j_{m'm}(β) · e^{−i m γ}                           *
  * -------------------------------------------------------------------------- */
 
-double _Complex irrep_wigner_D_2j(int two_j, int two_mp, int two_m,
-                                  double alpha, double beta, double gamma) {
+double _Complex irrep_wigner_D_2j(int two_j, int two_mp, int two_m, double alpha, double beta,
+                                  double gamma) {
     double d = irrep_wigner_d_small_2j(two_j, two_mp, two_m, beta);
-    if (d == 0.0) return 0.0;
+    if (d == 0.0)
+        return 0.0;
     double phase = -(0.5 * two_mp * alpha + 0.5 * two_m * gamma);
     return d * (cos(phase) + I * sin(phase));
 }
 
-double _Complex irrep_wigner_D(int j, int mp, int m,
-                               double alpha, double beta, double gamma) {
+double _Complex irrep_wigner_D(int j, int mp, int m, double alpha, double beta, double gamma) {
     return irrep_wigner_D_2j(2 * j, 2 * mp, 2 * m, alpha, beta, gamma);
 }
 
-void irrep_wigner_D_matrix(int j, double _Complex *out,
-                           double alpha, double beta, double gamma) {
-    if (j < 0) return;
+void irrep_wigner_D_matrix(int j, double _Complex *out, double alpha, double beta, double gamma) {
+    if (j < 0)
+        return;
     int d = 2 * j + 1;
     for (int imp = 0; imp < d; ++imp) {
         int mp = imp - j;
@@ -178,7 +194,8 @@ void irrep_wigner_D_matrix(int j, double _Complex *out,
 }
 
 void irrep_wigner_d_matrix(int j, double *out, double beta) {
-    if (j < 0) return;
+    if (j < 0)
+        return;
     int d = 2 * j + 1;
     /* Exploit two Varshalovich §4.4.1 symmetries to cut the work ≈4× on the
      * full d×d matrix:
@@ -186,18 +203,19 @@ void irrep_wigner_d_matrix(int j, double *out, double beta) {
      *   d^j_{m', m}(β) = (−1)^{m'−m} · d^j_{m, m'}(β)    (transpose with sign)
      * Compute only cells where m ≥ |m'| AND (m', m) lex ≤ (−m, −m'); fill
      * the three symmetric images from each. */
-    for (int imp = 0; imp < d; ++imp) out[imp * d + (d - 1 - imp)] = 0.0;  /* zero scratch on anti-diagonal — refilled below */
+    for (int imp = 0; imp < d; ++imp)
+        out[imp * d + (d - 1 - imp)] = 0.0; /* zero scratch on anti-diagonal — refilled below */
 
     for (int imp = 0; imp < d; ++imp) {
         int mp = imp - j;
-        int im_lo = (mp < 0) ? -mp + j : mp + j;   /* smallest im with m ≥ |m'| */
+        int im_lo = (mp < 0) ? -mp + j : mp + j; /* smallest im with m ≥ |m'| */
         for (int im = im_lo; im < d; ++im) {
-            int m = im - j;
+            int    m = im - j;
             double v = irrep_wigner_d_small(j, mp, m, beta);
-            out[imp * d + im] = v;                                   /* (m', m) */
+            out[imp * d + im] = v; /* (m', m) */
             /* Image 1: (−m, −m') → same value */
-            int imp_a = -m  + j;
-            int im_a  = -mp + j;
+            int imp_a = -m + j;
+            int im_a = -mp + j;
             out[imp_a * d + im_a] = v;
             /* Image 2: (m, m') → (-1)^{m-m'} · v  (skip if equal to (m', m)) */
             if (mp != m) {
@@ -205,7 +223,7 @@ void irrep_wigner_d_matrix(int j, double *out, double beta) {
                 out[im * d + imp] = sign;
                 /* Image 3: (−m', −m) → (-1)^{m-m'} · v  (mirror of image 2) */
                 int imp_b = -mp + j;
-                int im_b  = -m  + j;
+                int im_b = -m + j;
                 if (imp_b != im || im_b != imp) {
                     out[imp_b * d + im_b] = sign;
                 }
@@ -223,19 +241,21 @@ void irrep_wigner_d_matrix(int j, double *out, double beta) {
  * rotations preserve parity — so both parities use the same D^{l}(R).        *
  * -------------------------------------------------------------------------- */
 
-void irrep_wigner_D_multiset(const irrep_multiset_t *m, double _Complex *out,
-                             double alpha, double beta, double gamma) {
-    if (!m) return;
+void irrep_wigner_D_multiset(const irrep_multiset_t *m, double _Complex *out, double alpha,
+                             double beta, double gamma) {
+    if (!m)
+        return;
     int total = m->total_dim;
-    for (int i = 0; i < total * total; ++i) out[i] = 0.0;
+    for (int i = 0; i < total * total; ++i)
+        out[i] = 0.0;
 
     double _Complex block[IRREP_MAX_BLOCK_DIM * IRREP_MAX_BLOCK_DIM];
     int offset = 0;
 
     for (int t = 0; t < m->num_terms; ++t) {
-        int l        = m->labels[t].l;
-        int mult     = m->multiplicities[t];
-        int bdim     = 2 * l + 1;
+        int l = m->labels[t].l;
+        int mult = m->multiplicities[t];
+        int bdim = 2 * l + 1;
         irrep_wigner_D_matrix(l, block, alpha, beta, gamma);
 
         for (int c = 0; c < mult; ++c) {
@@ -265,32 +285,37 @@ void irrep_wigner_D_multiset(const irrep_multiset_t *m, double _Complex *out,
 double irrep_wigner_d_small_dbeta(int j, int mp, int m, double beta) {
     int two_j = 2 * j, two_mp = 2 * mp, two_m = 2 * m;
 
-    if (two_j < 0) return 0.0;
-    if (two_m  < -two_j || two_m  > two_j ) return 0.0;
-    if (two_mp < -two_j || two_mp > two_j ) return 0.0;
-    if ((two_j + two_m ) & 1) return 0.0;
-    if ((two_j + two_mp) & 1) return 0.0;
+    if (two_j < 0)
+        return 0.0;
+    if (two_m < -two_j || two_m > two_j)
+        return 0.0;
+    if (two_mp < -two_j || two_mp > two_j)
+        return 0.0;
+    if ((two_j + two_m) & 1)
+        return 0.0;
+    if ((two_j + two_mp) & 1)
+        return 0.0;
 
     double sign = canonicalise_(two_j, &two_mp, &two_m);
-    int mu_int = (two_m - two_mp) / 2;
-    int nu_int = (two_m + two_mp) / 2;
-    int n      = (two_j - two_m ) / 2;
+    int    mu_int = (two_m - two_mp) / 2;
+    int    nu_int = (two_m + two_mp) / 2;
+    int    n = (two_j - two_m) / 2;
 
-    int jpm  = (two_j + two_m ) / 2;
-    int jmm  = (two_j - two_m ) / 2;
-    int jpmp = (two_j + two_mp) / 2;
-    int jmmp = (two_j - two_mp) / 2;
+    int    jpm = (two_j + two_m) / 2;
+    int    jmm = (two_j - two_m) / 2;
+    int    jpmp = (two_j + two_mp) / 2;
+    int    jmmp = (two_j - two_mp) / 2;
 
-    double lg_norm = 0.5 * (lgamma(jpm + 1.0) + lgamma(jmm + 1.0)
-                          - lgamma(jpmp + 1.0) - lgamma(jmmp + 1.0));
-    double norm    = exp(lg_norm);
+    double lg_norm =
+        0.5 * (lgamma(jpm + 1.0) + lgamma(jmm + 1.0) - lgamma(jpmp + 1.0) - lgamma(jmmp + 1.0));
+    double norm = exp(lg_norm);
 
     double cb2 = cos(0.5 * beta);
     double sb2 = sin(0.5 * beta);
-    double x   = cos(beta);
+    double x = cos(beta);
     double sbeta = sin(beta);
 
-    double Pn   = jacobi_P_   (n, mu_int, nu_int, x);
+    double Pn = jacobi_P_(n, mu_int, nu_int, x);
     double dPdx = jacobi_dP_dx_(n, mu_int, nu_int, x);
 
     /* f(β) = sign · norm · cb2^ν · sb2^μ · P_n(cos β)
@@ -300,14 +325,12 @@ double irrep_wigner_d_small_dbeta(int j, int mp, int m, double beta) {
      */
     double env_d = 0.0;
     if (mu_int > 0) {
-        env_d += 0.5 * (double)mu_int * ipow_(cb2, nu_int + 1)
-                                      * ipow_(sb2, mu_int - 1);
+        env_d += 0.5 * (double)mu_int * ipow_(cb2, nu_int + 1) * ipow_(sb2, mu_int - 1);
     }
     if (nu_int > 0) {
-        env_d -= 0.5 * (double)nu_int * ipow_(cb2, nu_int - 1)
-                                      * ipow_(sb2, mu_int + 1);
+        env_d -= 0.5 * (double)nu_int * ipow_(cb2, nu_int - 1) * ipow_(sb2, mu_int + 1);
     }
-    double env   = ipow_(cb2, nu_int) * ipow_(sb2, mu_int);
+    double env = ipow_(cb2, nu_int) * ipow_(sb2, mu_int);
     double total = env_d * Pn + env * (-sbeta) * dPdx;
 
     return sign * norm * total;

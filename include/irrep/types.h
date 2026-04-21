@@ -47,8 +47,8 @@ typedef struct {
 /** @name Irrep labels and multisets
  *  @{ */
 
-#define IRREP_EVEN (+1)     /**< Parity-even O(3) irrep. */
-#define IRREP_ODD  (-1)     /**< Parity-odd  O(3) irrep. */
+#define IRREP_EVEN (+1) /**< Parity-even O(3) irrep. */
+#define IRREP_ODD (-1)  /**< Parity-odd  O(3) irrep. */
 
 /** @brief Irreducible-representation label for O(3): order `l ≥ 0` and parity. */
 typedef struct {
@@ -76,13 +76,13 @@ typedef struct {
 /** @brief Status code for validating / builder functions. Pure math functions
  *         return mathematical defaults (`0.0`) on bad input rather than status. */
 typedef enum {
-    IRREP_OK                  =  0,
-    IRREP_ERR_INVALID_ARG     = -1,
-    IRREP_ERR_OUT_OF_MEMORY   = -2,
-    IRREP_ERR_SELECTION_RULE  = -3,
+    IRREP_OK = 0,
+    IRREP_ERR_INVALID_ARG = -1,
+    IRREP_ERR_OUT_OF_MEMORY = -2,
+    IRREP_ERR_SELECTION_RULE = -3,
     IRREP_ERR_NOT_IMPLEMENTED = -4,
-    IRREP_ERR_PRECONDITION    = -5,
-    IRREP_ERR_PARSE           = -6
+    IRREP_ERR_PRECONDITION = -5,
+    IRREP_ERR_PARSE = -6
 } irrep_status_t;
 
 /** @brief Human-readable message for a status code. */
@@ -97,8 +97,8 @@ IRREP_API const char *irrep_last_error(void);
 /** @name Library limits
  *  @{ */
 
-#define IRREP_L_MAX      16     /**< Maximum integer angular momentum l supported. */
-#define IRREP_TWO_J_MAX  32     /**< Maximum doubled-integer spin supported (j = 16). */
+#define IRREP_L_MAX 16     /**< Maximum integer angular momentum l supported. */
+#define IRREP_TWO_J_MAX 32 /**< Maximum doubled-integer spin supported (j = 16). */
 /** @} */
 
 #ifdef __cplusplus

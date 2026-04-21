@@ -53,9 +53,9 @@ extern "C" {
 
 /** @brief Enumerated wallpaper groups. */
 typedef enum {
-    IRREP_WALLPAPER_P1    = 0,  /**< Translations only. */
-    IRREP_WALLPAPER_P4MM  = 1,  /**< Square: C4 + 4 mirrors, 8 point ops. */
-    IRREP_WALLPAPER_P6MM  = 2   /**< Triangular / honeycomb / kagome: C6 + 6 mirrors, 12 point ops. */
+    IRREP_WALLPAPER_P1 = 0,   /**< Translations only. */
+    IRREP_WALLPAPER_P4MM = 1, /**< Square: C4 + 4 mirrors, 8 point ops. */
+    IRREP_WALLPAPER_P6MM = 2  /**< Triangular / honeycomb / kagome: C6 + 6 mirrors, 12 point ops. */
 } irrep_wallpaper_t;
 
 /** @brief Opaque space-group handle. Built by @ref irrep_space_group_build
@@ -67,8 +67,8 @@ typedef struct irrep_space_group irrep_space_group_t;
  *  @return a fresh handle, or `NULL` if the cluster does not respect the
  *          full wallpaper group (e.g. `Lx != Ly` under p4mm). The reason
  *          is available via @ref irrep_last_error. */
-IRREP_API irrep_space_group_t *
-irrep_space_group_build(const irrep_lattice_t *L, irrep_wallpaper_t kind);
+IRREP_API irrep_space_group_t *irrep_space_group_build(const irrep_lattice_t *L,
+                                                       irrep_wallpaper_t      kind);
 
 /** @brief Release a space-group handle. */
 IRREP_API void irrep_space_group_free(irrep_space_group_t *G);
@@ -77,13 +77,13 @@ IRREP_API void irrep_space_group_free(irrep_space_group_t *G);
  *  @{ */
 
 /** @brief Total number of group elements, `point_order * num_cells`. */
-IRREP_API int irrep_space_group_order      (const irrep_space_group_t *G);
+IRREP_API int irrep_space_group_order(const irrep_space_group_t *G);
 
 /** @brief Number of elements in the point subgroup (1, 8, or 12). */
 IRREP_API int irrep_space_group_point_order(const irrep_space_group_t *G);
 
 /** @brief Number of lattice sites the group acts on. */
-IRREP_API int irrep_space_group_num_sites  (const irrep_space_group_t *G);
+IRREP_API int irrep_space_group_num_sites(const irrep_space_group_t *G);
 
 /** @brief The wallpaper kind this handle was built with. */
 IRREP_API irrep_wallpaper_t irrep_space_group_kind(const irrep_space_group_t *G);
@@ -98,26 +98,23 @@ IRREP_API const irrep_lattice_t *irrep_space_group_lattice(const irrep_space_gro
 
 /** @brief Apply group element @p g to @p site. Returns the image site index,
  *         or `-1` on invalid input. */
-IRREP_API int irrep_space_group_apply(const irrep_space_group_t *G,
-                                      int g, int site);
+IRREP_API int irrep_space_group_apply(const irrep_space_group_t *G, int g, int site);
 
 /** @brief Write the full permutation for @p g into @p perm[num_sites]:
  *         `perm[s] = g · s`. */
-IRREP_API void irrep_space_group_permutation(const irrep_space_group_t *G,
-                                             int g, int *perm);
+IRREP_API void irrep_space_group_permutation(const irrep_space_group_t *G, int g, int *perm);
 
 /** @brief Write the inverse permutation `perm[g · s] = s`, i.e. `g⁻¹ · s`.
  *         Convenient for the pullback action on configurations. */
-IRREP_API void irrep_space_group_permutation_inverse(const irrep_space_group_t *G,
-                                                     int g, int *perm);
+IRREP_API void irrep_space_group_permutation_inverse(const irrep_space_group_t *G, int g,
+                                                     int *perm);
 
 /** @brief Apply group element @p g to a real-valued configuration:
  *         `out[i] = in[g⁻¹ · i]` (pullback convention). `in` and `out` may
  *         alias only if `in == out` and the caller provides a scratch buffer
  *         — otherwise the permutation is written out-of-place. */
-IRREP_API void irrep_space_group_apply_config(const irrep_space_group_t *G,
-                                              int g,
-                                              const double *in, double *out);
+IRREP_API void irrep_space_group_apply_config(const irrep_space_group_t *G, int g, const double *in,
+                                              double *out);
 /** @} */
 
 #ifdef __cplusplus

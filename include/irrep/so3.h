@@ -40,7 +40,7 @@ IRREP_API irrep_quaternion_t irrep_quat_from_rot(irrep_rot_matrix_t R);
 /** @brief Rotation matrix from Euler ZYZ triple. */
 IRREP_API irrep_rot_matrix_t irrep_rot_from_euler_zyz(irrep_euler_zyz_t e);
 /** @brief Euler ZYZ from rotation matrix (gimbal-lock guarded at |sin β| < 1e-12). */
-IRREP_API irrep_euler_zyz_t  irrep_euler_zyz_from_rot(irrep_rot_matrix_t R);
+IRREP_API irrep_euler_zyz_t irrep_euler_zyz_from_rot(irrep_rot_matrix_t R);
 /** @brief Rotation matrix from axis-angle (Rodrigues formula). */
 IRREP_API irrep_rot_matrix_t irrep_rot_from_axis_angle(irrep_axis_angle_t aa);
 /** @brief Axis-angle from rotation matrix (Markley branch-switching near π). */
@@ -48,32 +48,32 @@ IRREP_API irrep_axis_angle_t irrep_axis_angle_from_rot(irrep_rot_matrix_t R);
 /** @brief Quaternion from Euler ZYZ triple. */
 IRREP_API irrep_quaternion_t irrep_quat_from_euler_zyz(irrep_euler_zyz_t e);
 /** @brief Euler ZYZ from quaternion. */
-IRREP_API irrep_euler_zyz_t  irrep_euler_zyz_from_quat(irrep_quaternion_t q);
+IRREP_API irrep_euler_zyz_t irrep_euler_zyz_from_quat(irrep_quaternion_t q);
 /** @} */
 
 /** @name Group operations
  *  @{ */
 
 /** @brief Identity rotation matrix. */
-IRREP_API irrep_rot_matrix_t irrep_rot_identity (void);
+IRREP_API irrep_rot_matrix_t irrep_rot_identity(void);
 /** @brief Identity quaternion {0,0,0,1}. */
 IRREP_API irrep_quaternion_t irrep_quat_identity(void);
 
 /** @brief Rotation composition: @p a then @p b (left-multiplication convention). */
-IRREP_API irrep_rot_matrix_t irrep_rot_compose (irrep_rot_matrix_t a, irrep_rot_matrix_t b);
+IRREP_API irrep_rot_matrix_t irrep_rot_compose(irrep_rot_matrix_t a, irrep_rot_matrix_t b);
 /** @brief Rotation inverse (transpose). */
-IRREP_API irrep_rot_matrix_t irrep_rot_inverse (irrep_rot_matrix_t a);
+IRREP_API irrep_rot_matrix_t irrep_rot_inverse(irrep_rot_matrix_t a);
 
 /** @brief Quaternion Hamilton product. */
-IRREP_API irrep_quaternion_t irrep_quat_compose  (irrep_quaternion_t a, irrep_quaternion_t b);
+IRREP_API irrep_quaternion_t irrep_quat_compose(irrep_quaternion_t a, irrep_quaternion_t b);
 /** @brief Quaternion inverse (for unit input: conjugate / ‖q‖²). */
-IRREP_API irrep_quaternion_t irrep_quat_inverse  (irrep_quaternion_t a);
+IRREP_API irrep_quaternion_t irrep_quat_inverse(irrep_quaternion_t a);
 /** @brief Quaternion conjugate {−x, −y, −z, w}. */
 IRREP_API irrep_quaternion_t irrep_quat_conjugate(irrep_quaternion_t a);
 /** @brief Project to the unit 3-sphere (idempotent on unit input). */
 IRREP_API irrep_quaternion_t irrep_quat_normalize(irrep_quaternion_t a);
 /** @brief Euclidean norm of the 4-vector. */
-IRREP_API double             irrep_quat_norm     (irrep_quaternion_t a);
+IRREP_API double irrep_quat_norm(irrep_quaternion_t a);
 /** @} */
 
 /** @name Exp / log on SO(3)
@@ -86,16 +86,16 @@ IRREP_API irrep_rot_matrix_t irrep_rot_exp(const double omega[3]);
 /** @brief Matrix logarithm on SO(3) with Markley branch-switching near π.
  *  @param R          valid rotation matrix (orthogonal, det = +1).
  *  @param omega_out  3-vector rotation generator; angle = ‖ω‖, axis = ω / ‖ω‖. */
-IRREP_API void               irrep_rot_log(irrep_rot_matrix_t R, double omega_out[3]);
+IRREP_API void irrep_rot_log(irrep_rot_matrix_t R, double omega_out[3]);
 /** @} */
 
 /** @name Vector rotation
  *  @{ */
 
 /** @brief Rotate `v` by `R` into `out` (in-place permitted). */
-IRREP_API void irrep_rot_apply   (irrep_rot_matrix_t R, const double v[3], double out[3]);
+IRREP_API void irrep_rot_apply(irrep_rot_matrix_t R, const double v[3], double out[3]);
 /** @brief Rotate `v` by unit quaternion `q` into `out` (in-place permitted). */
-IRREP_API void irrep_quat_apply  (irrep_quaternion_t q, const double v[3], double out[3]);
+IRREP_API void irrep_quat_apply(irrep_quaternion_t q, const double v[3], double out[3]);
 /** @} */
 
 /** @name Sampling, interpolation, distance
@@ -106,12 +106,10 @@ IRREP_API void irrep_quat_apply  (irrep_quaternion_t q, const double v[3], doubl
 IRREP_API irrep_quaternion_t irrep_quat_random(uint64_t *rng_state);
 
 /** @brief Shortest-arc SLERP from @p a to @p b at parameter `t ∈ [0, 1]`. */
-IRREP_API irrep_quaternion_t irrep_quat_slerp (irrep_quaternion_t a,
-                                               irrep_quaternion_t b, double t);
+IRREP_API irrep_quaternion_t irrep_quat_slerp(irrep_quaternion_t a, irrep_quaternion_t b, double t);
 
 /** @brief Geodesic distance on SO(3): the rotation angle of @p a<sup>-1</sup>·@p b. */
-IRREP_API double             irrep_rot_geodesic_distance(irrep_rot_matrix_t a,
-                                                         irrep_rot_matrix_t b);
+IRREP_API double irrep_rot_geodesic_distance(irrep_rot_matrix_t a, irrep_rot_matrix_t b);
 
 /** @brief Weighted Karcher / Fréchet mean on SO(3).
  *
@@ -122,8 +120,7 @@ IRREP_API double             irrep_rot_geodesic_distance(irrep_rot_matrix_t a,
  *  @param weights  array of @p n non-negative weights (may be NULL for uniform).
  *  @param n        number of samples. */
 IRREP_API irrep_quaternion_t irrep_quat_frechet_mean(const irrep_quaternion_t *qs,
-                                                     const double *weights,
-                                                     size_t n);
+                                                     const double *weights, size_t n);
 
 /** @brief Shortest-arc rotation sending unit vector @p a onto unit vector @p b. */
 IRREP_API irrep_quaternion_t irrep_quat_from_two_vectors(const double a[3], const double b[3]);

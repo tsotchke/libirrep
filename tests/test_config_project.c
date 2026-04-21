@@ -28,13 +28,13 @@ int main(void) {
     IRREP_TEST_START("config_project");
 
     /* Build a 4×4 square p4mm group to exercise a non-trivial order. */
-    irrep_lattice_t *sq     = irrep_lattice_build(IRREP_LATTICE_SQUARE, 4, 4);
-    irrep_space_group_t *G  = irrep_space_group_build(sq, IRREP_WALLPAPER_P4MM);
+    irrep_lattice_t     *sq = irrep_lattice_build(IRREP_LATTICE_SQUARE, 4, 4);
+    irrep_space_group_t *G = irrep_space_group_build(sq, IRREP_WALLPAPER_P4MM);
     IRREP_ASSERT(G != NULL);
-    int order = irrep_space_group_order(G);          /* 128 */
-    int n     = irrep_space_group_num_sites(G);      /* 16 */
+    int order = irrep_space_group_order(G); /* 128 */
+    int n = irrep_space_group_num_sites(G); /* 16 */
     IRREP_ASSERT(order == 128);
-    IRREP_ASSERT(n     == 16);
+    IRREP_ASSERT(n == 16);
 
     /* Trivial irrep: should give all-1 characters, dim 1 */
     irrep_sg_irrep_t *A1 = irrep_sg_trivial(G);
@@ -43,7 +43,8 @@ int main(void) {
     /* Reduce a constant-1 amplitude over the group — A1 projection of a
      * constant is the constant itself (d_μ · (1/|G|) · Σ 1·1 = 1). */
     double _Complex *psi = malloc(sizeof(double _Complex) * order);
-    for (int g = 0; g < order; ++g) psi[g] = 1.0 + 0.0*I;
+    for (int g = 0; g < order; ++g)
+        psi[g] = 1.0 + 0.0 * I;
     double _Complex proj = irrep_sg_project_amplitude(A1, psi);
     IRREP_ASSERT_NEAR(creal(proj), 1.0, 1e-14);
     IRREP_ASSERT_NEAR(cimag(proj), 0.0, 1e-14);
@@ -54,15 +55,17 @@ int main(void) {
 
     /* Delta amplitude at g=0 → A1 projection = 1/|G| */
     memset(psi, 0, sizeof(double _Complex) * order);
-    psi[0] = 1.0 + 0.0*I;
+    psi[0] = 1.0 + 0.0 * I;
     proj = irrep_sg_project_A1(G, psi);
     IRREP_ASSERT_NEAR(creal(proj), 1.0 / (double)order, 1e-14);
 
     /* Random-ish non-symmetric amplitude: A1 projection is a scalar; then
      * applying the projection to that constant array returns the same. */
-    for (int g = 0; g < order; ++g) psi[g] = (double)(g % 7) - 3.0;
+    for (int g = 0; g < order; ++g)
+        psi[g] = (double)(g % 7) - 3.0;
     double _Complex avg = irrep_sg_project_A1(G, psi);
-    for (int g = 0; g < order; ++g) psi[g] = avg;
+    for (int g = 0; g < order; ++g)
+        psi[g] = avg;
     double _Complex avg2 = irrep_sg_project_A1(G, psi);
     IRREP_ASSERT_NEAR(creal(avg), creal(avg2), 1e-14);
     IRREP_ASSERT_NEAR(cimag(avg), cimag(avg2), 1e-14);
@@ -70,10 +73,12 @@ int main(void) {
     /* Generic non-trivial irrep: alternating ±1 characters on element parity.
      * (Not the true parity of the group, but an exercise of the reduce.) */
     double _Complex *chi = malloc(sizeof(double _Complex) * order);
-    for (int g = 0; g < order; ++g) chi[g] = (g & 1) ? -1.0 : +1.0;
+    for (int g = 0; g < order; ++g)
+        chi[g] = (g & 1) ? -1.0 : +1.0;
     irrep_sg_irrep_t *mu = irrep_sg_irrep_new(G, chi, 1);
     IRREP_ASSERT(mu != NULL);
-    for (int g = 0; g < order; ++g) psi[g] = 1.0 + 0.0*I;
+    for (int g = 0; g < order; ++g)
+        psi[g] = 1.0 + 0.0 * I;
     /* Σ conj(χ) · 1 = (order/2) · (+1) + (order/2) · (-1) = 0 → projection 0 */
     proj = irrep_sg_project_amplitude(mu, psi);
     IRREP_ASSERT_NEAR(creal(proj), 0.0, 1e-14);
@@ -87,7 +92,8 @@ int main(void) {
      * should cancel (as many +1's as -1's in the p4mm case). */
     irrep_sg_irrep_t *A2 = irrep_sg_sign_rep(G);
     IRREP_ASSERT(A2 != NULL);
-    for (int g = 0; g < order; ++g) psi[g] = 1.0 + 0.0*I;
+    for (int g = 0; g < order; ++g)
+        psi[g] = 1.0 + 0.0 * I;
     proj = irrep_sg_project_amplitude(A2, psi);
     IRREP_ASSERT_NEAR(creal(proj), 0.0, 1e-14);
     IRREP_ASSERT_NEAR(cimag(proj), 0.0, 1e-14);
@@ -106,11 +112,12 @@ int main(void) {
 
     /* For p1 space groups the sign rep degenerates to the trivial one. */
     irrep_space_group_t *G1 = irrep_space_group_build(sq, IRREP_WALLPAPER_P1);
-    irrep_sg_irrep_t *A2_p1 = irrep_sg_sign_rep(G1);
+    irrep_sg_irrep_t    *A2_p1 = irrep_sg_sign_rep(G1);
     IRREP_ASSERT(A2_p1 != NULL);
-    for (int g = 0; g < irrep_space_group_order(G1); ++g) psi[g] = 1.0;
+    for (int g = 0; g < irrep_space_group_order(G1); ++g)
+        psi[g] = 1.0;
     proj = irrep_sg_project_amplitude(A2_p1, psi);
-    IRREP_ASSERT_NEAR(creal(proj), 1.0, 1e-14);   /* matches A₁ on p1 */
+    IRREP_ASSERT_NEAR(creal(proj), 1.0, 1e-14); /* matches A₁ on p1 */
     irrep_sg_irrep_free(A2_p1);
     irrep_space_group_free(G1);
 
@@ -120,16 +127,16 @@ int main(void) {
      * on the order-4 translation subgroup. Builder returns an orthonormal
      * basis of this sector. */
     {
-        irrep_lattice_t     *sq2   = irrep_lattice_build(IRREP_LATTICE_SQUARE, 2, 2);
+        irrep_lattice_t     *sq2 = irrep_lattice_build(IRREP_LATTICE_SQUARE, 2, 2);
         irrep_space_group_t *G4 = irrep_space_group_build(sq2, IRREP_WALLPAPER_P4MM);
         IRREP_ASSERT(G4 != NULL);
 
-        long long D = 1LL << 4;                 /* local_dim = 2, N = 4 */
+        long long        D = 1LL << 4; /* local_dim = 2, N = 4 */
         double _Complex *basis = malloc(sizeof(double _Complex) * (size_t)D * (size_t)D);
         IRREP_ASSERT(basis != NULL);
 
         irrep_sg_irrep_t *A1_sq = irrep_sg_trivial(G4);
-        int n_basis = irrep_sg_adapted_basis(G4, A1_sq, 4, 2, basis, (int)D);
+        int               n_basis = irrep_sg_adapted_basis(G4, A1_sq, 4, 2, basis, (int)D);
         IRREP_ASSERT(n_basis > 0);
         IRREP_ASSERT(n_basis <= (int)D);
 
@@ -142,16 +149,16 @@ int main(void) {
                 }
                 double expected = (i == j) ? 1.0 : 0.0;
                 IRREP_ASSERT_NEAR(creal(overlap), expected, 1e-10);
-                IRREP_ASSERT_NEAR(cimag(overlap), 0.0,      1e-10);
+                IRREP_ASSERT_NEAR(cimag(overlap), 0.0, 1e-10);
             }
         }
 
         /* Error paths */
         IRREP_ASSERT(irrep_sg_adapted_basis(NULL, A1_sq, 4, 2, basis, (int)D) == -1);
-        IRREP_ASSERT(irrep_sg_adapted_basis(G4, NULL,    4, 2, basis, (int)D) == -1);
-        IRREP_ASSERT(irrep_sg_adapted_basis(G4, A1_sq,   4, 1, basis, (int)D) == -1);
+        IRREP_ASSERT(irrep_sg_adapted_basis(G4, NULL, 4, 2, basis, (int)D) == -1);
+        IRREP_ASSERT(irrep_sg_adapted_basis(G4, A1_sq, 4, 1, basis, (int)D) == -1);
         /* Wrong num_sites */
-        IRREP_ASSERT(irrep_sg_adapted_basis(G4, A1_sq,   8, 2, basis, (int)D) == -1);
+        IRREP_ASSERT(irrep_sg_adapted_basis(G4, A1_sq, 8, 2, basis, (int)D) == -1);
 
         irrep_sg_irrep_free(A1_sq);
         irrep_space_group_free(G4);
@@ -161,7 +168,8 @@ int main(void) {
 
     /* Orbit enumeration: check that orbit[g·n + s] = sigma[g^{-1}·s]. */
     double *sigma = malloc(sizeof(double) * n);
-    for (int s = 0; s < n; ++s) sigma[s] = (double)(s + 1);
+    for (int s = 0; s < n; ++s)
+        sigma[s] = (double)(s + 1);
     double *orbit = malloc(sizeof(double) * (size_t)order * n);
     irrep_sg_enumerate_orbit(G, sigma, orbit);
 
@@ -170,7 +178,8 @@ int main(void) {
         irrep_space_group_permutation_inverse(G, g, inv);
         int ok = 1;
         for (int s = 0; s < n && ok; ++s) {
-            if (orbit[g*n + s] != sigma[inv[s]]) ok = 0;
+            if (orbit[g * n + s] != sigma[inv[s]])
+                ok = 0;
         }
         IRREP_ASSERT(ok);
     }
@@ -192,19 +201,19 @@ int main(void) {
      * sectors must be orthogonal. At Γ (k=0), Bloch reduces to A₁.        *
      * -------------------------------------------------------------------- */
     {
-        irrep_lattice_t     *L3  = irrep_lattice_build(IRREP_LATTICE_SQUARE, 3, 3);
-        irrep_space_group_t *G3  = irrep_space_group_build(L3, IRREP_WALLPAPER_P1);
+        irrep_lattice_t     *L3 = irrep_lattice_build(IRREP_LATTICE_SQUARE, 3, 3);
+        irrep_space_group_t *G3 = irrep_space_group_build(L3, IRREP_WALLPAPER_P1);
         IRREP_ASSERT(G3 != NULL);
         IRREP_ASSERT(irrep_space_group_lattice(G3) == L3);
 
-        int Nsites = 9;
+        int       Nsites = 9;
         long long D = 1LL << Nsites;
 
         /* Γ-sector via Bloch must match A₁ via irrep_sg_project_A1 on any
          * amplitude array. */
-        int order3 = irrep_space_group_order(G3);
+        int              order3 = irrep_space_group_order(G3);
         double _Complex *psi9 = malloc(sizeof(double _Complex) * order3);
-        uint64_t rng = 0xC0FFEEULL;
+        uint64_t         rng = 0xC0FFEEULL;
         for (int g = 0; g < order3; ++g) {
             rng = rng * 6364136223846793005ULL + 1442695040888963407ULL;
             double re = ((rng >> 16) & 0xFFFF) / 65536.0 - 0.5;
@@ -245,7 +254,7 @@ int main(void) {
                         for (long long t = 0; t < D; ++t)
                             ov += conj(basis[(size_t)i * D + t]) * basis[(size_t)j * D + t];
                         double ex = (i == j) ? 1.0 : 0.0;
-                        IRREP_ASSERT_NEAR(creal(ov), ex,  1e-10);
+                        IRREP_ASSERT_NEAR(creal(ov), ex, 1e-10);
                         IRREP_ASSERT_NEAR(cimag(ov), 0.0, 1e-10);
                     }
                 }
@@ -258,8 +267,8 @@ int main(void) {
          * keep a copy of its basis, then k=(1,0), test. */
         double _Complex *gamma = malloc(sizeof(double _Complex) * (size_t)D * (size_t)D);
         double _Complex *mpoint = malloc(sizeof(double _Complex) * (size_t)D * (size_t)D);
-        int nG = irrep_sg_bloch_basis(G3, 0, 0, Nsites, 2, gamma, (int)D);
-        int nM = irrep_sg_bloch_basis(G3, 1, 0, Nsites, 2, mpoint, (int)D);
+        int              nG = irrep_sg_bloch_basis(G3, 0, 0, Nsites, 2, gamma, (int)D);
+        int              nM = irrep_sg_bloch_basis(G3, 1, 0, Nsites, 2, mpoint, (int)D);
         IRREP_ASSERT(nG > 0 && nM > 0);
         for (int i = 0; i < nG && i < 5; ++i) {
             for (int j = 0; j < nM && j < 5; ++j) {
@@ -277,10 +286,11 @@ int main(void) {
         /* Canonicalisation: kx = -1 must match kx = Lx - 1; kx = 2·Lx + 1 must
          * match kx = 1. Same for ky. Test on a small random amplitude. */
         double _Complex *psi_bound = malloc(sizeof(double _Complex) * order3);
-        for (int g = 0; g < order3; ++g) psi_bound[g] = (double)(g % 5) - 2.0;
-        double _Complex k_pos = irrep_sg_bloch_amplitude(G3,  1,  2, psi_bound);
-        double _Complex k_neg = irrep_sg_bloch_amplitude(G3,  1, -1, psi_bound);   /* ky = -1 ≡ 2 */
-        double _Complex k_far = irrep_sg_bloch_amplitude(G3, -2,  2, psi_bound);   /* kx = -2 ≡ 1 */
+        for (int g = 0; g < order3; ++g)
+            psi_bound[g] = (double)(g % 5) - 2.0;
+        double _Complex k_pos = irrep_sg_bloch_amplitude(G3, 1, 2, psi_bound);
+        double _Complex k_neg = irrep_sg_bloch_amplitude(G3, 1, -1, psi_bound); /* ky = -1 ≡ 2 */
+        double _Complex k_far = irrep_sg_bloch_amplitude(G3, -2, 2, psi_bound); /* kx = -2 ≡ 1 */
         IRREP_ASSERT_NEAR(creal(k_pos), creal(k_neg), 1e-12);
         IRREP_ASSERT_NEAR(cimag(k_pos), cimag(k_neg), 1e-12);
         IRREP_ASSERT_NEAR(creal(k_pos), creal(k_far), 1e-12);
@@ -289,7 +299,7 @@ int main(void) {
 
         /* Error paths */
         IRREP_ASSERT(irrep_sg_bloch_basis(NULL, 0, 0, Nsites, 2, NULL, 1) == -1);
-        IRREP_ASSERT(irrep_sg_bloch_basis(G3, 0, 0, 8, 2, (double _Complex*)&total_dim, 1) == -1);
+        IRREP_ASSERT(irrep_sg_bloch_basis(G3, 0, 0, 8, 2, (double _Complex *)&total_dim, 1) == -1);
         /* NULL inputs: NaN result (IEEE-754 way to distinguish error from a
          * legitimate zero projection). */
         double _Complex bad = irrep_sg_bloch_amplitude(NULL, 0, 0, NULL);
@@ -305,8 +315,8 @@ int main(void) {
 
     /* Error paths */
     IRREP_ASSERT(irrep_sg_irrep_new(NULL, NULL, 1) == NULL);
-    IRREP_ASSERT(irrep_sg_trivial(NULL)            == NULL);
-    irrep_sg_irrep_free(NULL);                                    /* no-op */
+    IRREP_ASSERT(irrep_sg_trivial(NULL) == NULL);
+    irrep_sg_irrep_free(NULL); /* no-op */
 
     return IRREP_TEST_END();
 }

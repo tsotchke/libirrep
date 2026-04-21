@@ -30,7 +30,7 @@
 #include <irrep/rdm.h>
 
 #ifndef M_PI
-#  define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846
 #endif
 
 extern void irrep_set_error_(const char *fmt, ...);
@@ -41,14 +41,13 @@ extern void irrep_set_error_(const char *fmt, ...);
 
 static long long ipow_(int base, int exp) {
     long long r = 1;
-    for (int k = 0; k < exp; ++k) r *= (long long)base;
+    for (int k = 0; k < exp; ++k)
+        r *= (long long)base;
     return r;
 }
 
-irrep_status_t irrep_partial_trace(int num_sites, int local_dim,
-                                   const double _Complex *psi,
-                                   const int *sites_A, int nA,
-                                   double _Complex *rho_A) {
+irrep_status_t irrep_partial_trace(int num_sites, int local_dim, const double _Complex *psi,
+                                   const int *sites_A, int nA, double _Complex *rho_A) {
     if (num_sites < 1 || num_sites > 30 || local_dim < 2 || !psi || !rho_A)
         return IRREP_ERR_INVALID_ARG;
     if (nA < 0 || nA > num_sites || (nA > 0 && !sites_A))
@@ -60,14 +59,17 @@ irrep_status_t irrep_partial_trace(int num_sites, int local_dim,
     int in_A[32] = {0};
     for (int k = 0; k < nA; ++k) {
         int s = sites_A[k];
-        if (s < 0 || s >= num_sites || in_A[s]) return IRREP_ERR_INVALID_ARG;
+        if (s < 0 || s >= num_sites || in_A[s])
+            return IRREP_ERR_INVALID_ARG;
         in_A[s] = 1;
     }
     int nB = num_sites - nA;
     int sites_B[32];
     {
         int bi = 0;
-        for (int s = 0; s < num_sites; ++s) if (!in_A[s]) sites_B[bi++] = s;
+        for (int s = 0; s < num_sites; ++s)
+            if (!in_A[s])
+                sites_B[bi++] = s;
     }
 
     long long dA = ipow_(local_dim, nA);
@@ -75,19 +77,21 @@ irrep_status_t irrep_partial_trace(int num_sites, int local_dim,
 
     /* Precompute site weights w_s = local_dim^s so that i = Σ digit_s · w_s. */
     long long weight[32];
-    for (int s = 0; s < num_sites; ++s) weight[s] = ipow_(local_dim, s);
+    for (int s = 0; s < num_sites; ++s)
+        weight[s] = ipow_(local_dim, s);
 
     /* Reset output */
     memset(rho_A, 0, (size_t)(dA * dA) * sizeof(double _Complex));
 
     /* Scratch vector v_β of length dA. Reused each β. */
     double _Complex *v = malloc((size_t)dA * sizeof(double _Complex));
-    if (!v) return IRREP_ERR_OUT_OF_MEMORY;
+    if (!v)
+        return IRREP_ERR_OUT_OF_MEMORY;
 
     for (long long beta = 0; beta < dB; ++beta) {
         /* Build the B-digit tuple from beta */
         long long b_remaining = beta;
-        int b_digits[32] = {0};
+        int       b_digits[32] = {0};
         for (int k = 0; k < nB; ++k) {
             b_digits[k] = (int)(b_remaining % local_dim);
             b_remaining /= local_dim;
@@ -95,7 +99,8 @@ irrep_status_t irrep_partial_trace(int num_sites, int local_dim,
         /* i_base is the full-basis index with all A-digits zero and B-digits
          * set. */
         long long i_base = 0;
-        for (int k = 0; k < nB; ++k) i_base += (long long)b_digits[k] * weight[sites_B[k]];
+        for (int k = 0; k < nB; ++k)
+            i_base += (long long)b_digits[k] * weight[sites_B[k]];
 
         /* Fill v[alpha] = ψ[i_base + Σ alpha_digit_k · weight[sites_A[k]]]. */
         for (long long alpha = 0; alpha < dA; ++alpha) {
@@ -145,24 +150,28 @@ irrep_status_t irrep_partial_trace(int num_sites, int local_dim,
  * -------------------------------------------------------------------------- */
 
 irrep_status_t irrep_hermitian_eigvals(int n, double _Complex *A, double *eigvals) {
-    if (n < 1 || !A || !eigvals) return IRREP_ERR_INVALID_ARG;
+    if (n < 1 || !A || !eigvals)
+        return IRREP_ERR_INVALID_ARG;
 
-    if (n == 1) { eigvals[0] = creal(A[0]); return IRREP_OK; }
+    if (n == 1) {
+        eigvals[0] = creal(A[0]);
+        return IRREP_OK;
+    }
 
     /* Symmetrise numerically (in case input carries Hermiticity noise). */
     for (int i = 0; i < n; ++i) {
         A[(size_t)i * n + i] = creal(A[(size_t)i * n + i]);
         for (int j = i + 1; j < n; ++j) {
-            double _Complex avg = 0.5 * (A[(size_t)i*n + j] + conj(A[(size_t)j*n + i]));
-            A[(size_t)i*n + j] = avg;
-            A[(size_t)j*n + i] = conj(avg);
+            double _Complex avg = 0.5 * (A[(size_t)i * n + j] + conj(A[(size_t)j * n + i]));
+            A[(size_t)i * n + j] = avg;
+            A[(size_t)j * n + i] = conj(avg);
         }
     }
 
     const int    max_sweeps = 60 * n;
-    const double tol        = 1e-14;
+    const double tol = 1e-14;
 
-    double norm = 0.0;
+    double       norm = 0.0;
     for (int i = 0; i < n; ++i) {
         double d = creal(A[(size_t)i * n + i]);
         norm += d * d;
@@ -175,24 +184,27 @@ irrep_status_t irrep_hermitian_eigvals(int n, double _Complex *A, double *eigval
         for (int p = 0; p < n - 1; ++p) {
             for (int q = p + 1; q < n; ++q) {
                 double _Complex apq = A[(size_t)p * n + q];
-                off += 2.0 * (creal(apq)*creal(apq) + cimag(apq)*cimag(apq));
+                off += 2.0 * (creal(apq) * creal(apq) + cimag(apq) * cimag(apq));
             }
         }
-        if (sqrt(off) <= tol_abs) break;
+        if (sqrt(off) <= tol_abs)
+            break;
 
         for (int p = 0; p < n - 1; ++p) {
             for (int q = p + 1; q < n; ++q) {
                 double _Complex apq = A[(size_t)p * n + q];
                 double r = cabs(apq);
-                if (r < 1e-300) continue;
+                if (r < 1e-300)
+                    continue;
 
                 /* ------- Step 1: phase reduction ------- */
-                double _Complex e_pos = apq / r;       /* e^{iφ} */
-                double _Complex e_neg = conj(e_pos);   /* e^{-iφ} */
+                double _Complex e_pos = apq / r;     /* e^{iφ} */
+                double _Complex e_neg = conj(e_pos); /* e^{-iφ} */
                 /* Row q scaled by e_pos (except the diagonal (q,q)),
                  * column q scaled by e_neg (except (q,q)). */
                 for (int k = 0; k < n; ++k) {
-                    if (k == q) continue;
+                    if (k == q)
+                        continue;
                     A[(size_t)q * n + k] *= e_pos;
                     A[(size_t)k * n + q] *= e_neg;
                 }
@@ -201,8 +213,7 @@ irrep_status_t irrep_hermitian_eigvals(int n, double _Complex *A, double *eigval
                 /* ------- Step 2: real Givens rotation ------- */
                 double a = creal(A[(size_t)p * n + p]);
                 double b = creal(A[(size_t)q * n + q]);
-                double psi = (fabs(a - b) < 1e-300) ? (-M_PI / 4.0)
-                                                    : 0.5 * atan2(-2.0 * r, a - b);
+                double psi = (fabs(a - b) < 1e-300) ? (-M_PI / 4.0) : 0.5 * atan2(-2.0 * r, a - b);
                 double c_p = cos(psi), s_p = sin(psi);
 
                 /* Row-update: A[p,k] ← c·A[p,k] − s·A[q,k]
@@ -229,13 +240,20 @@ irrep_status_t irrep_hermitian_eigvals(int n, double _Complex *A, double *eigval
         }
     }
 
-    for (int i = 0; i < n; ++i) eigvals[i] = creal(A[(size_t)i * n + i]);
+    for (int i = 0; i < n; ++i)
+        eigvals[i] = creal(A[(size_t)i * n + i]);
 
     /* Sort descending (density-matrix convention). */
     for (int i = 0; i < n - 1; ++i) {
         int maxk = i;
-        for (int k = i + 1; k < n; ++k) if (eigvals[k] > eigvals[maxk]) maxk = k;
-        if (maxk != i) { double t = eigvals[i]; eigvals[i] = eigvals[maxk]; eigvals[maxk] = t; }
+        for (int k = i + 1; k < n; ++k)
+            if (eigvals[k] > eigvals[maxk])
+                maxk = k;
+        if (maxk != i) {
+            double t = eigvals[i];
+            eigvals[i] = eigvals[maxk];
+            eigvals[maxk] = t;
+        }
     }
     return IRREP_OK;
 }
@@ -245,40 +263,53 @@ irrep_status_t irrep_hermitian_eigvals(int n, double _Complex *A, double *eigval
  * -------------------------------------------------------------------------- */
 
 double irrep_entropy_vonneumann_spectrum(const double *eigvals, int n) {
-    if (!eigvals || n <= 0) return 0.0;
+    if (!eigvals || n <= 0)
+        return 0.0;
     double s = 0.0;
     for (int i = 0; i < n; ++i) {
         double l = eigvals[i];
-        if (l > 1e-15) s -= l * log(l);
+        if (l > 1e-15)
+            s -= l * log(l);
     }
     return s;
 }
 
 double irrep_entropy_renyi_spectrum(const double *eigvals, int n, double alpha) {
-    if (!eigvals || n <= 0) return 0.0;
-    if (fabs(alpha - 1.0) < 1e-12) return irrep_entropy_vonneumann_spectrum(eigvals, n);
+    if (!eigvals || n <= 0)
+        return 0.0;
+    if (fabs(alpha - 1.0) < 1e-12)
+        return irrep_entropy_vonneumann_spectrum(eigvals, n);
     double s = 0.0;
     for (int i = 0; i < n; ++i) {
         double l = eigvals[i];
-        if (l > 1e-15) s += pow(l, alpha);
+        if (l > 1e-15)
+            s += pow(l, alpha);
     }
-    if (s <= 0.0) return 0.0;
+    if (s <= 0.0)
+        return 0.0;
     return log(s) / (1.0 - alpha);
 }
 
 static double entropy_fused_(const double _Complex *rho, int n, double alpha) {
-    if (!rho || n <= 0) return 0.0;
+    if (!rho || n <= 0)
+        return 0.0;
     double _Complex *M = malloc((size_t)n * n * sizeof(double _Complex));
-    double *ev = malloc((size_t)n * sizeof(double));
-    if (!M || !ev) { free(M); free(ev); return NAN; }
+    double          *ev = malloc((size_t)n * sizeof(double));
+    if (!M || !ev) {
+        free(M);
+        free(ev);
+        return NAN;
+    }
     memcpy(M, rho, (size_t)n * n * sizeof(double _Complex));
     if (irrep_hermitian_eigvals(n, M, ev) != IRREP_OK) {
-        free(M); free(ev); return NAN;
+        free(M);
+        free(ev);
+        return NAN;
     }
-    double s = (fabs(alpha - 1.0) < 1e-12)
-             ? irrep_entropy_vonneumann_spectrum(ev, n)
-             : irrep_entropy_renyi_spectrum    (ev, n, alpha);
-    free(M); free(ev);
+    double s = (fabs(alpha - 1.0) < 1e-12) ? irrep_entropy_vonneumann_spectrum(ev, n)
+                                           : irrep_entropy_renyi_spectrum(ev, n, alpha);
+    free(M);
+    free(ev);
     return s;
 }
 
@@ -307,30 +338,27 @@ double irrep_entropy_renyi(const double _Complex *rho, int n, double alpha) {
  * ~50 iterations for well-separated spectra.                                 *
  * -------------------------------------------------------------------------- */
 
-irrep_status_t
-irrep_lanczos_eigvals(
-    void (*apply_op)(const double _Complex *x,
-                     double _Complex *y,
-                     void *ctx),
-    void *ctx,
-    long long dim,
-    int k_wanted,
-    int max_iters,
-    const double _Complex *seed,
-    double *eigvals_out) {
-    if (!apply_op || dim <= 0 || k_wanted < 1 ||
-        max_iters < 2 * k_wanted || !eigvals_out) return IRREP_ERR_INVALID_ARG;
+irrep_status_t irrep_lanczos_eigvals(void (*apply_op)(const double _Complex *x, double _Complex *y,
+                                                      void *ctx),
+                                     void *ctx, long long dim, int k_wanted, int max_iters,
+                                     const double _Complex *seed, double *eigvals_out) {
+    if (!apply_op || dim <= 0 || k_wanted < 1 || max_iters < 2 * k_wanted || !eigvals_out)
+        return IRREP_ERR_INVALID_ARG;
 
     double _Complex *v_prev = calloc((size_t)dim, sizeof(double _Complex));
     double _Complex *v_curr = malloc((size_t)dim * sizeof(double _Complex));
     double _Complex *v_next = malloc((size_t)dim * sizeof(double _Complex));
-    double          *alpha  = malloc((size_t)max_iters * sizeof(double));
+    double          *alpha = malloc((size_t)max_iters * sizeof(double));
     /* beta has one extra slot because the recurrence writes beta[j+1] at the
      * end of iteration j; the value at beta[max_iters] is never consumed but
      * must be within allocation. */
-    double          *beta   = malloc((size_t)(max_iters + 1) * sizeof(double));
+    double *beta = malloc((size_t)(max_iters + 1) * sizeof(double));
     if (!v_prev || !v_curr || !v_next || !alpha || !beta) {
-        free(v_prev); free(v_curr); free(v_next); free(alpha); free(beta);
+        free(v_prev);
+        free(v_curr);
+        free(v_next);
+        free(alpha);
+        free(beta);
         return IRREP_ERR_OUT_OF_MEMORY;
     }
 
@@ -352,10 +380,15 @@ irrep_lanczos_eigvals(
         norm += creal(v_curr[i]) * creal(v_curr[i]) + cimag(v_curr[i]) * cimag(v_curr[i]);
     norm = sqrt(norm);
     if (norm < 1e-300) {
-        free(v_prev); free(v_curr); free(v_next); free(alpha); free(beta);
+        free(v_prev);
+        free(v_curr);
+        free(v_next);
+        free(alpha);
+        free(beta);
         return IRREP_ERR_PRECONDITION;
     }
-    for (long long i = 0; i < dim; ++i) v_curr[i] /= norm;
+    for (long long i = 0; i < dim; ++i)
+        v_curr[i] /= norm;
 
     int n_iters = 0;
     beta[0] = 0.0;
@@ -381,7 +414,8 @@ irrep_lanczos_eigvals(
         double b = sqrt(b2);
         ++n_iters;
 
-        if (b < 1e-14) break;   /* happy breakdown — invariant subspace found */
+        if (b < 1e-14)
+            break; /* happy breakdown — invariant subspace found */
         beta[j + 1] = b;
 
         /* v_prev ← v_curr, v_curr ← v_next / β */
@@ -389,14 +423,19 @@ irrep_lanczos_eigvals(
         v_prev = v_curr;
         v_curr = v_next;
         v_next = tmp;
-        for (long long i = 0; i < dim; ++i) v_curr[i] /= b;
+        for (long long i = 0; i < dim; ++i)
+            v_curr[i] /= b;
     }
 
     /* Diagonalise the (n_iters × n_iters) real symmetric tridiagonal via
      * our existing Jacobi path, reusing a Hermitian complex wrapper. */
     double _Complex *T = calloc((size_t)n_iters * n_iters, sizeof(double _Complex));
     if (!T) {
-        free(v_prev); free(v_curr); free(v_next); free(alpha); free(beta);
+        free(v_prev);
+        free(v_curr);
+        free(v_next);
+        free(alpha);
+        free(beta);
         return IRREP_ERR_OUT_OF_MEMORY;
     }
     for (int i = 0; i < n_iters; ++i) {
@@ -408,25 +447,34 @@ irrep_lanczos_eigvals(
     }
     double *ritz = malloc((size_t)n_iters * sizeof(double));
     if (!ritz) {
-        free(T); free(v_prev); free(v_curr); free(v_next); free(alpha); free(beta);
+        free(T);
+        free(v_prev);
+        free(v_curr);
+        free(v_next);
+        free(alpha);
+        free(beta);
         return IRREP_ERR_OUT_OF_MEMORY;
     }
     irrep_hermitian_eigvals(n_iters, T, ritz);
 
     /* ritz is sorted descending; we want ascending for "lowest k". */
-    if (k_wanted > n_iters) k_wanted = n_iters;
+    if (k_wanted > n_iters)
+        k_wanted = n_iters;
     for (int k = 0; k < k_wanted; ++k) {
         eigvals_out[k] = ritz[n_iters - 1 - k];
     }
 
     free(ritz);
     free(T);
-    free(v_prev); free(v_curr); free(v_next); free(alpha); free(beta);
+    free(v_prev);
+    free(v_curr);
+    free(v_next);
+    free(alpha);
+    free(beta);
     return IRREP_OK;
 }
 
-double irrep_topological_entanglement_entropy(double SA, double SB, double SC,
-                                              double SAB, double SBC, double SAC,
-                                              double SABC) {
+double irrep_topological_entanglement_entropy(double SA, double SB, double SC, double SAB,
+                                              double SBC, double SAC, double SABC) {
     return SA + SB + SC - SAB - SBC - SAC + SABC;
 }

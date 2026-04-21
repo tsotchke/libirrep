@@ -24,14 +24,14 @@ int main(void) {
     /* Status strings exist and cover every enum value. */
     IRREP_ASSERT(irrep_strerror(IRREP_OK) != NULL);
     IRREP_ASSERT(strcmp(irrep_strerror(IRREP_OK), "ok") == 0);
-    IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_INVALID_ARG),    "invalid argument") == 0);
-    IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_OUT_OF_MEMORY),  "out of memory") == 0);
+    IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_INVALID_ARG), "invalid argument") == 0);
+    IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_OUT_OF_MEMORY), "out of memory") == 0);
     IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_SELECTION_RULE), "selection rule violation") == 0);
-    IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_NOT_IMPLEMENTED),"not implemented") == 0);
-    IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_PRECONDITION),   "precondition failed") == 0);
-    IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_PARSE),          "parse error") == 0);
+    IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_NOT_IMPLEMENTED), "not implemented") == 0);
+    IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_PRECONDITION), "precondition failed") == 0);
+    IRREP_ASSERT(strcmp(irrep_strerror(IRREP_ERR_PARSE), "parse error") == 0);
     /* Out-of-range enum value falls through to the "unknown status" branch. */
-    IRREP_ASSERT(strcmp(irrep_strerror((irrep_status_t)9999),     "unknown status") == 0);
+    IRREP_ASSERT(strcmp(irrep_strerror((irrep_status_t)9999), "unknown status") == 0);
 
     /* Thread-local last-error buffer. Before any library call it should be
      * the empty string; a failing constructor call populates it. */
@@ -51,7 +51,7 @@ int main(void) {
 
     /* Parity constants. */
     IRREP_ASSERT(IRREP_EVEN == +1);
-    IRREP_ASSERT(IRREP_ODD  == -1);
+    IRREP_ASSERT(IRREP_ODD == -1);
 
     /* Version accessors match macros. */
     IRREP_ASSERT(irrep_version_major() == IRREP_VERSION_MAJOR);

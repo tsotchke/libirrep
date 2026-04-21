@@ -27,10 +27,10 @@ extern "C" {
 #endif
 
 /** @brief Complex spherical harmonic `Yₗᵐ(θ, φ)` (Condon-Shortley, orthonormal). */
-IRREP_API double _Complex irrep_sph_harm     (int l, int m, double theta, double phi);
+IRREP_API double _Complex irrep_sph_harm(int l, int m, double theta, double phi);
 
 /** @brief Real spherical harmonic `Y_{l,m}^{real}(θ, φ)` (e3nn sign convention). */
-IRREP_API double          irrep_sph_harm_real(int l, int m, double theta, double phi);
+IRREP_API double irrep_sph_harm_real(int l, int m, double theta, double phi);
 
 /** @brief Cartesian real SH: writes `2l + 1` values into @p out at indices
  *         `m + l`. @p r_hat must be unit-norm. */
@@ -54,15 +54,14 @@ IRREP_API double irrep_legendre_assoc(int l, int m, double x);
 IRREP_API void irrep_sph_harm_complex_to_real(int l, double _Complex *out);
 
 /** @brief Single-precision wrapper — delegates to the double kernel and casts. */
-IRREP_API void irrep_sph_harm_cart_f32    (int l,     float *out, const float r_hat[3]);
+IRREP_API void irrep_sph_harm_cart_f32(int l, float *out, const float r_hat[3]);
 /** @brief Single-precision wrapper for #irrep_sph_harm_cart_all. */
 IRREP_API void irrep_sph_harm_cart_all_f32(int l_max, float *out, const float r_hat[3]);
 
 /** @brief Batched cartesian SH: fills `N · (l_max+1)²` values, one contiguous
  *         block per unit-vector input @p r_hats. Routes through the runtime
  *         SIMD dispatch table. */
-IRREP_API void irrep_sph_harm_cart_all_batch(int l_max, size_t N,
-                                             const double *r_hats,
+IRREP_API void irrep_sph_harm_cart_all_batch(int l_max, size_t N, const double *r_hats,
                                              double *out);
 
 /** @brief Batched gradient of cartesian real SH up to @p l_max.
@@ -71,8 +70,7 @@ IRREP_API void irrep_sph_harm_cart_all_batch(int l_max, size_t N,
  *  packed as `out[e, axis, l, m] → out[(e · 3 + axis) · (l_max+1)² + (l² + m + l)]`
  *  — axis ∈ {0:x, 1:y, 2:z}. This is the force-evaluation hot path for
  *  NequIP / MACE / Allegro. Routes through the runtime SIMD dispatch. */
-IRREP_API void irrep_sph_harm_cart_all_grad_batch(int l_max, size_t N,
-                                                  const double *r_hats,
+IRREP_API void irrep_sph_harm_cart_all_grad_batch(int l_max, size_t N, const double *r_hats,
                                                   double *out);
 
 #ifdef __cplusplus

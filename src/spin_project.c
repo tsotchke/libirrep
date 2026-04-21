@@ -33,7 +33,7 @@
 #include <irrep/quadrature.h>
 
 #ifndef M_PI
-#  define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846
 #endif
 
 extern void irrep_set_error_(const char *fmt, ...);
@@ -44,10 +44,9 @@ extern void irrep_set_error_(const char *fmt, ...);
  * and apply the 2×2 matrix (u00, u01, u10, u11).                             *
  * -------------------------------------------------------------------------- */
 
-static void apply_qubit_(int N, int k, const double _Complex U[4],
-                         double _Complex *psi) {
+static void apply_qubit_(int N, int k, const double _Complex U[4], double _Complex *psi) {
     long long stride = 1LL << k;
-    long long dim    = 1LL << N;
+    long long dim = 1LL << N;
     for (long long base = 0; base < dim; base += stride << 1) {
         for (long long off = 0; off < stride; ++off) {
             long long i0 = base + off;
@@ -60,23 +59,19 @@ static void apply_qubit_(int N, int k, const double _Complex U[4],
     }
 }
 
-void irrep_spin_half_apply_rotation(int N,
-                                    double alpha, double beta, double gamma,
-                                    const double _Complex *psi_in,
-                                    double _Complex *psi_out) {
-    if (N < 1 || !psi_in || !psi_out) return;
+void irrep_spin_half_apply_rotation(int N, double alpha, double beta, double gamma,
+                                    const double _Complex *psi_in, double _Complex *psi_out) {
+    if (N < 1 || !psi_in || !psi_out)
+        return;
 
     /* The 2×2 D^{½} matrix (Sakurai 3.3.21). */
     double cb = cos(0.5 * beta);
     double sb = sin(0.5 * beta);
     double _Complex e_m_apg = cexp(-0.5 * I * (alpha + gamma));
     double _Complex e_m_amg = cexp(-0.5 * I * (alpha - gamma));
-    double _Complex e_p_apg = cexp( 0.5 * I * (alpha + gamma));
-    double _Complex e_p_amg = cexp( 0.5 * I * (alpha - gamma));
-    double _Complex U[4] = {
-        e_m_apg * cb,       -e_m_amg * sb,
-        e_p_amg * sb,        e_p_apg * cb
-    };
+    double _Complex e_p_apg = cexp(0.5 * I * (alpha + gamma));
+    double _Complex e_p_amg = cexp(0.5 * I * (alpha - gamma));
+    double _Complex U[4] = {e_m_apg * cb, -e_m_amg * sb, e_p_amg * sb, e_p_apg * cb};
 
     if (psi_in != psi_out) {
         memcpy(psi_out, psi_in, (size_t)(1LL << N) * sizeof(double _Complex));
@@ -94,8 +89,10 @@ void irrep_spin_half_apply_rotation(int N,
 static double character_J_(int two_J, double alpha, double beta, double gamma) {
     double half_omega_cos = cos(0.5 * beta) * cos(0.5 * (alpha + gamma));
     /* clamp to [-1, 1] to absorb rounding */
-    if (half_omega_cos >  1.0) half_omega_cos =  1.0;
-    if (half_omega_cos < -1.0) half_omega_cos = -1.0;
+    if (half_omega_cos > 1.0)
+        half_omega_cos = 1.0;
+    if (half_omega_cos < -1.0)
+        half_omega_cos = -1.0;
     double half_omega = acos(half_omega_cos);
 
     /* χ_J = sin((2J+1) ω/2) / sin(ω/2) */
@@ -112,13 +109,10 @@ static double character_J_(int two_J, double alpha, double beta, double gamma) {
  * Total-J projection                                                         *
  * -------------------------------------------------------------------------- */
 
-irrep_status_t
-irrep_spin_project_spin_half(int two_J_target, int N,
-                             int n_alpha, int n_beta, int n_gamma,
-                             const double _Complex *psi_in,
-                             double _Complex *psi_out) {
-    if (N < 1 || N > 24 || two_J_target < 0 ||
-        n_alpha < 1 || n_beta < 1 || n_gamma < 1 ||
+irrep_status_t irrep_spin_project_spin_half(int two_J_target, int N, int n_alpha, int n_beta,
+                                            int n_gamma, const double _Complex *psi_in,
+                                            double _Complex *psi_out) {
+    if (N < 1 || N > 24 || two_J_target < 0 || n_alpha < 1 || n_beta < 1 || n_gamma < 1 ||
         !psi_in || !psi_out)
         return IRREP_ERR_INVALID_ARG;
 
@@ -126,16 +120,24 @@ irrep_spin_project_spin_half(int two_J_target, int N,
 
     /* β grid via Gauss-Legendre in cos β ∈ [-1, 1] */
     double *cosb = malloc((size_t)n_beta * sizeof(double));
-    double *wb   = malloc((size_t)n_beta * sizeof(double));
-    if (!cosb || !wb) { free(cosb); free(wb); return IRREP_ERR_OUT_OF_MEMORY; }
+    double *wb = malloc((size_t)n_beta * sizeof(double));
+    if (!cosb || !wb) {
+        free(cosb);
+        free(wb);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
     if (!irrep_gauss_legendre(n_beta, cosb, wb)) {
-        free(cosb); free(wb); return IRREP_ERR_NOT_IMPLEMENTED;
+        free(cosb);
+        free(wb);
+        return IRREP_ERR_NOT_IMPLEMENTED;
     }
 
     /* Working buffers */
     double _Complex *psi_rot = malloc((size_t)dim * sizeof(double _Complex));
     if (!psi_rot) {
-        free(cosb); free(wb); return IRREP_ERR_OUT_OF_MEMORY;
+        free(cosb);
+        free(wb);
+        return IRREP_ERR_OUT_OF_MEMORY;
     }
 
     memset(psi_out, 0, (size_t)dim * sizeof(double _Complex));
@@ -147,8 +149,7 @@ irrep_spin_project_spin_half(int two_J_target, int N,
 
     /* Measure:  (2J+1) / (8π²) · dα · dγ · d(cos β) · w  (Gauss)
      * where α and γ grids carry each an implicit (2π / n) weight. */
-    double prefactor = (double)(two_J_target + 1) / (8.0 * M_PI * M_PI)
-                     * d_alpha * d_gamma;
+    double prefactor = (double)(two_J_target + 1) / (8.0 * M_PI * M_PI) * d_alpha * d_gamma;
 
     for (int ia = 0; ia < n_alpha; ++ia) {
         double alpha = ia * d_alpha;
@@ -157,8 +158,7 @@ irrep_spin_project_spin_half(int two_J_target, int N,
             for (int ig = 0; ig < n_gamma; ++ig) {
                 double gamma = ig * d_gamma;
 
-                irrep_spin_half_apply_rotation(N, alpha, beta, gamma,
-                                               psi_in, psi_rot);
+                irrep_spin_half_apply_rotation(N, alpha, beta, gamma, psi_in, psi_rot);
 
                 double chi = character_J_(two_J_target, alpha, beta, gamma);
                 double weight = prefactor * wb[ib] * chi;
@@ -171,6 +171,7 @@ irrep_spin_project_spin_half(int two_J_target, int N,
     }
 
     free(psi_rot);
-    free(cosb); free(wb);
+    free(cosb);
+    free(wb);
     return IRREP_OK;
 }

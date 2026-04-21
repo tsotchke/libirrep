@@ -41,8 +41,8 @@ typedef struct irrep_nequip_layer irrep_nequip_layer_t;
 
 /** @brief Cutoff-function family. */
 typedef enum {
-    IRREP_NEQUIP_CUTOFF_COSINE     = 0,  /**< `½ (1 + cos(π r / r_cut))`. */
-    IRREP_NEQUIP_CUTOFF_POLYNOMIAL = 1   /**< NequIP polynomial cutoff (smooth to order p). */
+    IRREP_NEQUIP_CUTOFF_COSINE = 0,    /**< `½ (1 + cos(π r / r_cut))`. */
+    IRREP_NEQUIP_CUTOFF_POLYNOMIAL = 1 /**< NequIP polynomial cutoff (smooth to order p). */
 } irrep_nequip_cutoff_t;
 
 /** @brief Compile a NequIP layer from a single spec string.
@@ -80,21 +80,18 @@ IRREP_API irrep_nequip_layer_t *irrep_nequip_layer_from_spec(const char *spec);
  *  @param cutoff_poly_p  polynomial order (≥ 1) when @p cutoff_kind is polynomial.
  *  @param hidden_out     output multiset.
  *  @return opaque descriptor, or @c NULL on failure (see @ref irrep_last_error). */
-IRREP_API irrep_nequip_layer_t *irrep_nequip_layer_build(
-    const irrep_multiset_t *hidden_in,
-    int                     l_sh_max,
-    int                     n_radial,
-    double                  r_cut,
-    irrep_nequip_cutoff_t   cutoff_kind,
-    int                     cutoff_poly_p,
-    const irrep_multiset_t *hidden_out);
+IRREP_API irrep_nequip_layer_t *irrep_nequip_layer_build(const irrep_multiset_t *hidden_in,
+                                                         int l_sh_max, int n_radial, double r_cut,
+                                                         irrep_nequip_cutoff_t   cutoff_kind,
+                                                         int                     cutoff_poly_p,
+                                                         const irrep_multiset_t *hidden_out);
 
 /** @brief Release a descriptor built by #irrep_nequip_layer_build. */
 IRREP_API void irrep_nequip_layer_free(irrep_nequip_layer_t *layer);
 
 /** @brief Total number of learnable TP weights expected by
  *         #irrep_nequip_layer_apply. */
-IRREP_API int  irrep_nequip_layer_num_weights(const irrep_nequip_layer_t *layer);
+IRREP_API int irrep_nequip_layer_num_weights(const irrep_nequip_layer_t *layer);
 
 /** @brief Forward pass.
  *
@@ -111,16 +108,10 @@ IRREP_API int  irrep_nequip_layer_num_weights(const irrep_nequip_layer_t *layer)
  *  @param h_in         length `n_nodes * hidden_in->total_dim`; input node features.
  *  @param h_out        length `n_nodes * hidden_out->total_dim`; **zeroed internally**
  *                      before message accumulation. */
-IRREP_API void irrep_nequip_layer_apply(
-    const irrep_nequip_layer_t *layer,
-    const double               *tp_weights,
-    int                         n_nodes,
-    int                         n_edges,
-    const int                  *edge_src,
-    const int                  *edge_dst,
-    const double               *edge_vec,
-    const double               *h_in,
-    double                     *h_out);
+IRREP_API void irrep_nequip_layer_apply(const irrep_nequip_layer_t *layer, const double *tp_weights,
+                                        int n_nodes, int n_edges, const int *edge_src,
+                                        const int *edge_dst, const double *edge_vec,
+                                        const double *h_in, double *h_out);
 
 /** @brief Backward pass through hidden features and weights.
  *
@@ -143,18 +134,12 @@ IRREP_API void irrep_nequip_layer_apply(
  *  @param grad_h_out       pullback of the loss w.r.t. the layer output.
  *  @param grad_h_in        out: accumulated `∂L/∂h_in`.
  *  @param grad_tp_weights  out: accumulated `∂L/∂tp_weights`. */
-IRREP_API void irrep_nequip_layer_apply_backward(
-    const irrep_nequip_layer_t *layer,
-    const double               *tp_weights,
-    int                         n_nodes,
-    int                         n_edges,
-    const int                  *edge_src,
-    const int                  *edge_dst,
-    const double               *edge_vec,
-    const double               *h_in,
-    const double               *grad_h_out,
-    double                     *grad_h_in,
-    double                     *grad_tp_weights);
+IRREP_API void irrep_nequip_layer_apply_backward(const irrep_nequip_layer_t *layer,
+                                                 const double *tp_weights, int n_nodes, int n_edges,
+                                                 const int *edge_src, const int *edge_dst,
+                                                 const double *edge_vec, const double *h_in,
+                                                 const double *grad_h_out, double *grad_h_in,
+                                                 double *grad_tp_weights);
 
 /** @brief Edge-geometry gradient `∂L/∂edge_vec[e, axis]`.
  *
@@ -180,17 +165,11 @@ IRREP_API void irrep_nequip_layer_apply_backward(
  *  @param grad_h_out     pullback of the loss w.r.t. the layer output.
  *  @param grad_edge_vec  out: accumulated `∂L/∂edge_vec`, length `n_edges * 3`.
  *                        Caller pre-zeros. */
-IRREP_API void irrep_nequip_layer_apply_forces(
-    const irrep_nequip_layer_t *layer,
-    const double               *tp_weights,
-    int                         n_nodes,
-    int                         n_edges,
-    const int                  *edge_src,
-    const int                  *edge_dst,
-    const double               *edge_vec,
-    const double               *h_in,
-    const double               *grad_h_out,
-    double                     *grad_edge_vec);
+IRREP_API void irrep_nequip_layer_apply_forces(const irrep_nequip_layer_t *layer,
+                                               const double *tp_weights, int n_nodes, int n_edges,
+                                               const int *edge_src, const int *edge_dst,
+                                               const double *edge_vec, const double *h_in,
+                                               const double *grad_h_out, double *grad_edge_vec);
 
 #ifdef __cplusplus
 }

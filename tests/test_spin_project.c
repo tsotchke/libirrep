@@ -23,7 +23,7 @@
 #include <irrep/spin_project.h>
 
 #ifndef M_PI
-#  define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846
 #endif
 
 static double norm2_(const double _Complex *psi, long long dim) {
@@ -31,14 +31,16 @@ static double norm2_(const double _Complex *psi, long long dim) {
     for (long long k = 0; k < dim; ++k) {
         double a = creal(psi[k]);
         double b = cimag(psi[k]);
-        s += a*a + b*b;
+        s += a * a + b * b;
     }
     return s;
 }
 
 static void normalize_(double _Complex *psi, long long dim) {
     double n = sqrt(norm2_(psi, dim));
-    if (n > 1e-300) for (long long k = 0; k < dim; ++k) psi[k] /= n;
+    if (n > 1e-300)
+        for (long long k = 0; k < dim; ++k)
+            psi[k] /= n;
 }
 
 int main(void) {
@@ -48,19 +50,16 @@ int main(void) {
     /* Single-qubit rotations: D^{½}(π, 0, 0) should produce e^{-iπ/2}|↑⟩ */
     /* = -i |↑⟩ (up to the ZYZ sign convention).                          */
     /* ------------------------------------------------------------------ */
-    double _Complex up[2]  = { 1.0 + 0.0*I, 0.0 + 0.0*I };
+    double _Complex up[2] = {1.0 + 0.0 * I, 0.0 + 0.0 * I};
     double _Complex out[2] = {0};
     irrep_spin_half_apply_rotation(1, M_PI, 0.0, 0.0, up, out);
     /* D^{½}(α, 0, 0) = diag(e^{-iα/2}, e^{+iα/2}).  At α=π: (-i, +i) */
-    IRREP_ASSERT_NEAR(creal(out[0]),  0.0, 1e-14);
+    IRREP_ASSERT_NEAR(creal(out[0]), 0.0, 1e-14);
     IRREP_ASSERT_NEAR(cimag(out[0]), -1.0, 1e-14);
-    IRREP_ASSERT_NEAR(cabs(out[1]),   0.0, 1e-14);
+    IRREP_ASSERT_NEAR(cabs(out[1]), 0.0, 1e-14);
 
     /* β = 0 rotation preserves state up to an α+γ phase — so its norm is preserved. */
-    double _Complex rand_state[4] = {
-        0.3 + 0.1*I, 0.5 - 0.2*I,
-       -0.1 + 0.4*I, 0.2 + 0.3*I
-    };
+    double _Complex rand_state[4] = {0.3 + 0.1 * I, 0.5 - 0.2 * I, -0.1 + 0.4 * I, 0.2 + 0.3 * I};
     double n0 = norm2_(rand_state, 4);
     double _Complex rand_out[4];
     irrep_spin_half_apply_rotation(2, 0.7, 0.0, 0.3, rand_state, rand_out);
@@ -77,8 +76,8 @@ int main(void) {
     /* P_{J=0} ψ_s = ψ_s; P_{J=1} ψ_s = 0.                                 */
     /* ------------------------------------------------------------------ */
     double _Complex singlet[4] = {0};
-    singlet[1] = -1.0 / sqrt(2.0);    /* |↓↑⟩ */
-    singlet[2] =  1.0 / sqrt(2.0);    /* |↑↓⟩ */
+    singlet[1] = -1.0 / sqrt(2.0); /* |↓↑⟩ */
+    singlet[2] = 1.0 / sqrt(2.0);  /* |↑↓⟩ */
 
     double _Complex proj[4] = {0};
 
@@ -118,7 +117,7 @@ int main(void) {
     /* ------------------------------------------------------------------ */
     /* |↑↑⟩ is a triplet m=+1 eigenstate of J² with J=1; no J=0 component. */
     /* ------------------------------------------------------------------ */
-    double _Complex uu[4] = { 1.0, 0.0, 0.0, 0.0 };
+    double _Complex uu[4] = {1.0, 0.0, 0.0, 0.0};
     IRREP_ASSERT(irrep_spin_project_spin_half(0, 2, 8, 6, 8, uu, proj) == IRREP_OK);
     IRREP_ASSERT_NEAR(norm2_(proj, 4), 0.0, 1e-10);
     IRREP_ASSERT(irrep_spin_project_spin_half(2, 2, 8, 6, 8, uu, proj) == IRREP_OK);
@@ -156,12 +155,12 @@ int main(void) {
     /* ------------------------------------------------------------------ */
     /* Error paths                                                          */
     /* ------------------------------------------------------------------ */
-    IRREP_ASSERT(irrep_spin_project_spin_half(-1, 2, 1, 1, 1, singlet, proj)
-                 == IRREP_ERR_INVALID_ARG);
-    IRREP_ASSERT(irrep_spin_project_spin_half(0, 0, 1, 1, 1, singlet, proj)
-                 == IRREP_ERR_INVALID_ARG);
-    IRREP_ASSERT(irrep_spin_project_spin_half(0, 2, 0, 1, 1, singlet, proj)
-                 == IRREP_ERR_INVALID_ARG);
+    IRREP_ASSERT(irrep_spin_project_spin_half(-1, 2, 1, 1, 1, singlet, proj) ==
+                 IRREP_ERR_INVALID_ARG);
+    IRREP_ASSERT(irrep_spin_project_spin_half(0, 0, 1, 1, 1, singlet, proj) ==
+                 IRREP_ERR_INVALID_ARG);
+    IRREP_ASSERT(irrep_spin_project_spin_half(0, 2, 0, 1, 1, singlet, proj) ==
+                 IRREP_ERR_INVALID_ARG);
 
     return IRREP_TEST_END();
 }

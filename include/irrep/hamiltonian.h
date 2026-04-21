@@ -51,10 +51,8 @@ typedef struct irrep_heisenberg irrep_heisenberg_t;
  *                    but duplicates are not deduplicated.
  *  @param J          Coupling constant (positive = antiferromagnetic).
  *  @return Owned handle, or NULL on OOM / invalid input. */
-IRREP_API irrep_heisenberg_t *
-irrep_heisenberg_new(int num_sites, int num_bonds,
-                     const int *bi, const int *bj,
-                     double J);
+IRREP_API irrep_heisenberg_t *irrep_heisenberg_new(int num_sites, int num_bonds, const int *bi,
+                                                   const int *bj, double J);
 
 /** @brief Release a handle returned by @ref irrep_heisenberg_new. */
 IRREP_API void irrep_heisenberg_free(irrep_heisenberg_t *H);
@@ -71,10 +69,8 @@ IRREP_API void irrep_heisenberg_free(irrep_heisenberg_t *H);
  *  Time complexity: `O(num_bonds · 2^num_sites)` per call. Memory:
  *  writes into `out`; reads `psi`. Thread-safe on disjoint `(psi, out)`
  *  pairs with a shared `opaque`. */
-IRREP_API void
-irrep_heisenberg_apply(const double _Complex *psi,
-                       double _Complex       *out,
-                       void                  *opaque);
+IRREP_API void irrep_heisenberg_apply(const double _Complex *psi, double _Complex *out,
+                                      void *opaque);
 
 /** @brief Number of sites the handle was built with. */
 IRREP_API int irrep_heisenberg_num_sites(const irrep_heisenberg_t *H);
@@ -97,10 +93,10 @@ IRREP_API long long irrep_heisenberg_dim(const irrep_heisenberg_t *H);
  *  The J₁-J₂ square Heisenberg is one of the standard frustrated-
  *  magnetism benchmarks; J₂/J₁ ≈ 0.5 sits near the proposed spin-liquid
  *  window and is the secondary target the 1.3 substrate supports. */
-IRREP_API irrep_heisenberg_t *
-irrep_heisenberg_j1j2_new(int num_sites,
-                          int num_bonds_nn,  const int *nn_i,  const int *nn_j,  double J1,
-                          int num_bonds_nnn, const int *nnn_i, const int *nnn_j, double J2);
+IRREP_API irrep_heisenberg_t *irrep_heisenberg_j1j2_new(int num_sites, int num_bonds_nn,
+                                                        const int *nn_i, const int *nn_j, double J1,
+                                                        int num_bonds_nnn, const int *nnn_i,
+                                                        const int *nnn_j, double J2);
 
 /** @brief Build a spin-½ XY chain / lattice:
  *
@@ -109,10 +105,8 @@ irrep_heisenberg_j1j2_new(int num_sites,
  *  No S^z-S^z term. S_z_total is still conserved, but the eigenvalue
  *  spectrum is continuous-like for large N (Bethe-ansatz soluble in 1D).
  *  Same apply callback as Heisenberg. */
-IRREP_API irrep_heisenberg_t *
-irrep_xy_new(int num_sites, int num_bonds,
-             const int *bi, const int *bj,
-             double J);
+IRREP_API irrep_heisenberg_t *irrep_xy_new(int num_sites, int num_bonds, const int *bi,
+                                           const int *bj, double J);
 
 #ifdef __cplusplus
 }

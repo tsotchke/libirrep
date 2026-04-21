@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: MIT */
-/* Half-integer (spinor) tensor-product backend 
+/* Half-integer (spinor) tensor-product backend
  *
  * Operates on `irrep_multiset_2j_t` with **complex** amplitudes, because
  * half-integer irreps carry no natural real basis. Selection rules:
@@ -34,18 +34,18 @@ extern void irrep_set_error_(const char *fmt, ...);
 struct tp_2j_path {
     int     i_a, i_b, i_c;
     int     two_j_a, two_j_b, two_j_c;
-    int     d_a, d_b, d_c;                /* two_j + 1 */
+    int     d_a, d_b, d_c; /* two_j + 1 */
     int     mult_u, mult_v, mult_w;
     int     offset_a, offset_b, offset_c;
-    int     weight_offset;                 /* into the per-descriptor weights */
-    double *cg;                            /* d_a · d_b · d_c doubles */
+    int     weight_offset; /* into the per-descriptor weights */
+    double *cg;            /* d_a · d_b · d_c doubles */
 };
 
 struct tp_2j_descriptor {
-    int                 num_paths;
-    int                 num_weights;       /* Σ w·v·u per path */
-    int                 a_dim, b_dim, c_dim;
-    struct tp_2j_path  *paths;
+    int                num_paths;
+    int                num_weights; /* Σ w·v·u per path */
+    int                a_dim, b_dim, c_dim;
+    struct tp_2j_path *paths;
 };
 
 /* -------------------------------------------------------------------------- *
@@ -63,8 +63,10 @@ static int multiset_2j_offset_(const irrep_multiset_2j_t *m, int term_idx) {
 static int triangle_ok_2j_(int two_j_a, int two_j_b, int two_j_c) {
     int lo = (two_j_a > two_j_b) ? (two_j_a - two_j_b) : (two_j_b - two_j_a);
     int hi = two_j_a + two_j_b;
-    if (two_j_c < lo || two_j_c > hi) return 0;
-    if (((two_j_a + two_j_b + two_j_c) & 1) != 0) return 0;
+    if (two_j_c < lo || two_j_c > hi)
+        return 0;
+    if (((two_j_a + two_j_b + two_j_c) & 1) != 0)
+        return 0;
     return 1;
 }
 
@@ -72,11 +74,10 @@ static int triangle_ok_2j_(int two_j_a, int two_j_b, int two_j_c) {
  * Path enumeration                                                           *
  * -------------------------------------------------------------------------- */
 
-int irrep_tp_2j_enumerate_paths(const irrep_multiset_2j_t *a,
-                                const irrep_multiset_2j_t *b,
-                                const irrep_multiset_2j_t *c,
-                                int *out_paths, int max_paths) {
-    if (!a || !b || !c) return 0;
+int irrep_tp_2j_enumerate_paths(const irrep_multiset_2j_t *a, const irrep_multiset_2j_t *b,
+                                const irrep_multiset_2j_t *c, int *out_paths, int max_paths) {
+    if (!a || !b || !c)
+        return 0;
     int count = 0;
     for (int ia = 0; ia < a->num_terms; ++ia) {
         int ja = a->labels[ia].two_j, pa = a->labels[ia].parity;
@@ -85,12 +86,14 @@ int irrep_tp_2j_enumerate_paths(const irrep_multiset_2j_t *a,
             int pc = pa * pb;
             for (int ic = 0; ic < c->num_terms; ++ic) {
                 int jc = c->labels[ic].two_j;
-                if (c->labels[ic].parity != pc) continue;
-                if (!triangle_ok_2j_(ja, jb, jc)) continue;
+                if (c->labels[ic].parity != pc)
+                    continue;
+                if (!triangle_ok_2j_(ja, jb, jc))
+                    continue;
                 if (out_paths && count < max_paths) {
-                    out_paths[3*count + 0] = ia;
-                    out_paths[3*count + 1] = ib;
-                    out_paths[3*count + 2] = ic;
+                    out_paths[3 * count + 0] = ia;
+                    out_paths[3 * count + 1] = ib;
+                    out_paths[3 * count + 2] = ic;
                 }
                 ++count;
             }
@@ -103,10 +106,8 @@ int irrep_tp_2j_enumerate_paths(const irrep_multiset_2j_t *a,
  * Build                                                                      *
  * -------------------------------------------------------------------------- */
 
-tp_2j_descriptor_t *irrep_tp_2j_build(const irrep_multiset_2j_t *a,
-                                      const irrep_multiset_2j_t *b,
-                                      const irrep_multiset_2j_t *c,
-                                      const int *selected_paths,
+tp_2j_descriptor_t *irrep_tp_2j_build(const irrep_multiset_2j_t *a, const irrep_multiset_2j_t *b,
+                                      const irrep_multiset_2j_t *c, const int *selected_paths,
                                       int num_selected_paths) {
     if (!a || !b || !c) {
         irrep_set_error_("irrep_tp_2j_build: NULL multiset");
@@ -114,8 +115,8 @@ tp_2j_descriptor_t *irrep_tp_2j_build(const irrep_multiset_2j_t *a,
     }
 
     /* Auto-enumerate paths if none supplied. */
-    int *owned_paths = NULL;
-    int  num_paths   = num_selected_paths;
+    int       *owned_paths = NULL;
+    int        num_paths = num_selected_paths;
     const int *paths_src = selected_paths;
     if (!selected_paths) {
         int total = irrep_tp_2j_enumerate_paths(a, b, c, NULL, 0);
@@ -141,7 +142,8 @@ tp_2j_descriptor_t *irrep_tp_2j_build(const irrep_multiset_2j_t *a,
     }
     desc->paths = calloc((size_t)num_paths, sizeof(*desc->paths));
     if (!desc->paths) {
-        free(desc); free(owned_paths);
+        free(desc);
+        free(owned_paths);
         irrep_set_error_("irrep_tp_2j_build: out of memory");
         return NULL;
     }
@@ -152,17 +154,18 @@ tp_2j_descriptor_t *irrep_tp_2j_build(const irrep_multiset_2j_t *a,
 
     int wbase = 0;
     for (int p = 0; p < num_paths; ++p) {
-        int ia = paths_src[3*p + 0];
-        int ib = paths_src[3*p + 1];
-        int ic = paths_src[3*p + 2];
-        if (ia < 0 || ia >= a->num_terms ||
-            ib < 0 || ib >= b->num_terms ||
-            ic < 0 || ic >= c->num_terms) {
+        int ia = paths_src[3 * p + 0];
+        int ib = paths_src[3 * p + 1];
+        int ic = paths_src[3 * p + 2];
+        if (ia < 0 || ia >= a->num_terms || ib < 0 || ib >= b->num_terms || ic < 0 ||
+            ic >= c->num_terms) {
             irrep_set_error_("irrep_tp_2j_build: path %d out of range", p);
             goto fail;
         }
         struct tp_2j_path *pp = &desc->paths[p];
-        pp->i_a = ia; pp->i_b = ib; pp->i_c = ic;
+        pp->i_a = ia;
+        pp->i_b = ib;
+        pp->i_c = ic;
         pp->two_j_a = a->labels[ia].two_j;
         pp->two_j_b = b->labels[ib].two_j;
         pp->two_j_c = c->labels[ic].two_j;
@@ -201,14 +204,12 @@ tp_2j_descriptor_t *irrep_tp_2j_build(const irrep_multiset_2j_t *a,
             for (int mb_i = 0; mb_i < pp->d_b; ++mb_i) {
                 int two_mb = 2 * mb_i - pp->two_j_b;
                 for (int mc_i = 0; mc_i < pp->d_c; ++mc_i) {
-                    int two_mc = 2 * mc_i - pp->two_j_c;
+                    int    two_mc = 2 * mc_i - pp->two_j_c;
                     double cg = (two_ma + two_mb == two_mc)
-                              ? irrep_cg_2j(pp->two_j_a, two_ma,
-                                            pp->two_j_b, two_mb,
-                                            pp->two_j_c, two_mc)
-                              : 0.0;
-                    pp->cg[(size_t)ma_i * pp->d_b * pp->d_c
-                         + (size_t)mb_i * pp->d_c + mc_i] = cg;
+                                    ? irrep_cg_2j(pp->two_j_a, two_ma, pp->two_j_b, two_mb,
+                                                  pp->two_j_c, two_mc)
+                                    : 0.0;
+                    pp->cg[(size_t)ma_i * pp->d_b * pp->d_c + (size_t)mb_i * pp->d_c + mc_i] = cg;
                 }
             }
         }
@@ -221,7 +222,8 @@ tp_2j_descriptor_t *irrep_tp_2j_build(const irrep_multiset_2j_t *a,
 fail:
     if (desc) {
         if (desc->paths) {
-            for (int p = 0; p < desc->num_paths; ++p) free(desc->paths[p].cg);
+            for (int p = 0; p < desc->num_paths; ++p)
+                free(desc->paths[p].cg);
             free(desc->paths);
         }
         free(desc);
@@ -231,9 +233,11 @@ fail:
 }
 
 void irrep_tp_2j_free(tp_2j_descriptor_t *desc) {
-    if (!desc) return;
+    if (!desc)
+        return;
     if (desc->paths) {
-        for (int p = 0; p < desc->num_paths; ++p) free(desc->paths[p].cg);
+        for (int p = 0; p < desc->num_paths; ++p)
+            free(desc->paths[p].cg);
         free(desc->paths);
     }
     free(desc);
@@ -250,40 +254,38 @@ int irrep_tp_2j_num_paths(const tp_2j_descriptor_t *desc) {
  * Apply: c = a ⊗ b with unit weights (each path contributes w=v=u=1 copy).   *
  * -------------------------------------------------------------------------- */
 
-void irrep_tp_2j_apply(const tp_2j_descriptor_t *desc,
-                       const double _Complex *a_in,
-                       const double _Complex *b_in,
-                       double _Complex *c_out) {
-    if (!desc || !a_in || !b_in || !c_out) return;
+void irrep_tp_2j_apply(const tp_2j_descriptor_t *desc, const double _Complex *a_in,
+                       const double _Complex *b_in, double _Complex *c_out) {
+    if (!desc || !a_in || !b_in || !c_out)
+        return;
     memset(c_out, 0, (size_t)desc->c_dim * sizeof(double _Complex));
 
     for (int p = 0; p < desc->num_paths; ++p) {
         const struct tp_2j_path *pp = &desc->paths[p];
-        int d_a = pp->d_a, d_b = pp->d_b, d_c = pp->d_c;
+        int                      d_a = pp->d_a, d_b = pp->d_b, d_c = pp->d_c;
 
         /* If mults disagree, treat as uvw with all-ones weight over the
          * overlapping copy-channels u==v==w. For true UVW, callers should
          * use apply_weighted with an explicit weight tensor. */
         int mult = pp->mult_u;
-        if (pp->mult_v < mult) mult = pp->mult_v;
-        if (pp->mult_w < mult) mult = pp->mult_w;
+        if (pp->mult_v < mult)
+            mult = pp->mult_v;
+        if (pp->mult_w < mult)
+            mult = pp->mult_w;
 
         for (int u = 0; u < mult; ++u) {
-            const double _Complex *a_block =
-                a_in + pp->offset_a + (size_t)u * d_a;
-            const double _Complex *b_block =
-                b_in + pp->offset_b + (size_t)u * d_b;
-            double _Complex *c_block =
-                c_out + pp->offset_c + (size_t)u * d_c;
+            const double _Complex *a_block = a_in + pp->offset_a + (size_t)u * d_a;
+            const double _Complex *b_block = b_in + pp->offset_b + (size_t)u * d_b;
+            double _Complex       *c_block = c_out + pp->offset_c + (size_t)u * d_c;
 
             for (int mc = 0; mc < d_c; ++mc) {
                 double _Complex acc = 0.0;
                 for (int ma = 0; ma < d_a; ++ma) {
                     double _Complex a_v = a_block[ma];
                     for (int mb = 0; mb < d_b; ++mb) {
-                        double cg = pp->cg[(size_t)ma * d_b * d_c
-                                         + (size_t)mb * d_c + mc];
-                        if (cg == 0.0) continue;
+                        double cg = pp->cg[(size_t)ma * d_b * d_c + (size_t)mb * d_c + mc];
+                        if (cg == 0.0)
+                            continue;
                         acc += cg * a_v * b_block[mb];
                     }
                 }
@@ -300,41 +302,37 @@ void irrep_tp_2j_apply(const tp_2j_descriptor_t *desc,
  * weights are complex; shape path-major, (w, v, u) innermost.                *
  * -------------------------------------------------------------------------- */
 
-void irrep_tp_2j_apply_weighted(const tp_2j_descriptor_t *desc,
-                                const double _Complex *weights,
-                                const double _Complex *a_in,
-                                const double _Complex *b_in,
+void irrep_tp_2j_apply_weighted(const tp_2j_descriptor_t *desc, const double _Complex *weights,
+                                const double _Complex *a_in, const double _Complex *b_in,
                                 double _Complex *c_out) {
-    if (!desc || !a_in || !b_in || !c_out || !weights) return;
+    if (!desc || !a_in || !b_in || !c_out || !weights)
+        return;
     memset(c_out, 0, (size_t)desc->c_dim * sizeof(double _Complex));
 
     for (int p = 0; p < desc->num_paths; ++p) {
         const struct tp_2j_path *pp = &desc->paths[p];
-        int d_a = pp->d_a, d_b = pp->d_b, d_c = pp->d_c;
-        int U = pp->mult_u, V = pp->mult_v, W = pp->mult_w;
-        const double _Complex *wblk = weights + pp->weight_offset;
+        int                      d_a = pp->d_a, d_b = pp->d_b, d_c = pp->d_c;
+        int                      U = pp->mult_u, V = pp->mult_v, W = pp->mult_w;
+        const double _Complex   *wblk = weights + pp->weight_offset;
 
         for (int wch = 0; wch < W; ++wch) {
-            double _Complex *c_block =
-                c_out + pp->offset_c + (size_t)wch * d_c;
+            double _Complex *c_block = c_out + pp->offset_c + (size_t)wch * d_c;
             for (int v = 0; v < V; ++v) {
-                const double _Complex *b_block =
-                    b_in + pp->offset_b + (size_t)v * d_b;
+                const double _Complex *b_block = b_in + pp->offset_b + (size_t)v * d_b;
                 for (int u = 0; u < U; ++u) {
-                    const double _Complex *a_block =
-                        a_in + pp->offset_a + (size_t)u * d_a;
-                    double _Complex w = wblk[(size_t)wch * V * U
-                                           + (size_t)v  * U + u];
-                    if (w == 0.0) continue;
+                    const double _Complex *a_block = a_in + pp->offset_a + (size_t)u * d_a;
+                    double _Complex w = wblk[(size_t)wch * V * U + (size_t)v * U + u];
+                    if (w == 0.0)
+                        continue;
 
                     for (int mc = 0; mc < d_c; ++mc) {
                         double _Complex acc = 0.0;
                         for (int ma = 0; ma < d_a; ++ma) {
                             double _Complex a_v = a_block[ma];
                             for (int mb = 0; mb < d_b; ++mb) {
-                                double cg = pp->cg[(size_t)ma * d_b * d_c
-                                                 + (size_t)mb * d_c + mc];
-                                if (cg == 0.0) continue;
+                                double cg = pp->cg[(size_t)ma * d_b * d_c + (size_t)mb * d_c + mc];
+                                if (cg == 0.0)
+                                    continue;
                                 acc += cg * a_v * b_block[mb];
                             }
                         }
@@ -360,41 +358,33 @@ void irrep_tp_2j_apply_weighted(const tp_2j_descriptor_t *desc,
  * reduces to the integer-l real TP backward.                                 *
  * -------------------------------------------------------------------------- */
 
-void irrep_tp_2j_apply_backward(const tp_2j_descriptor_t *desc,
-                                const double _Complex *weights,
-                                const double _Complex *a_in,
-                                const double _Complex *b_in,
-                                const double _Complex *grad_c_out,
-                                double _Complex *grad_a,
-                                double _Complex *grad_b,
-                                double _Complex *grad_w) {
-    if (!desc || !weights || !a_in || !b_in || !grad_c_out) return;
+void irrep_tp_2j_apply_backward(const tp_2j_descriptor_t *desc, const double _Complex *weights,
+                                const double _Complex *a_in, const double _Complex *b_in,
+                                const double _Complex *grad_c_out, double _Complex *grad_a,
+                                double _Complex *grad_b, double _Complex *grad_w) {
+    if (!desc || !weights || !a_in || !b_in || !grad_c_out)
+        return;
 
     for (int p = 0; p < desc->num_paths; ++p) {
         const struct tp_2j_path *pp = &desc->paths[p];
-        int d_a = pp->d_a, d_b = pp->d_b, d_c = pp->d_c;
-        int U = pp->mult_u, V = pp->mult_v, W = pp->mult_w;
-        const double _Complex *wblk       = weights    + pp->weight_offset;
-        double _Complex       *gwblk      = grad_w ? grad_w + pp->weight_offset : NULL;
+        int                      d_a = pp->d_a, d_b = pp->d_b, d_c = pp->d_c;
+        int                      U = pp->mult_u, V = pp->mult_v, W = pp->mult_w;
+        const double _Complex   *wblk = weights + pp->weight_offset;
+        double _Complex         *gwblk = grad_w ? grad_w + pp->weight_offset : NULL;
 
         for (int wch = 0; wch < W; ++wch) {
-            const double _Complex *gc_block =
-                grad_c_out + pp->offset_c + (size_t)wch * d_c;
+            const double _Complex *gc_block = grad_c_out + pp->offset_c + (size_t)wch * d_c;
 
             for (int v = 0; v < V; ++v) {
-                const double _Complex *b_block =
-                    b_in + pp->offset_b + (size_t)v * d_b;
-                double _Complex *gb_block = grad_b
-                    ? grad_b + pp->offset_b + (size_t)v * d_b : NULL;
+                const double _Complex *b_block = b_in + pp->offset_b + (size_t)v * d_b;
+                double _Complex *gb_block = grad_b ? grad_b + pp->offset_b + (size_t)v * d_b : NULL;
 
                 for (int u = 0; u < U; ++u) {
-                    const double _Complex *a_block =
-                        a_in + pp->offset_a + (size_t)u * d_a;
-                    double _Complex *ga_block = grad_a
-                        ? grad_a + pp->offset_a + (size_t)u * d_a : NULL;
+                    const double _Complex *a_block = a_in + pp->offset_a + (size_t)u * d_a;
+                    double _Complex       *ga_block =
+                        grad_a ? grad_a + pp->offset_a + (size_t)u * d_a : NULL;
 
-                    double _Complex w_val = wblk[(size_t)wch * V * U
-                                               + (size_t)v  * U + u];
+                    double _Complex w_val = wblk[(size_t)wch * V * U + (size_t)v * U + u];
 
                     /* Accumulate scalar for grad_w[p, wch, v, u] plus
                      * contribute to grad_a / grad_b. */
@@ -403,9 +393,9 @@ void irrep_tp_2j_apply_backward(const tp_2j_descriptor_t *desc,
                         double _Complex gc = gc_block[mc];
                         for (int ma = 0; ma < d_a; ++ma) {
                             for (int mb = 0; mb < d_b; ++mb) {
-                                double cg = pp->cg[(size_t)ma * d_b * d_c
-                                                 + (size_t)mb * d_c + mc];
-                                if (cg == 0.0) continue;
+                                double cg = pp->cg[(size_t)ma * d_b * d_c + (size_t)mb * d_c + mc];
+                                if (cg == 0.0)
+                                    continue;
                                 gw_acc += cg * a_block[ma] * b_block[mb] * gc;
 
                                 if (ga_block) {

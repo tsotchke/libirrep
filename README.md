@@ -1,11 +1,10 @@
 # libirrep
 
-> **Status: pre-release — `v1.3.0-alpha`.** Public API covered by an ABI
-> hash + regression gate. Numerical kernels at machine precision across
-> every documented `j` regime. Bug reports welcome; CI goes live on
-> first push.
+> **Status: pre-release — `v1.3.0-alpha`.** Public API guarded by an ABI
+> hash and a regression gate. Numerical kernels at machine precision across
+> every documented `j` regime.
 
-A pure-C11 library of SO(3) / SU(2) / O(3) representation-theory
+A pure-C11 library of SO(3) / SU(2) / O(3) / SE(3) representation-theory
 primitives — spherical harmonics, Wigner-D rotation matrices, Clebsch–
 Gordan coupling, e3nn-style tensor products — with a stable ABI, no
 runtime dependencies beyond `libc` + `libm`, and runtime-dispatched

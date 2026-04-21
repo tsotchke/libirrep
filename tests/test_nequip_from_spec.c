@@ -32,11 +32,11 @@ static double sm64_unit_(uint64_t *s) {
 
 #define FIX_N_NODES 4
 #define FIX_N_EDGES 8
-static int    fix_src[FIX_N_EDGES] = { 0, 1, 1, 2, 2, 3, 3, 0 };
-static int    fix_dst[FIX_N_EDGES] = { 1, 0, 2, 1, 3, 2, 0, 3 };
+static int    fix_src[FIX_N_EDGES] = {0, 1, 1, 2, 2, 3, 3, 0};
+static int    fix_dst[FIX_N_EDGES] = {1, 0, 2, 1, 3, 2, 0, 3};
 static double fix_edge_vec[FIX_N_EDGES * 3];
 
-static void fill_fixture_(void) {
+static void   fill_fixture_(void) {
     uint64_t s = 0xA5A5A5A5A5A5A5A5ULL;
     for (int i = 0; i < FIX_N_EDGES * 3; ++i) {
         fix_edge_vec[i] = 2.0 * sm64_unit_(&s) - 1.0;
@@ -44,69 +44,81 @@ static void fill_fixture_(void) {
     /* Rescale to unit-ish magnitudes; keep r ∈ (0, 1). */
     for (int e = 0; e < FIX_N_EDGES; ++e) {
         double *v = fix_edge_vec + 3 * e;
-        double n = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
-        if (n == 0.0) { v[0] = 0.1; v[1] = 0.2; v[2] = 0.3; n = sqrt(0.14); }
-        double target = 0.3 + 0.4 * sm64_unit_(&s);   /* ∈ [0.3, 0.7] */
+        double  n = sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+        if (n == 0.0) {
+            v[0] = 0.1;
+            v[1] = 0.2;
+            v[2] = 0.3;
+            n = sqrt(0.14);
+        }
+        double target = 0.3 + 0.4 * sm64_unit_(&s); /* ∈ [0.3, 0.7] */
         double k = target / n;
-        v[0] *= k; v[1] *= k; v[2] *= k;
+        v[0] *= k;
+        v[1] *= k;
+        v[2] *= k;
     }
 }
 
 /* --- helper: apply both layers on the fixture and assert bit-equality ---- */
-static int layers_agree_(irrep_nequip_layer_t *A,
-                         irrep_nequip_layer_t *B,
-                         int h_in_dim, int h_out_dim) {
+static int layers_agree_(irrep_nequip_layer_t *A, irrep_nequip_layer_t *B, int h_in_dim,
+                         int h_out_dim) {
     int nwA = irrep_nequip_layer_num_weights(A);
     int nwB = irrep_nequip_layer_num_weights(B);
-    if (nwA != nwB) return 0;
+    if (nwA != nwB)
+        return 0;
 
-    double *w     = calloc((size_t)nwA, sizeof(double));
-    double *h_in  = calloc((size_t)FIX_N_NODES * h_in_dim,  sizeof(double));
-    double *h_outA = calloc((size_t)FIX_N_NODES * h_out_dim, sizeof(double));
-    double *h_outB = calloc((size_t)FIX_N_NODES * h_out_dim, sizeof(double));
+    double  *w = calloc((size_t)nwA, sizeof(double));
+    double  *h_in = calloc((size_t)FIX_N_NODES * h_in_dim, sizeof(double));
+    double  *h_outA = calloc((size_t)FIX_N_NODES * h_out_dim, sizeof(double));
+    double  *h_outB = calloc((size_t)FIX_N_NODES * h_out_dim, sizeof(double));
 
     uint64_t s = 0x12345678DEADBEEFULL;
-    for (int i = 0; i < nwA; ++i)                       w[i]    = 2.0 * sm64_unit_(&s) - 1.0;
-    for (int i = 0; i < FIX_N_NODES * h_in_dim; ++i)    h_in[i] = 2.0 * sm64_unit_(&s) - 1.0;
+    for (int i = 0; i < nwA; ++i)
+        w[i] = 2.0 * sm64_unit_(&s) - 1.0;
+    for (int i = 0; i < FIX_N_NODES * h_in_dim; ++i)
+        h_in[i] = 2.0 * sm64_unit_(&s) - 1.0;
 
-    irrep_nequip_layer_apply(A, w, FIX_N_NODES, FIX_N_EDGES,
-                              fix_src, fix_dst, fix_edge_vec, h_in, h_outA);
-    irrep_nequip_layer_apply(B, w, FIX_N_NODES, FIX_N_EDGES,
-                              fix_src, fix_dst, fix_edge_vec, h_in, h_outB);
+    irrep_nequip_layer_apply(A, w, FIX_N_NODES, FIX_N_EDGES, fix_src, fix_dst, fix_edge_vec, h_in,
+                             h_outA);
+    irrep_nequip_layer_apply(B, w, FIX_N_NODES, FIX_N_EDGES, fix_src, fix_dst, fix_edge_vec, h_in,
+                             h_outB);
 
     int ok = 1;
     for (int i = 0; i < FIX_N_NODES * h_out_dim; ++i) {
-        if (h_outA[i] != h_outB[i]) { ok = 0; break; }
+        if (h_outA[i] != h_outB[i]) {
+            ok = 0;
+            break;
+        }
     }
-    free(w); free(h_in); free(h_outA); free(h_outB);
+    free(w);
+    free(h_in);
+    free(h_outA);
+    free(h_outB);
     return ok;
 }
 
 /* Build the reference layer with the verbose API, for round-trip comparison. */
-static irrep_nequip_layer_t *build_verbose_(
-    const char *hi_spec, const char *ho_spec,
-    int sh, int n_radial, double r_cut,
-    irrep_nequip_cutoff_t cutoff_kind, int cutoff_p) {
+static irrep_nequip_layer_t *build_verbose_(const char *hi_spec, const char *ho_spec, int sh,
+                                            int n_radial, double r_cut,
+                                            irrep_nequip_cutoff_t cutoff_kind, int cutoff_p) {
 
-    irrep_multiset_t *hi = irrep_multiset_parse(hi_spec);
-    irrep_multiset_t *ho = irrep_multiset_parse(ho_spec);
-    irrep_nequip_layer_t *layer = irrep_nequip_layer_build(
-        hi, sh, n_radial, r_cut, cutoff_kind, cutoff_p, ho);
+    irrep_multiset_t     *hi = irrep_multiset_parse(hi_spec);
+    irrep_multiset_t     *ho = irrep_multiset_parse(ho_spec);
+    irrep_nequip_layer_t *layer =
+        irrep_nequip_layer_build(hi, sh, n_radial, r_cut, cutoff_kind, cutoff_p, ho);
     irrep_multiset_free(hi);
     irrep_multiset_free(ho);
     return layer;
 }
 
 /* Valid-case test driver. */
-static void check_valid_(const char *spec,
-                          const char *hi_spec, const char *ho_spec,
-                          int sh, int n_radial, double r_cut,
-                          irrep_nequip_cutoff_t cutoff_kind, int cutoff_p,
-                          int hi_dim, int ho_dim) {
+static void check_valid_(const char *spec, const char *hi_spec, const char *ho_spec, int sh,
+                         int n_radial, double r_cut, irrep_nequip_cutoff_t cutoff_kind,
+                         int cutoff_p, int hi_dim, int ho_dim) {
     irrep_nequip_layer_t *A = irrep_nequip_layer_from_spec(spec);
     IRREP_ASSERT(A != NULL);
-    irrep_nequip_layer_t *B = build_verbose_(hi_spec, ho_spec, sh, n_radial,
-                                              r_cut, cutoff_kind, cutoff_p);
+    irrep_nequip_layer_t *B =
+        build_verbose_(hi_spec, ho_spec, sh, n_radial, r_cut, cutoff_kind, cutoff_p);
     IRREP_ASSERT(B != NULL);
     IRREP_ASSERT(layers_agree_(A, B, hi_dim, ho_dim));
     irrep_nequip_layer_free(A);
@@ -129,58 +141,45 @@ int main(void) {
     /* ---- 1–5 valid cases ---- */
 
     /* (1) Default everything. */
-    check_valid_("1x0e + 1x1o -> 1x1o",
-                 "1x0e + 1x1o", "1x1o",
-                 /*sh=*/2, /*radial=*/8, /*r_cut=*/1.0,
-                 IRREP_NEQUIP_CUTOFF_POLYNOMIAL, /*p=*/6,
+    check_valid_("1x0e + 1x1o -> 1x1o", "1x0e + 1x1o", "1x1o",
+                 /*sh=*/2, /*radial=*/8, /*r_cut=*/1.0, IRREP_NEQUIP_CUTOFF_POLYNOMIAL, /*p=*/6,
                  /*hi_dim=*/1 + 3, /*ho_dim=*/3);
 
     /* (2) Override sh. */
-    check_valid_("1x0e + 1x1o -> 1x1o [sh=3]",
-                 "1x0e + 1x1o", "1x1o",
-                 3, 8, 1.0,
-                 IRREP_NEQUIP_CUTOFF_POLYNOMIAL, 6,
-                 4, 3);
+    check_valid_("1x0e + 1x1o -> 1x1o [sh=3]", "1x0e + 1x1o", "1x1o", 3, 8, 1.0,
+                 IRREP_NEQUIP_CUTOFF_POLYNOMIAL, 6, 4, 3);
 
     /* (3) Override radial. */
-    check_valid_("1x0e + 1x1o -> 1x1o [radial=16]",
-                 "1x0e + 1x1o", "1x1o",
-                 2, 16, 1.0,
-                 IRREP_NEQUIP_CUTOFF_POLYNOMIAL, 6,
-                 4, 3);
+    check_valid_("1x0e + 1x1o -> 1x1o [radial=16]", "1x0e + 1x1o", "1x1o", 2, 16, 1.0,
+                 IRREP_NEQUIP_CUTOFF_POLYNOMIAL, 6, 4, 3);
 
     /* (4) Override r_cut. */
-    check_valid_("1x0e + 1x1o -> 1x1o [r_cut=1.5]",
-                 "1x0e + 1x1o", "1x1o",
-                 2, 8, 1.5,
-                 IRREP_NEQUIP_CUTOFF_POLYNOMIAL, 6,
-                 4, 3);
+    check_valid_("1x0e + 1x1o -> 1x1o [r_cut=1.5]", "1x0e + 1x1o", "1x1o", 2, 8, 1.5,
+                 IRREP_NEQUIP_CUTOFF_POLYNOMIAL, 6, 4, 3);
 
     /* (5) Override everything (cosine cutoff, large shape). */
     check_valid_("4x0e + 2x1o + 1x2e -> 2x0e + 1x1o "
                  "[sh=3, radial=16, r_cut=1.5, cutoff=cosine]",
-                 "4x0e + 2x1o + 1x2e", "2x0e + 1x1o",
-                 3, 16, 1.5,
-                 IRREP_NEQUIP_CUTOFF_COSINE, 0,
-                 /*hi_dim=*/4 + 2*3 + 5, /*ho_dim=*/2 + 3);
+                 "4x0e + 2x1o + 1x2e", "2x0e + 1x1o", 3, 16, 1.5, IRREP_NEQUIP_CUTOFF_COSINE, 0,
+                 /*hi_dim=*/4 + 2 * 3 + 5, /*ho_dim=*/2 + 3);
 
     /* ---- 6–10 malformed cases ---- */
-    check_malformed_("1x0e + 1x1o 1x1o");                       /* missing arrow */
-    check_malformed_("1x0e + 1x1o -> 1x1o +");                  /* trailing operator */
-    check_malformed_("1q0e + 1x1o -> 1x1o");                    /* invalid irrep */
-    check_malformed_("1x0e + 1x1o -> 1x1o [cutoff=linear]");    /* unknown cutoff */
-    check_malformed_("1x0e + 1x1o -> 1x1o [zoom=2]");           /* unknown option */
+    check_malformed_("1x0e + 1x1o 1x1o");                    /* missing arrow */
+    check_malformed_("1x0e + 1x1o -> 1x1o +");               /* trailing operator */
+    check_malformed_("1q0e + 1x1o -> 1x1o");                 /* invalid irrep */
+    check_malformed_("1x0e + 1x1o -> 1x1o [cutoff=linear]"); /* unknown cutoff */
+    check_malformed_("1x0e + 1x1o -> 1x1o [zoom=2]");        /* unknown option */
 
     /* ---- Additional parser boundary coverage (post-audit) ---- */
     check_malformed_("1x0e + 1x1o -> 1x1o [cutoff=polynomial(0)]");  /* poly order < 1 */
     check_malformed_("1x0e + 1x1o -> 1x1o [cutoff=polynomial(-3)]"); /* negative poly order */
-    check_malformed_("1x0e + 1x1o -> 1x1o [sh=-1]");            /* negative sh */
-    check_malformed_("1x0e + 1x1o -> 1x1o [radial=0]");         /* radial < 1 */
-    check_malformed_("1x0e + 1x1o -> 1x1o [r_cut=-1.0]");       /* negative r_cut */
-    check_malformed_("1x0e + 1x1o -> 1x1o [r_cut=0.0]");        /* zero r_cut */
-    check_malformed_("1x0e + 1x1o -> 1x1o [sh=999999999999]");  /* overflows INT_MAX */
-    check_malformed_("   -> 1x1o");                             /* empty hidden_in */
-    check_malformed_("1x0e + 1x1o ->");                         /* empty hidden_out */
+    check_malformed_("1x0e + 1x1o -> 1x1o [sh=-1]");                 /* negative sh */
+    check_malformed_("1x0e + 1x1o -> 1x1o [radial=0]");              /* radial < 1 */
+    check_malformed_("1x0e + 1x1o -> 1x1o [r_cut=-1.0]");            /* negative r_cut */
+    check_malformed_("1x0e + 1x1o -> 1x1o [r_cut=0.0]");             /* zero r_cut */
+    check_malformed_("1x0e + 1x1o -> 1x1o [sh=999999999999]");       /* overflows INT_MAX */
+    check_malformed_("   -> 1x1o");                                  /* empty hidden_in */
+    check_malformed_("1x0e + 1x1o ->");                              /* empty hidden_out */
 
     /* ---- Empty options block is accepted (documented) ---- */
     {
@@ -193,35 +192,29 @@ int main(void) {
      * No diagnostic; caller gets the most-recent assignment for each key.
      * Lock this behaviour in so future parser changes don't silently alter it. */
     {
-        irrep_nequip_layer_t *A = irrep_nequip_layer_from_spec(
-            "1x0e + 1x1o -> 1x1o [sh=2, sh=4]");
+        irrep_nequip_layer_t *A = irrep_nequip_layer_from_spec("1x0e + 1x1o -> 1x1o [sh=2, sh=4]");
         IRREP_ASSERT(A != NULL);
         /* Can't introspect sh directly from the opaque layer, but if sh=4 took
          * effect the weight count will match the sh=4 reference. */
-        irrep_nequip_layer_t *B = build_verbose_(
-            "1x0e + 1x1o", "1x1o", /*sh=*/4, /*radial=*/8, /*r_cut=*/1.0,
-            IRREP_NEQUIP_CUTOFF_POLYNOMIAL, 6);
+        irrep_nequip_layer_t *B = build_verbose_("1x0e + 1x1o", "1x1o", /*sh=*/4, /*radial=*/8,
+                                                 /*r_cut=*/1.0, IRREP_NEQUIP_CUTOFF_POLYNOMIAL, 6);
         IRREP_ASSERT(B != NULL);
-        IRREP_ASSERT(irrep_nequip_layer_num_weights(A)
-                  == irrep_nequip_layer_num_weights(B));
+        IRREP_ASSERT(irrep_nequip_layer_num_weights(A) == irrep_nequip_layer_num_weights(B));
         irrep_nequip_layer_free(A);
         irrep_nequip_layer_free(B);
     }
 
     /* ---- Bonus: whitespace-stripped equivalent round-trip ---- */
     {
-        irrep_nequip_layer_t *A = irrep_nequip_layer_from_spec(
-            "8x0e+4x1o+2x2e+1x3o->4x0e+2x1o+1x2e[sh=4,radial=16]");
+        irrep_nequip_layer_t *A =
+            irrep_nequip_layer_from_spec("8x0e+4x1o+2x2e+1x3o->4x0e+2x1o+1x2e[sh=4,radial=16]");
         IRREP_ASSERT(A != NULL);
-        irrep_nequip_layer_t *B = build_verbose_(
-            "8x0e + 4x1o + 2x2e + 1x3o",
-            "4x0e + 2x1o + 1x2e",
-            4, 16, 1.0,
-            IRREP_NEQUIP_CUTOFF_POLYNOMIAL, 6);
+        irrep_nequip_layer_t *B = build_verbose_("8x0e + 4x1o + 2x2e + 1x3o", "4x0e + 2x1o + 1x2e",
+                                                 4, 16, 1.0, IRREP_NEQUIP_CUTOFF_POLYNOMIAL, 6);
         IRREP_ASSERT(B != NULL);
         IRREP_ASSERT(layers_agree_(A, B,
-            /*hi_dim=*/8 + 4*3 + 2*5 + 1*7,
-            /*ho_dim=*/4 + 2*3 + 1*5));
+                                   /*hi_dim=*/8 + 4 * 3 + 2 * 5 + 1 * 7,
+                                   /*ho_dim=*/4 + 2 * 3 + 1 * 5));
         irrep_nequip_layer_free(A);
         irrep_nequip_layer_free(B);
     }

@@ -27,7 +27,10 @@
 static int is_bijection_(const int *perm, int n) {
     unsigned char *seen = calloc((size_t)n, 1);
     for (int i = 0; i < n; ++i) {
-        if (perm[i] < 0 || perm[i] >= n || seen[perm[i]]) { free(seen); return 0; }
+        if (perm[i] < 0 || perm[i] >= n || seen[perm[i]]) {
+            free(seen);
+            return 0;
+        }
         seen[perm[i]] = 1;
     }
     free(seen);
@@ -60,9 +63,9 @@ int main(void) {
     irrep_space_group_t *g1 = irrep_space_group_build(sq, IRREP_WALLPAPER_P1);
     IRREP_ASSERT(g1 != NULL);
     IRREP_ASSERT(irrep_space_group_point_order(g1) == 1);
-    IRREP_ASSERT(irrep_space_group_num_sites(g1)   == 16);
-    IRREP_ASSERT(irrep_space_group_order(g1)       == 16);
-    IRREP_ASSERT(irrep_space_group_kind(g1)        == IRREP_WALLPAPER_P1);
+    IRREP_ASSERT(irrep_space_group_num_sites(g1) == 16);
+    IRREP_ASSERT(irrep_space_group_order(g1) == 16);
+    IRREP_ASSERT(irrep_space_group_kind(g1) == IRREP_WALLPAPER_P1);
 
     /* Element 0 is identity */
     for (int s = 0; s < 16; ++s) {
@@ -84,7 +87,7 @@ int main(void) {
     irrep_space_group_t *g4 = irrep_space_group_build(sq, IRREP_WALLPAPER_P4MM);
     IRREP_ASSERT(g4 != NULL);
     IRREP_ASSERT(irrep_space_group_point_order(g4) == 8);
-    IRREP_ASSERT(irrep_space_group_order(g4)       == 128);
+    IRREP_ASSERT(irrep_space_group_order(g4) == 128);
 
     /* Element 0 is identity */
     for (int s = 0; s < 16; ++s) {
@@ -110,21 +113,26 @@ int main(void) {
         irrep_space_group_permutation(g4, g, q4);
         irrep_space_group_permutation_inverse(g4, g, q4_inv);
         int ok = 1;
-        for (int s = 0; s < 16 && ok; ++s) if (q4_inv[q4[s]] != s) ok = 0;
+        for (int s = 0; s < 16 && ok; ++s)
+            if (q4_inv[q4[s]] != s)
+                ok = 0;
         IRREP_ASSERT(ok);
     }
-    free(q4); free(q4_inv);
+    free(q4);
+    free(q4_inv);
 
     /* apply_config matches the permutation (pullback) */
     double cfg_in[16], cfg_out[16];
-    for (int i = 0; i < 16; ++i) cfg_in[i] = (double)(i * 7 % 13);
+    for (int i = 0; i < 16; ++i)
+        cfg_in[i] = (double)(i * 7 % 13);
     int *perm_check = malloc(sizeof(int) * 16);
     for (int g = 0; g < 128; g += 11) {
         irrep_space_group_apply_config(g4, g, cfg_in, cfg_out);
         irrep_space_group_permutation_inverse(g4, g, perm_check);
         int ok = 1;
         for (int s = 0; s < 16 && ok; ++s) {
-            if (cfg_out[s] != cfg_in[perm_check[s]]) ok = 0;
+            if (cfg_out[s] != cfg_in[perm_check[s]])
+                ok = 0;
         }
         IRREP_ASSERT(ok);
     }
@@ -137,7 +145,7 @@ int main(void) {
     irrep_space_group_t *g6t = irrep_space_group_build(tri, IRREP_WALLPAPER_P6MM);
     IRREP_ASSERT(g6t != NULL);
     IRREP_ASSERT(irrep_space_group_point_order(g6t) == 12);
-    IRREP_ASSERT(irrep_space_group_order(g6t)       == 192);
+    IRREP_ASSERT(irrep_space_group_order(g6t) == 192);
 
     int *qt = malloc(sizeof(int) * 16);
     for (int g = 0; g < 192; g += 13) {
@@ -155,7 +163,7 @@ int main(void) {
     irrep_space_group_t *g6h = irrep_space_group_build(hc, IRREP_WALLPAPER_P6MM);
     IRREP_ASSERT(g6h != NULL);
     IRREP_ASSERT(irrep_space_group_num_sites(g6h) == 18);
-    IRREP_ASSERT(irrep_space_group_order(g6h)     == 108);
+    IRREP_ASSERT(irrep_space_group_order(g6h) == 108);
 
     int *qh = malloc(sizeof(int) * 18);
     for (int g = 0; g < 108; g += 7) {
@@ -173,9 +181,9 @@ int main(void) {
     IRREP_ASSERT(kg != NULL);
     irrep_space_group_t *g6k = irrep_space_group_build(kg, IRREP_WALLPAPER_P6MM);
     IRREP_ASSERT(g6k != NULL);
-    IRREP_ASSERT(irrep_space_group_num_sites(g6k)   == 108);
-    IRREP_ASSERT(irrep_space_group_point_order(g6k) ==  12);
-    IRREP_ASSERT(irrep_space_group_order(g6k)       == 432);
+    IRREP_ASSERT(irrep_space_group_num_sites(g6k) == 108);
+    IRREP_ASSERT(irrep_space_group_point_order(g6k) == 12);
+    IRREP_ASSERT(irrep_space_group_order(g6k) == 432);
 
     /* Every permutation is a bijection (sample 1/8 of them) */
     int *qk = malloc(sizeof(int) * 108);
@@ -195,10 +203,13 @@ int main(void) {
         irrep_space_group_permutation(g6k, g, qk);
         irrep_space_group_permutation_inverse(g6k, g, qk_inv);
         int ok = 1;
-        for (int s = 0; s < 108 && ok; ++s) if (qk_inv[qk[s]] != s) ok = 0;
+        for (int s = 0; s < 108 && ok; ++s)
+            if (qk_inv[qk[s]] != s)
+                ok = 0;
         IRREP_ASSERT(ok);
     }
-    free(qk); free(qk_inv);
+    free(qk);
+    free(qk_inv);
 
     /* Group closure check: composition of two elements is itself
      * a permutation found in the table.  We verify that g1 · g2
@@ -207,19 +218,30 @@ int main(void) {
     int *pb = malloc(sizeof(int) * 108);
     int *pab = malloc(sizeof(int) * 108);
     /* Sample: g1 = 17 (C3 + translation), g2 = 139 */
-    irrep_space_group_permutation(g6k,  17, pa);
+    irrep_space_group_permutation(g6k, 17, pa);
     irrep_space_group_permutation(g6k, 139, pb);
-    for (int s = 0; s < 108; ++s) pab[s] = pa[pb[s]];
-    int found = 0;
+    for (int s = 0; s < 108; ++s)
+        pab[s] = pa[pb[s]];
+    int  found = 0;
     int *cand = malloc(sizeof(int) * 108);
     for (int g = 0; g < 432; ++g) {
         irrep_space_group_permutation(g6k, g, cand);
         int match = 1;
-        for (int s = 0; s < 108; ++s) if (cand[s] != pab[s]) { match = 0; break; }
-        if (match) { found = 1; break; }
+        for (int s = 0; s < 108; ++s)
+            if (cand[s] != pab[s]) {
+                match = 0;
+                break;
+            }
+        if (match) {
+            found = 1;
+            break;
+        }
     }
     IRREP_ASSERT(found);
-    free(pa); free(pb); free(pab); free(cand);
+    free(pa);
+    free(pb);
+    free(pab);
+    free(cand);
 
     irrep_space_group_free(g6k);
     irrep_lattice_free(kg);

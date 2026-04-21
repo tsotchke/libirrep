@@ -28,14 +28,15 @@
 #include <string.h>
 
 #ifndef M_PI
-#  define M_PI 3.14159265358979323846
+#define M_PI 3.14159265358979323846
 #endif
 
-static int apply_complex_matrix_(const double _Complex *M, int n,
-                                 const double *vec, double _Complex *out) {
+static int apply_complex_matrix_(const double _Complex *M, int n, const double *vec,
+                                 double _Complex *out) {
     for (int i = 0; i < n; ++i) {
         double _Complex s = 0.0;
-        for (int j = 0; j < n; ++j) s += M[i * n + j] * vec[j];
+        for (int j = 0; j < n; ++j)
+            s += M[i * n + j] * vec[j];
         out[i] = s;
     }
     return 0;
@@ -51,15 +52,15 @@ int main(void) {
         irrep_multiset_t *A = irrep_multiset_parse("1x1o");
         irrep_multiset_t *B = irrep_multiset_parse("1x1o");
         irrep_multiset_t *C = irrep_multiset_parse("1x0e + 1x1e + 1x2e");
-        int paths[9 * 3];
-        int n = irrep_tp_enumerate_paths(A, B, C, paths, 9);
+        int               paths[9 * 3];
+        int               n = irrep_tp_enumerate_paths(A, B, C, paths, 9);
         /* All three triangle-valid paths: 0e (scalar), 1e (cross product),
          * 2e (symmetric-traceless tensor). Parity o·o = e matches all of C. */
         IRREP_ASSERT(n == 3);
 
         /* Also: 1x1o × 1x1o → 1x0o should yield 0 paths (parity o·o = e ≠ o) */
         irrep_multiset_t *Co = irrep_multiset_parse("1x0o");
-        int n0 = irrep_tp_enumerate_paths(A, B, Co, NULL, 0);
+        int               n0 = irrep_tp_enumerate_paths(A, B, Co, NULL, 0);
         IRREP_ASSERT(n0 == 0);
 
         irrep_multiset_free(A);
@@ -76,22 +77,22 @@ int main(void) {
         irrep_multiset_t *A = irrep_multiset_parse("1x1o");
         irrep_multiset_t *B = irrep_multiset_parse("1x1o");
         irrep_multiset_t *C = irrep_multiset_parse("1x0e");
-        int path[3] = { 0, 0, 0 };
-        tp_descriptor_t *d = irrep_tp_build(A, B, C, path, 1);
+        int               path[3] = {0, 0, 0};
+        tp_descriptor_t  *d = irrep_tp_build(A, B, C, path, 1);
         IRREP_ASSERT(d != NULL);
         IRREP_ASSERT(irrep_tp_num_paths(d) == 1);
         IRREP_ASSERT(irrep_tp_output_dim(d) == 1);
 
-        double a[3] = { 1.0, 2.0, 3.0 };
-        double b[3] = { 4.0, 5.0, 6.0 };
-        double c[1] = { 0.0 };
+        double a[3] = {1.0, 2.0, 3.0};
+        double b[3] = {4.0, 5.0, 6.0};
+        double c[1] = {0.0};
         irrep_tp_apply(d, a, b, c);
-        double expected = (a[0]*b[0] + a[1]*b[1] + a[2]*b[2]) / sqrt(3.0);
+        double expected = (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / sqrt(3.0);
         IRREP_ASSERT_NEAR(c[0], expected, tol);
 
         /* weighted by 2.0 */
-        double w[1] = { 2.0 };
-        double c2[1] = { 0.0 };
+        double w[1] = {2.0};
+        double c2[1] = {0.0};
         irrep_tp_apply_weighted(d, w, a, b, c2);
         IRREP_ASSERT_NEAR(c2[0], 2.0 * expected, tol);
 
@@ -106,8 +107,8 @@ int main(void) {
         irrep_multiset_t *A = irrep_multiset_parse("2x1o");
         irrep_multiset_t *B = irrep_multiset_parse("1x1o");
         irrep_multiset_t *C = irrep_multiset_parse("1x0e");
-        int path[3] = { 0, 0, 0 };
-        tp_descriptor_t *d = irrep_tp_build(A, B, C, path, 1);
+        int               path[3] = {0, 0, 0};
+        tp_descriptor_t  *d = irrep_tp_build(A, B, C, path, 1);
         IRREP_ASSERT(d == NULL);
         irrep_multiset_free(A);
         irrep_multiset_free(B);
@@ -118,9 +119,9 @@ int main(void) {
     {
         irrep_multiset_t *A = irrep_multiset_parse("1x1o");
         irrep_multiset_t *B = irrep_multiset_parse("1x1e");
-        irrep_multiset_t *C = irrep_multiset_parse("1x0e");   /* o·e = o ≠ e */
-        int path[3] = { 0, 0, 0 };
-        tp_descriptor_t *d = irrep_tp_build(A, B, C, path, 1);
+        irrep_multiset_t *C = irrep_multiset_parse("1x0e"); /* o·e = o ≠ e */
+        int               path[3] = {0, 0, 0};
+        tp_descriptor_t  *d = irrep_tp_build(A, B, C, path, 1);
         IRREP_ASSERT(d == NULL);
         irrep_multiset_free(A);
         irrep_multiset_free(B);
@@ -132,21 +133,21 @@ int main(void) {
         irrep_multiset_t *A = irrep_multiset_parse("1x1o");
         irrep_multiset_t *B = irrep_multiset_parse("1x1o");
         irrep_multiset_t *C = irrep_multiset_parse("1x0e + 1x1e + 1x2e");
-        int n_paths = irrep_tp_enumerate_paths(A, B, C, NULL, 0);
-        int *paths = malloc((size_t)n_paths * 3 * sizeof(int));
+        int               n_paths = irrep_tp_enumerate_paths(A, B, C, NULL, 0);
+        int              *paths = malloc((size_t)n_paths * 3 * sizeof(int));
         irrep_tp_enumerate_paths(A, B, C, paths, n_paths);
         tp_descriptor_t *d = irrep_tp_build(A, B, C, paths, n_paths);
         IRREP_ASSERT(d != NULL);
 
-        double a[3] = { 0.7, -0.3, 1.1 };
-        double b[3] = { -0.2, 0.9, 0.4 };
-        double c_direct[9];   /* C total_dim = 1 + 3 + 5 = 9 */
+        double a[3] = {0.7, -0.3, 1.1};
+        double b[3] = {-0.2, 0.9, 0.4};
+        double c_direct[9]; /* C total_dim = 1 + 3 + 5 = 9 */
         irrep_tp_apply(d, a, b, c_direct);
 
         /* Rotate inputs via D(R) for l=1 (A, B), then tp → expect D(R) c. */
         double alpha = 0.3, beta = 0.9, gamma = 1.4;
-        double _Complex Da[9], Db[9];      /* l=1 → 3×3 */
-        double _Complex Dc_ms[9 * 9];      /* C total 9×9 */
+        double _Complex Da[9], Db[9]; /* l=1 → 3×3 */
+        double _Complex Dc_ms[9 * 9]; /* C total 9×9 */
         irrep_wigner_D_matrix(1, Da, alpha, beta, gamma);
         irrep_wigner_D_matrix(1, Db, alpha, beta, gamma);
         irrep_wigner_D_multiset(C, Dc_ms, alpha, beta, gamma);
@@ -156,7 +157,7 @@ int main(void) {
          * real-basis rotation matrix D_real = U · D_complex · U†.
          * Implement that via the M3 complex-to-real matrix. */
         double _Complex U1[9], U0[1], U2[25];
-        extern void irrep_sph_harm_complex_to_real(int, double _Complex*);
+        extern void irrep_sph_harm_complex_to_real(int, double _Complex *);
         irrep_sph_harm_complex_to_real(0, U0);
         irrep_sph_harm_complex_to_real(1, U1);
         irrep_sph_harm_complex_to_real(2, U2);
@@ -166,15 +167,17 @@ int main(void) {
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 double _Complex s = 0;
-                for (int k = 0; k < 3; ++k) s += U1[i*3+k] * Da[k*3+j];
-                tmp1[i*3+j] = s;
+                for (int k = 0; k < 3; ++k)
+                    s += U1[i * 3 + k] * Da[k * 3 + j];
+                tmp1[i * 3 + j] = s;
             }
         }
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 double _Complex s = 0;
-                for (int k = 0; k < 3; ++k) s += tmp1[i*3+k] * conj(U1[j*3+k]);
-                Dr1[i*3+j] = s;
+                for (int k = 0; k < 3; ++k)
+                    s += tmp1[i * 3 + k] * conj(U1[j * 3 + k]);
+                Dr1[i * 3 + j] = s;
             }
         }
 
@@ -182,8 +185,8 @@ int main(void) {
         for (int i = 0; i < 3; ++i) {
             double _Complex s_a = 0, s_b = 0;
             for (int j = 0; j < 3; ++j) {
-                s_a += Dr1[i*3+j] * a[j];
-                s_b += Dr1[i*3+j] * b[j];
+                s_a += Dr1[i * 3 + j] * a[j];
+                s_b += Dr1[i * 3 + j] * b[j];
             }
             a_rot[i] = creal(s_a);
             b_rot[i] = creal(s_b);
@@ -203,7 +206,8 @@ int main(void) {
         /* l=1 block (indices 1..3): apply Dr1 */
         for (int i = 0; i < 3; ++i) {
             double _Complex s = 0;
-            for (int j = 0; j < 3; ++j) s += Dr1[i*3+j] * c_direct[1 + j];
+            for (int j = 0; j < 3; ++j)
+                s += Dr1[i * 3 + j] * c_direct[1 + j];
             c_out_rotated[1 + i] = creal(s);
         }
 
@@ -214,22 +218,26 @@ int main(void) {
         for (int i = 0; i < 5; ++i)
             for (int j = 0; j < 5; ++j) {
                 double _Complex s = 0;
-                for (int k = 0; k < 5; ++k) s += U2[i*5+k] * D2[k*5+j];
-                tmp2[i*5+j] = s;
+                for (int k = 0; k < 5; ++k)
+                    s += U2[i * 5 + k] * D2[k * 5 + j];
+                tmp2[i * 5 + j] = s;
             }
         for (int i = 0; i < 5; ++i)
             for (int j = 0; j < 5; ++j) {
                 double _Complex s = 0;
-                for (int k = 0; k < 5; ++k) s += tmp2[i*5+k] * conj(U2[j*5+k]);
-                Dr2[i*5+j] = s;
+                for (int k = 0; k < 5; ++k)
+                    s += tmp2[i * 5 + k] * conj(U2[j * 5 + k]);
+                Dr2[i * 5 + j] = s;
             }
         for (int i = 0; i < 5; ++i) {
             double _Complex s = 0;
-            for (int j = 0; j < 5; ++j) s += Dr2[i*5+j] * c_direct[4 + j];
+            for (int j = 0; j < 5; ++j)
+                s += Dr2[i * 5 + j] * c_direct[4 + j];
             c_out_rotated[4 + i] = creal(s);
         }
 
-        (void)Dc_ms; (void)U0;
+        (void)Dc_ms;
+        (void)U0;
         for (int i = 0; i < 9; ++i) {
             IRREP_ASSERT(fabs(c_rotated_in[i] - c_out_rotated[i]) < 1e-10);
         }
@@ -246,16 +254,16 @@ int main(void) {
         irrep_multiset_t *A = irrep_multiset_parse("2x1o");
         irrep_multiset_t *B = irrep_multiset_parse("2x1o");
         irrep_multiset_t *C = irrep_multiset_parse("2x0e");
-        int path[3] = { 0, 0, 0 };
-        tp_descriptor_t *d = irrep_tp_build(A, B, C, path, 1);
+        int               path[3] = {0, 0, 0};
+        tp_descriptor_t  *d = irrep_tp_build(A, B, C, path, 1);
         IRREP_ASSERT(d != NULL);
 
-        double a[6] = { 1, 2, 3,   4, 5, 6 };   /* two copies */
-        double b[6] = { 7, 8, 9,  10,11,12 };
-        double c[2] = { 0.0, 0.0 };
+        double a[6] = {1, 2, 3, 4, 5, 6}; /* two copies */
+        double b[6] = {7, 8, 9, 10, 11, 12};
+        double c[2] = {0.0, 0.0};
         irrep_tp_apply(d, a, b, c);
-        double c0_expected = (a[0]*b[0] + a[1]*b[1] + a[2]*b[2]) / sqrt(3.0);
-        double c1_expected = (a[3]*b[3] + a[4]*b[4] + a[5]*b[5]) / sqrt(3.0);
+        double c0_expected = (a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) / sqrt(3.0);
+        double c1_expected = (a[3] * b[3] + a[4] * b[4] + a[5] * b[5]) / sqrt(3.0);
         IRREP_ASSERT_NEAR(c[0], c0_expected, tol);
         IRREP_ASSERT_NEAR(c[1], c1_expected, tol);
 
@@ -270,52 +278,60 @@ int main(void) {
         irrep_multiset_t *A = irrep_multiset_parse("1x1o");
         irrep_multiset_t *B = irrep_multiset_parse("1x1o");
         irrep_multiset_t *C = irrep_multiset_parse("1x0e + 1x2e");
-        int n_paths = irrep_tp_enumerate_paths(A, B, C, NULL, 0);
-        int paths[9 * 3];
+        int               n_paths = irrep_tp_enumerate_paths(A, B, C, NULL, 0);
+        int               paths[9 * 3];
         irrep_tp_enumerate_paths(A, B, C, paths, 9);
         tp_descriptor_t *d = irrep_tp_build(A, B, C, paths, n_paths);
 
-        double a[3] = { 0.7, -0.3, 1.1 };
-        double b[3] = { -0.2, 0.9, 0.4 };
-        double weights[2] = { 1.3, -0.8 };
-        double grad_c[6] = { 1.0, 0.5, -0.2, 0.3, 0.7, -0.1 };
+        double           a[3] = {0.7, -0.3, 1.1};
+        double           b[3] = {-0.2, 0.9, 0.4};
+        double           weights[2] = {1.3, -0.8};
+        double           grad_c[6] = {1.0, 0.5, -0.2, 0.3, 0.7, -0.1};
 
-        double grad_a[3] = { 0 }, grad_b[3] = { 0 }, grad_w[2] = { 0 };
-        irrep_tp_apply_backward_weighted(d, weights, a, b, grad_c,
-                                          grad_a, grad_b, grad_w);
+        double           grad_a[3] = {0}, grad_b[3] = {0}, grad_w[2] = {0};
+        irrep_tp_apply_backward_weighted(d, weights, a, b, grad_c, grad_a, grad_b, grad_w);
 
         /* FD check on grad_a */
         double h = 1e-7;
         for (int i = 0; i < 3; ++i) {
             double save = a[i];
             double c_plus[6], c_minus[6];
-            a[i] = save + h; irrep_tp_apply_weighted(d, weights, a, b, c_plus);
-            a[i] = save - h; irrep_tp_apply_weighted(d, weights, a, b, c_minus);
+            a[i] = save + h;
+            irrep_tp_apply_weighted(d, weights, a, b, c_plus);
+            a[i] = save - h;
+            irrep_tp_apply_weighted(d, weights, a, b, c_minus);
             a[i] = save;
             double fd = 0;
-            for (int j = 0; j < 6; ++j) fd += grad_c[j] * (c_plus[j] - c_minus[j]) / (2 * h);
+            for (int j = 0; j < 6; ++j)
+                fd += grad_c[j] * (c_plus[j] - c_minus[j]) / (2 * h);
             IRREP_ASSERT(fabs(grad_a[i] - fd) < 1e-6);
         }
         /* FD check on grad_b */
         for (int i = 0; i < 3; ++i) {
             double save = b[i];
             double c_plus[6], c_minus[6];
-            b[i] = save + h; irrep_tp_apply_weighted(d, weights, a, b, c_plus);
-            b[i] = save - h; irrep_tp_apply_weighted(d, weights, a, b, c_minus);
+            b[i] = save + h;
+            irrep_tp_apply_weighted(d, weights, a, b, c_plus);
+            b[i] = save - h;
+            irrep_tp_apply_weighted(d, weights, a, b, c_minus);
             b[i] = save;
             double fd = 0;
-            for (int j = 0; j < 6; ++j) fd += grad_c[j] * (c_plus[j] - c_minus[j]) / (2 * h);
+            for (int j = 0; j < 6; ++j)
+                fd += grad_c[j] * (c_plus[j] - c_minus[j]) / (2 * h);
             IRREP_ASSERT(fabs(grad_b[i] - fd) < 1e-6);
         }
         /* FD check on grad_w */
         for (int k = 0; k < 2; ++k) {
             double save = weights[k];
             double c_plus[6], c_minus[6];
-            weights[k] = save + h; irrep_tp_apply_weighted(d, weights, a, b, c_plus);
-            weights[k] = save - h; irrep_tp_apply_weighted(d, weights, a, b, c_minus);
+            weights[k] = save + h;
+            irrep_tp_apply_weighted(d, weights, a, b, c_plus);
+            weights[k] = save - h;
+            irrep_tp_apply_weighted(d, weights, a, b, c_minus);
             weights[k] = save;
             double fd = 0;
-            for (int j = 0; j < 6; ++j) fd += grad_c[j] * (c_plus[j] - c_minus[j]) / (2 * h);
+            for (int j = 0; j < 6; ++j)
+                fd += grad_c[j] * (c_plus[j] - c_minus[j]) / (2 * h);
             IRREP_ASSERT(fabs(grad_w[k] - fd) < 1e-6);
         }
 
@@ -330,23 +346,25 @@ int main(void) {
         irrep_multiset_t *A = irrep_multiset_parse("1x1o");
         irrep_multiset_t *B = irrep_multiset_parse("1x1o");
         irrep_multiset_t *C = irrep_multiset_parse("1x1e");
-        int path[3] = { 0, 0, 0 };
-        tp_descriptor_t *d = irrep_tp_build(A, B, C, path, 1);
-        IRREP_ASSERT(d != NULL);     /* odd l-sum no longer rejected */
+        int               path[3] = {0, 0, 0};
+        tp_descriptor_t  *d = irrep_tp_build(A, B, C, path, 1);
+        IRREP_ASSERT(d != NULL); /* odd l-sum no longer rejected */
 
-        double a[3] = { 1.3, -0.7, 0.9 };
-        double b[3] = { -0.4, 0.6, 0.2 };
-        double c[3] = { 0, 0, 0 };
+        double a[3] = {1.3, -0.7, 0.9};
+        double b[3] = {-0.4, 0.6, 0.2};
+        double c[3] = {0, 0, 0};
         irrep_tp_apply(d, a, b, c);
 
         /* Antisymmetric in a↔b (cross-product property): */
-        double c_swap[3] = { 0, 0, 0 };
+        double c_swap[3] = {0, 0, 0};
         irrep_tp_apply(d, b, a, c_swap);
-        for (int i = 0; i < 3; ++i) IRREP_ASSERT(fabs(c[i] + c_swap[i]) < 1e-12);
+        for (int i = 0; i < 3; ++i)
+            IRREP_ASSERT(fabs(c[i] + c_swap[i]) < 1e-12);
         /* And a × a = 0: */
-        double c_self[3] = { 0, 0, 0 };
+        double c_self[3] = {0, 0, 0};
         irrep_tp_apply(d, a, a, c_self);
-        for (int i = 0; i < 3; ++i) IRREP_ASSERT(fabs(c_self[i]) < 1e-12);
+        for (int i = 0; i < 3; ++i)
+            IRREP_ASSERT(fabs(c_self[i]) < 1e-12);
         /* Sanity: the output is not all zeros for non-parallel vectors. */
         IRREP_ASSERT(fabs(c[0]) + fabs(c[1]) + fabs(c[2]) > 1e-6);
 
@@ -361,12 +379,12 @@ int main(void) {
         irrep_multiset_t *A = irrep_multiset_parse("1x1o");
         irrep_multiset_t *B = irrep_multiset_parse("1x1o");
         irrep_multiset_t *C = irrep_multiset_parse("1x0e");
-        int path[3] = { 0, 0, 0 };
-        tp_descriptor_t *d = irrep_tp_build(A, B, C, path, 1);
+        int               path[3] = {0, 0, 0};
+        tp_descriptor_t  *d = irrep_tp_build(A, B, C, path, 1);
 
-        size_t batch = 4;
-        double a_batch[12] = { 1,2,3,  4,5,6,  7,8,9,  10,11,12 };
-        double b_batch[12] = { 0.1,0.2,0.3,  0.4,0.5,0.6,  0.7,0.8,0.9,  1.0,1.1,1.2 };
+        size_t            batch = 4;
+        double            a_batch[12] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};
+        double b_batch[12] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2};
         double c_batch[4];
         irrep_tp_apply_batch(d, batch, a_batch, b_batch, c_batch);
         for (size_t bi = 0; bi < batch; ++bi) {
@@ -383,11 +401,11 @@ int main(void) {
 
     /* -------- UVW mode: build counts weights correctly, mode flag set --------- */
     {
-        irrep_multiset_t *A = irrep_multiset_parse("2x1o");   /* U = 2 */
-        irrep_multiset_t *B = irrep_multiset_parse("3x1o");   /* V = 3 */
-        irrep_multiset_t *C = irrep_multiset_parse("4x0e");   /* W = 4 */
-        int path[3] = { 0, 0, 0 };
-        tp_descriptor_t *d = irrep_tp_build_uvw(A, B, C, path, 1);
+        irrep_multiset_t *A = irrep_multiset_parse("2x1o"); /* U = 2 */
+        irrep_multiset_t *B = irrep_multiset_parse("3x1o"); /* V = 3 */
+        irrep_multiset_t *C = irrep_multiset_parse("4x0e"); /* W = 4 */
+        int               path[3] = {0, 0, 0};
+        tp_descriptor_t  *d = irrep_tp_build_uvw(A, B, C, path, 1);
         IRREP_ASSERT(d != NULL);
         IRREP_ASSERT(irrep_tp_mode(d) == IRREP_TP_MODE_UVW);
         IRREP_ASSERT(irrep_tp_num_weights_uvw(d) == 2 * 3 * 4);
@@ -402,17 +420,17 @@ int main(void) {
         irrep_multiset_t *A = irrep_multiset_parse("2x1o");
         irrep_multiset_t *B = irrep_multiset_parse("2x1o");
         irrep_multiset_t *C = irrep_multiset_parse("2x0e");
-        int path[3] = { 0, 0, 0 };
+        int               path[3] = {0, 0, 0};
 
-        tp_descriptor_t *uuu = irrep_tp_build(A, B, C, path, 1);
-        tp_descriptor_t *uvw = irrep_tp_build_uvw(A, B, C, path, 1);
+        tp_descriptor_t  *uuu = irrep_tp_build(A, B, C, path, 1);
+        tp_descriptor_t  *uvw = irrep_tp_build_uvw(A, B, C, path, 1);
         IRREP_ASSERT(uuu != NULL && uvw != NULL);
 
-        double a[6] = { 1, 2, 3,   4, 5, 6 };
-        double b[6] = { 7, 8, 9,  10,11,12 };
-        double c_uuu[2] = { 0, 0 }, c_uvw[2] = { 0, 0 };
-        double uuu_w[1] = { 1.0 };
-        double uvw_w[8] = { 0 };
+        double a[6] = {1, 2, 3, 4, 5, 6};
+        double b[6] = {7, 8, 9, 10, 11, 12};
+        double c_uuu[2] = {0, 0}, c_uvw[2] = {0, 0};
+        double uuu_w[1] = {1.0};
+        double uvw_w[8] = {0};
         /* δ_{w,v,u}: weight 1 for w=v=u, else 0. */
         for (int w = 0; w < 2; ++w)
             for (int v = 0; v < 2; ++v)
@@ -420,8 +438,9 @@ int main(void) {
                     uvw_w[(w * 2 + v) * 2 + u] = (w == v && w == u) ? 1.0 : 0.0;
 
         irrep_tp_apply_weighted(uuu, uuu_w, a, b, c_uuu);
-        irrep_tp_apply_uvw     (uvw, uvw_w, a, b, c_uvw);
-        for (int i = 0; i < 2; ++i) IRREP_ASSERT(fabs(c_uuu[i] - c_uvw[i]) < 1e-12);
+        irrep_tp_apply_uvw(uvw, uvw_w, a, b, c_uvw);
+        for (int i = 0; i < 2; ++i)
+            IRREP_ASSERT(fabs(c_uuu[i] - c_uvw[i]) < 1e-12);
 
         irrep_tp_free(uuu);
         irrep_tp_free(uvw);
@@ -435,80 +454,96 @@ int main(void) {
         irrep_multiset_t *A = irrep_multiset_parse("2x1o");
         irrep_multiset_t *B = irrep_multiset_parse("3x1o");
         irrep_multiset_t *C = irrep_multiset_parse("1x0e + 1x2e");
-        int n_paths = irrep_tp_enumerate_paths(A, B, C, NULL, 0);
-        int *paths = malloc((size_t)n_paths * 3 * sizeof(int));
+        int               n_paths = irrep_tp_enumerate_paths(A, B, C, NULL, 0);
+        int              *paths = malloc((size_t)n_paths * 3 * sizeof(int));
         irrep_tp_enumerate_paths(A, B, C, paths, n_paths);
         tp_descriptor_t *d = irrep_tp_build_uvw(A, B, C, paths, n_paths);
         IRREP_ASSERT(d != NULL);
 
-        int nw = irrep_tp_num_weights_uvw(d);
-        double *w  = malloc((size_t)nw * sizeof(double));
+        int     nw = irrep_tp_num_weights_uvw(d);
+        double *w = malloc((size_t)nw * sizeof(double));
         double *gw = calloc((size_t)nw, sizeof(double));
-        for (int i = 0; i < nw; ++i) w[i] = 0.1 * (i + 1) - 0.5;
+        for (int i = 0; i < nw; ++i)
+            w[i] = 0.1 * (i + 1) - 0.5;
 
-        double a[6] = { 0.1, -0.3, 0.5,   0.7, 0.2, -0.4 };
-        double b[9] = { 1.1, -0.7, 0.3,   0.4, -0.5, 0.8,   -0.9, 0.6, 0.2 };
+        double a[6] = {0.1, -0.3, 0.5, 0.7, 0.2, -0.4};
+        double b[9] = {1.1, -0.7, 0.3, 0.4, -0.5, 0.8, -0.9, 0.6, 0.2};
         /* c_dim = 1 + 5 = 6 */
-        double grad_c[6] = { 0.5, 0.3, -0.2, 0.7, -0.1, 0.4 };
-        double ga[6] = { 0 }, gb[9] = { 0 };
+        double grad_c[6] = {0.5, 0.3, -0.2, 0.7, -0.1, 0.4};
+        double ga[6] = {0}, gb[9] = {0};
 
         irrep_tp_apply_uvw_backward(d, w, a, b, grad_c, ga, gb, gw);
 
         double h = 1e-7;
         for (int i = 0; i < 6; ++i) {
             double save = a[i];
-            double cp[6] = { 0 }, cm[6] = { 0 };
-            a[i] = save + h; irrep_tp_apply_uvw(d, w, a, b, cp);
-            a[i] = save - h; irrep_tp_apply_uvw(d, w, a, b, cm);
+            double cp[6] = {0}, cm[6] = {0};
+            a[i] = save + h;
+            irrep_tp_apply_uvw(d, w, a, b, cp);
+            a[i] = save - h;
+            irrep_tp_apply_uvw(d, w, a, b, cm);
             a[i] = save;
-            double fd = 0; for (int j = 0; j < 6; ++j) fd += grad_c[j] * (cp[j] - cm[j]) / (2 * h);
+            double fd = 0;
+            for (int j = 0; j < 6; ++j)
+                fd += grad_c[j] * (cp[j] - cm[j]) / (2 * h);
             IRREP_ASSERT(fabs(ga[i] - fd) < 1e-6);
         }
         for (int i = 0; i < nw; ++i) {
             double save = w[i];
-            double cp[6] = { 0 }, cm[6] = { 0 };
-            w[i] = save + h; irrep_tp_apply_uvw(d, w, a, b, cp);
-            w[i] = save - h; irrep_tp_apply_uvw(d, w, a, b, cm);
+            double cp[6] = {0}, cm[6] = {0};
+            w[i] = save + h;
+            irrep_tp_apply_uvw(d, w, a, b, cp);
+            w[i] = save - h;
+            irrep_tp_apply_uvw(d, w, a, b, cm);
             w[i] = save;
-            double fd = 0; for (int j = 0; j < 6; ++j) fd += grad_c[j] * (cp[j] - cm[j]) / (2 * h);
+            double fd = 0;
+            for (int j = 0; j < 6; ++j)
+                fd += grad_c[j] * (cp[j] - cm[j]) / (2 * h);
             IRREP_ASSERT(fabs(gw[i] - fd) < 1e-6);
         }
 
-        free(paths); free(w); free(gw);
+        free(paths);
+        free(w);
+        free(gw);
         irrep_tp_free(d);
         irrep_multiset_free(A);
         irrep_multiset_free(B);
         irrep_multiset_free(C);
     }
 
-    /* -------- Per-path L2 regulariser: forward matches brute force; backward matches FD. -------- */
+    /* -------- Per-path L2 regulariser: forward matches brute force; backward matches FD. --------
+     */
     {
         irrep_multiset_t *A = irrep_multiset_parse("2x0e + 1x1o");
         irrep_multiset_t *B = irrep_multiset_parse("2x0e + 1x1o");
         irrep_multiset_t *C = irrep_multiset_parse("2x0e + 1x1o");
-        int np = irrep_tp_enumerate_paths(A, B, C, NULL, 0);
-        int *paths = malloc(np * 3 * sizeof(int));
+        int               np = irrep_tp_enumerate_paths(A, B, C, NULL, 0);
+        int              *paths = malloc(np * 3 * sizeof(int));
         irrep_tp_enumerate_paths(A, B, C, paths, np);
         tp_descriptor_t *d = irrep_tp_build_uvw(A, B, C, paths, np);
         IRREP_ASSERT(d != NULL);
-        int nw = irrep_tp_num_weights_uvw(d);
+        int     nw = irrep_tp_num_weights_uvw(d);
 
         double *w = calloc(nw, sizeof(double));
-        for (int i = 0; i < nw; ++i) w[i] = 0.37 * i - 0.13;
+        for (int i = 0; i < nw; ++i)
+            w[i] = 0.37 * i - 0.13;
 
         double *per_path = calloc(np, sizeof(double));
         irrep_tp_weight_l2_per_path_uvw(d, w, per_path);
 
         /* Forward: sum across all paths equals the full-weight L2. */
         double total = 0.0;
-        for (int k = 0; k < np; ++k) total += per_path[k];
+        for (int k = 0; k < np; ++k)
+            total += per_path[k];
         double full_l2 = 0.0;
-        for (int i = 0; i < nw; ++i) full_l2 += w[i] * w[i];
+        for (int i = 0; i < nw; ++i)
+            full_l2 += w[i] * w[i];
         IRREP_ASSERT(fabs(total - full_l2) < 1e-12);
 
         /* Backward: per-path grad of 1.0 on every path — grad_w[i] should be 2 w[i]. */
         double *grad_per_path = calloc(np, sizeof(double));
-        for (int k = 0; k < np; ++k) grad_per_path[k] = 1.0;
+        for (int k = 0; k < np; ++k)
+            grad_per_path[k] = 1.0;
         double *grad_w = calloc(nw, sizeof(double));
         irrep_tp_weight_l2_per_path_uvw_backward(d, w, grad_per_path, grad_w);
         for (int i = 0; i < nw; ++i) {
@@ -516,7 +551,8 @@ int main(void) {
         }
 
         /* FD check with heterogeneous path weights. */
-        for (int k = 0; k < np; ++k) grad_per_path[k] = 0.17 * k - 0.3;
+        for (int k = 0; k < np; ++k)
+            grad_per_path[k] = 0.17 * k - 0.3;
         memset(grad_w, 0, nw * sizeof(double));
         irrep_tp_weight_l2_per_path_uvw_backward(d, w, grad_per_path, grad_w);
 
@@ -528,17 +564,25 @@ int main(void) {
             w[i] = save + h;
             double *pp = calloc(np, sizeof(double));
             irrep_tp_weight_l2_per_path_uvw(d, w, pp);
-            double lp = 0.0; for (int k = 0; k < np; ++k) lp += grad_per_path[k] * pp[k];
+            double lp = 0.0;
+            for (int k = 0; k < np; ++k)
+                lp += grad_per_path[k] * pp[k];
             w[i] = save - h;
             irrep_tp_weight_l2_per_path_uvw(d, w, pp);
-            double lm = 0.0; for (int k = 0; k < np; ++k) lm += grad_per_path[k] * pp[k];
+            double lm = 0.0;
+            for (int k = 0; k < np; ++k)
+                lm += grad_per_path[k] * pp[k];
             w[i] = save;
             double fd = (lp - lm) / (2 * h);
             IRREP_ASSERT(fabs(grad_w[i] - fd) < 1e-6);
             free(pp);
         }
 
-        free(paths); free(w); free(per_path); free(grad_per_path); free(grad_w);
+        free(paths);
+        free(w);
+        free(per_path);
+        free(grad_per_path);
+        free(grad_w);
         irrep_tp_free(d);
         irrep_multiset_free(A);
         irrep_multiset_free(B);

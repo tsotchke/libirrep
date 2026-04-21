@@ -20,27 +20,27 @@ extern "C" {
 /** @brief Host CPU feature mask reflecting what the library's dispatch table
  *         will use. All fields are one-way: they don't reset within a process. */
 typedef struct {
-    bool neon;       /**< aarch64 NEON (always true on arm64). */
-    bool sse42;      /**< x86 SSE4.2. */
-    bool avx2;       /**< x86 AVX2. */
-    bool avx512f;    /**< x86 AVX-512 foundation (reserved, no kernels yet). */
-    bool avx512dq;   /**< x86 AVX-512 doubleword/quadword (reserved). */
-    bool fma;        /**< x86 FMA3. */
+    bool neon;     /**< aarch64 NEON (always true on arm64). */
+    bool sse42;    /**< x86 SSE4.2. */
+    bool avx2;     /**< x86 AVX2. */
+    bool avx512f;  /**< x86 AVX-512 foundation (reserved, no kernels yet). */
+    bool avx512dq; /**< x86 AVX-512 doubleword/quadword (reserved). */
+    bool fma;      /**< x86 FMA3. */
 } irrep_cpu_features_t;
 
 /** @brief Pointer to the lazy-initialised feature struct. */
 IRREP_API const irrep_cpu_features_t *irrep_cpu_features(void);
 
 /** @brief Convenience: NEON present. */
-IRREP_API bool irrep_cpu_has_neon   (void);
+IRREP_API bool irrep_cpu_has_neon(void);
 /** @brief Convenience: SSE4.2 present. */
-IRREP_API bool irrep_cpu_has_sse42  (void);
+IRREP_API bool irrep_cpu_has_sse42(void);
 /** @brief Convenience: AVX2 present. */
-IRREP_API bool irrep_cpu_has_avx2   (void);
+IRREP_API bool irrep_cpu_has_avx2(void);
 /** @brief Convenience: AVX-512F present. */
 IRREP_API bool irrep_cpu_has_avx512f(void);
 /** @brief Convenience: FMA present. */
-IRREP_API bool irrep_cpu_has_fma    (void);
+IRREP_API bool irrep_cpu_has_fma(void);
 
 #ifdef __cplusplus
 }

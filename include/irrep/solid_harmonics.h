@@ -26,7 +26,7 @@ extern "C" {
 #define IRREP_SOLID_L_MAX 16
 
 /** @brief Write `2l + 1` solid harmonic values for a single @p l. */
-IRREP_API void irrep_solid_harm_cart     (int l, double *out, const double r[3]);
+IRREP_API void irrep_solid_harm_cart(int l, double *out, const double r[3]);
 
 /** @brief Write `3 · (2l + 1)` gradient components,
  *         `out[axis · (2l+1) + (m+l)] = ∂R_lm/∂r_axis`. */
@@ -36,7 +36,7 @@ IRREP_API void irrep_solid_harm_cart_grad(int l, double *out, const double r[3])
  *         `l = l_max` into @p out, packed as
  *         `[l=0 (1); l=1 (3); l=2 (5); ...]`, with total
  *         `(l_max + 1) * (l_max + 1)` values. */
-IRREP_API void irrep_solid_harm_cart_all (int l_max, double *out, const double r[3]);
+IRREP_API void irrep_solid_harm_cart_all(int l_max, double *out, const double r[3]);
 
 #ifdef __cplusplus
 }

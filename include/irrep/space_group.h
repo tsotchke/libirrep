@@ -51,11 +51,26 @@
 extern "C" {
 #endif
 
-/** @brief Enumerated wallpaper groups. */
+/** @brief Enumerated wallpaper groups.
+ *
+ *  Lattice compatibility and the `Lx = Ly` constraint per group:
+ *
+ *  | Group    | Point order | Lattices                            | `Lx == Ly`? |
+ *  |----------|------------:|-------------------------------------|:-----------:|
+ *  | p1       | 1           | any                                 | no          |
+ *  | p2       | 2           | any                                 | no          |
+ *  | p4mm     | 8           | square                              | yes         |
+ *  | p6mm     | 12          | triangular / honeycomb / kagome     | yes         |
+ *  | p6       | 6           | triangular / honeycomb / kagome     | yes         |
+ *  | p3m1     | 6           | triangular / honeycomb / kagome     | yes         |
+ */
 typedef enum {
     IRREP_WALLPAPER_P1 = 0,   /**< Translations only. */
     IRREP_WALLPAPER_P4MM = 1, /**< Square: C4 + 4 mirrors, 8 point ops. */
-    IRREP_WALLPAPER_P6MM = 2  /**< Triangular / honeycomb / kagome: C6 + 6 mirrors, 12 point ops. */
+    IRREP_WALLPAPER_P6MM = 2, /**< Triangular / honeycomb / kagome: C6 + 6 mirrors, 12 point ops. */
+    IRREP_WALLPAPER_P2 = 3,   /**< 180° rotation on any lattice; no `Lx = Ly` constraint. */
+    IRREP_WALLPAPER_P6 = 4,   /**< Chiral hex: 6 rotations, no mirrors. */
+    IRREP_WALLPAPER_P3M1 = 5  /**< Hex 3-fold + 3 mirrors through vertices. */
 } irrep_wallpaper_t;
 
 /** @brief Opaque space-group handle. Built by @ref irrep_space_group_build

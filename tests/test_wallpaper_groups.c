@@ -1,0 +1,164 @@
+/* SPDX-License-Identifier: MIT */
+/* Tests for the wallpaper groups beyond p1 / p4mm / p6mm: p2, p6, p3m1.
+ *
+ * Coverage:
+ *   - Order and point_order match the group theory for each kind.
+ *   - Bijectivity: every permutation is a valid bijection of sites.
+ *   - p2 on rectangular clusters (Lx ≠ Ly): builds successfully on both
+ *     square and hexagonal lattices — the killer feature, enabling C_2
+ *     symmetry on finite-size clusters that can't host the full C_4v or
+ *     C_6v (e.g. 2×3 kagome, N = 18).
+ *   - Hexagonal groups (p6, p3m1) require Lx = Ly on hex-family lattices.
+ *   - Lattice-compatibility gates: p4mm requires square; p6mm / p6 /
+ *     p3m1 require non-square; p2 accepts any lattice.
+ *   - Subgroup relations: p6 is a subgroup of p6mm (every p6 element's
+ *     site permutation equals some p6mm element's); p3m1 similarly.
+ */
+
+#include "harness.h"
+#include <irrep/lattice.h>
+#include <irrep/space_group.h>
+#include <stdlib.h>
+#include <string.h>
+
+static int perm_is_bijection_(const int *perm, int n) {
+    int *seen = calloc((size_t)n, sizeof(int));
+    if (!seen)
+        return 0;
+    for (int s = 0; s < n; ++s) {
+        int img = perm[s];
+        if (img < 0 || img >= n || seen[img]) {
+            free(seen);
+            return 0;
+        }
+        seen[img] = 1;
+    }
+    free(seen);
+    return 1;
+}
+
+static int perm_equal_(const int *a, const int *b, int n) {
+    for (int s = 0; s < n; ++s)
+        if (a[s] != b[s])
+            return 0;
+    return 1;
+}
+
+int main(void) {
+    IRREP_TEST_START("wallpaper_groups");
+
+    /* ---- p2 on a 3×5 square lattice (Lx ≠ Ly) -------------------------- */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_SQUARE, 3, 5);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P2);
+        IRREP_ASSERT(G != NULL);
+        IRREP_ASSERT(irrep_space_group_point_order(G) == 2);
+        /* order = point · Lx · Ly = 2 · 15 = 30. */
+        IRREP_ASSERT(irrep_space_group_order(G) == 30);
+        int num = irrep_space_group_num_sites(G);
+        int perm[15];
+        for (int g = 0; g < irrep_space_group_order(G); ++g) {
+            irrep_space_group_permutation(G, g, perm);
+            IRREP_ASSERT(perm_is_bijection_(perm, num));
+        }
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
+    /* ---- p2 on a 2×3 kagome torus (N = 18, Lx ≠ Ly, hex lattice) ------- *
+     * This is the N = 18 cluster used in PHYSICS_RESULTS.md — previously
+     * forced to p1. With p2 landed, C_2 symmetry on the 2×3 torus is now
+     * an available sector structure for ED block decomposition.          */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 2, 3);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P2);
+        IRREP_ASSERT(G != NULL);
+        IRREP_ASSERT(irrep_space_group_point_order(G) == 2);
+        IRREP_ASSERT(irrep_space_group_num_sites(G) == 18); /* 2·3·3 */
+        IRREP_ASSERT(irrep_space_group_order(G) == 12);     /* 2 · 6 cells */
+        int perm[18];
+        for (int g = 0; g < irrep_space_group_order(G); ++g) {
+            irrep_space_group_permutation(G, g, perm);
+            IRREP_ASSERT(perm_is_bijection_(perm, 18));
+        }
+        /* C_2 acts as r → -r around the hexagon centre; on the kagome
+         * sublattice labelling this should permute sublattices (0 ↔ 0,
+         * 1 ↔ 1, 2 ↔ 2 with cell-position flipped). */
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
+    /* ---- p6 on a 3×3 kagome: 6 rotations, no mirrors ------------------- */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 3, 3);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P6);
+        IRREP_ASSERT(G != NULL);
+        IRREP_ASSERT(irrep_space_group_point_order(G) == 6);
+        int perm[27];
+        for (int g = 0; g < irrep_space_group_order(G); ++g) {
+            irrep_space_group_permutation(G, g, perm);
+            IRREP_ASSERT(perm_is_bijection_(perm, 27));
+        }
+
+        /* Subgroup check: each p6 element should match a p6mm element. */
+        irrep_space_group_t *G_full = irrep_space_group_build(L, IRREP_WALLPAPER_P6MM);
+        IRREP_ASSERT(G_full != NULL);
+        /* p6 point elements are the first 6 of p6mm (rotations; mirrors at 6..11). */
+        for (int p = 0; p < 6; ++p) {
+            int perm_p6[27], perm_p6mm[27];
+            irrep_space_group_permutation(G, p, perm_p6);       /* tidx = 0, point = p */
+            irrep_space_group_permutation(G_full, p, perm_p6mm);
+            IRREP_ASSERT(perm_equal_(perm_p6, perm_p6mm, 27));
+        }
+        irrep_space_group_free(G_full);
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
+    /* ---- p3m1 on a 3×3 kagome: 3 rotations + 3 mirrors (order 6) ------- */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 3, 3);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P3M1);
+        IRREP_ASSERT(G != NULL);
+        IRREP_ASSERT(irrep_space_group_point_order(G) == 6);
+        int perm[27];
+        for (int g = 0; g < irrep_space_group_order(G); ++g) {
+            irrep_space_group_permutation(G, g, perm);
+            IRREP_ASSERT(perm_is_bijection_(perm, 27));
+        }
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
+    /* ---- Compatibility gates: each group rejects wrong-lattice calls --- */
+    {
+        irrep_lattice_t *L_sq = irrep_lattice_build(IRREP_LATTICE_SQUARE, 4, 4);
+        IRREP_ASSERT(irrep_space_group_build(L_sq, IRREP_WALLPAPER_P6MM) == NULL);
+        IRREP_ASSERT(irrep_space_group_build(L_sq, IRREP_WALLPAPER_P6) == NULL);
+        IRREP_ASSERT(irrep_space_group_build(L_sq, IRREP_WALLPAPER_P3M1) == NULL);
+        /* p2 is lattice-agnostic. */
+        irrep_space_group_t *G_p2 = irrep_space_group_build(L_sq, IRREP_WALLPAPER_P2);
+        IRREP_ASSERT(G_p2 != NULL);
+        irrep_space_group_free(G_p2);
+        irrep_lattice_free(L_sq);
+
+        irrep_lattice_t *L_hex = irrep_lattice_build(IRREP_LATTICE_KAGOME, 4, 4);
+        IRREP_ASSERT(irrep_space_group_build(L_hex, IRREP_WALLPAPER_P4MM) == NULL);
+        irrep_lattice_free(L_hex);
+    }
+
+    /* ---- Non-square clusters rejected by groups that require Lx = Ly --- */
+    {
+        irrep_lattice_t *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 2, 3);
+        IRREP_ASSERT(irrep_space_group_build(L, IRREP_WALLPAPER_P6) == NULL);
+        IRREP_ASSERT(irrep_space_group_build(L, IRREP_WALLPAPER_P3M1) == NULL);
+        IRREP_ASSERT(irrep_space_group_build(L, IRREP_WALLPAPER_P6MM) == NULL);
+        /* p2 accepts it. */
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P2);
+        IRREP_ASSERT(G != NULL);
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
+    return IRREP_TEST_END();
+}

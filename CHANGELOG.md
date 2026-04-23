@@ -63,6 +63,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
      `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
      cluster — no regression vs. 1.3.0-alpha.
 
+- **Three new wallpaper groups: p2, p6, p3m1** (`irrep/space_group.h`).
+
+   - **p2** (order 2: `E`, `C_2`) — 180°-rotation symmetry on ANY
+     lattice with ANY `(Lx, Ly)`. Unblocks C_2 block-diagonal ED on
+     clusters that can't host the full C_4v or C_6v, notably the
+     2×3 kagome (N = 18) previously forced to `p1`.
+   - **p6** (order 6: six proper rotations) — chiral hex subgroup of
+     p6mm; useful for chiral spin-liquid ansätze on kagome.
+   - **p3m1** (order 6: three C_3 rotations + three mirrors through
+     vertices) — reduced-symmetry hex variant.
+
+   Tests (+177 assertions, new suite `test_wallpaper_groups`):
+   bijectivity of every permutation at every element × translation
+   (p2 on 3×5 square, 2×3 kagome; p6 / p3m1 on 3×3 kagome);
+   lattice-compatibility gates (p6mm / p6 / p3m1 reject square,
+   p4mm rejects hex, p2 accepts both); non-square-cluster rejection
+   for the `Lx = Ly` groups; subgroup bit-exactness (every p6 point
+   op agrees with the corresponding p6mm op on its site permutation).
+
+   Remaining wallpaper groups from TODO M1.3 (p31m, p4, p4gm) are
+   deferred — p31m differs from p3m1 only in mirror-axis orientation,
+   p4 is the chiral subgroup of p4mm, p4gm is non-symmorphic (glide
+   mirrors, needs the permutation builder extended).
+
 - **Lebedev quadrature orders 9 through 41** via runtime registration.
  Closes the `M8` TODO without bundling numerical data in the source
  tree. Two new API entry points:

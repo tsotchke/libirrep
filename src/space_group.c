@@ -153,6 +153,40 @@ static int fill_p6mm_(double mats[][4]) {
     return 12;
 }
 
+/* Fill p2 (order 2): identity + 180° rotation. Works on every lattice;
+ * a 180°-rotation (which is −I in 2D) is always a symmetry of any
+ * Bravais lattice around any lattice site. No `Lx = Ly` constraint. */
+static int fill_p2_(double mats[][4]) {
+    rot_mat_(0.0, mats[0]);
+    rot_mat_(M_PI, mats[1]);
+    return 2;
+}
+
+/* Fill p6 (order 6): six proper rotations on a hexagonal lattice. Chiral —
+ * no reflections. Subgroup of p6mm. */
+static int fill_p6_(double mats[][4]) {
+    for (int k = 0; k < 6; ++k)
+        rot_mat_((double)k * M_PI / 3.0, mats[k]);
+    return 6;
+}
+
+/* Fill p3m1 (order 6): three C_3 rotations + three σ_v mirrors through
+ * the rotation centre. Convention: σ_v mirrors the y-axis (maps y → −y)
+ * and its C_3-conjugates. Complementary convention p31m (mirrors rotated
+ * by 30°) is not in this commit — use p3m1 for the mirror-through-vertex
+ * placement that matches the standard triangular / kagome Wigner-Seitz
+ * orientation. */
+static int fill_p3m1_(double mats[][4]) {
+    /* Rotations E, C_3, C_3² at slots 0, 1, 2. */
+    for (int k = 0; k < 3; ++k)
+        rot_mat_(2.0 * (double)k * M_PI / 3.0, mats[k]);
+    /* Mirrors σ_v · rotation at slots 3, 4, 5. */
+    double sigma_v[4] = {1.0, 0.0, 0.0, -1.0};
+    for (int k = 0; k < 3; ++k)
+        mat_mul_(sigma_v, mats[k], mats[3 + k]);
+    return 6;
+}
+
 /* -------------------------------------------------------------------------- *
  * Site-finding by exact lattice-coordinate inversion.                        *
  *                                                                            *
@@ -271,6 +305,10 @@ irrep_space_group_t *irrep_space_group_build(const irrep_lattice_t *L, irrep_wal
     /* Validate (lattice, wallpaper) compatibility and fill point matrices. */
     double mats[12][4];
     int    point_order = 0;
+    /* Whether this wallpaper group requires Lx == Ly (for C_4 / C_3 / C_6
+     * lattice symmetry preservation on the torus). p1 and p2 (trivial or
+     * 180° rotation) work on every cluster. */
+    int    needs_square_cluster = 1;
     switch (kind) {
     case IRREP_WALLPAPER_P1:
         point_order = 1;
@@ -278,6 +316,13 @@ irrep_space_group_t *irrep_space_group_build(const irrep_lattice_t *L, irrep_wal
         mats[0][1] = 0;
         mats[0][2] = 0;
         mats[0][3] = 1;
+        needs_square_cluster = 0;
+        break;
+    case IRREP_WALLPAPER_P2:
+        point_order = fill_p2_(mats);
+        /* 180° rotation is a symmetry of any Bravais lattice torus;
+         * Lx and Ly are free. */
+        needs_square_cluster = 0;
         break;
     case IRREP_WALLPAPER_P4MM:
         if (irrep_lattice_kind(L) != IRREP_LATTICE_SQUARE) {
@@ -293,16 +338,29 @@ irrep_space_group_t *irrep_space_group_build(const irrep_lattice_t *L, irrep_wal
         }
         point_order = fill_p6mm_(mats);
         break;
+    case IRREP_WALLPAPER_P6:
+        if (irrep_lattice_kind(L) == IRREP_LATTICE_SQUARE) {
+            irrep_set_error_("irrep_space_group_build: p6 not compatible with square lattice");
+            return NULL;
+        }
+        point_order = fill_p6_(mats);
+        break;
+    case IRREP_WALLPAPER_P3M1:
+        if (irrep_lattice_kind(L) == IRREP_LATTICE_SQUARE) {
+            irrep_set_error_("irrep_space_group_build: p3m1 not compatible with square lattice");
+            return NULL;
+        }
+        point_order = fill_p3m1_(mats);
+        break;
     default:
         irrep_set_error_("irrep_space_group_build: unknown wallpaper kind %d", (int)kind);
         return NULL;
     }
 
     int Lx = irrep_lattice_Lx(L), Ly = irrep_lattice_Ly(L);
-    if (point_order > 1 && Lx != Ly) {
-        irrep_set_error_(
-            "irrep_space_group_build: non-trivial point groups require Lx == Ly (got %d × %d)", Lx,
-            Ly);
+    if (needs_square_cluster && Lx != Ly) {
+        irrep_set_error_("irrep_space_group_build: wallpaper kind %d requires Lx == Ly (got %d × %d)",
+                         (int)kind, Lx, Ly);
         return NULL;
     }
 

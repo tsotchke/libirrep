@@ -114,7 +114,10 @@ onwards plus the 1.3 section at the bottom.
  Dispatch via `irrep_cpu_has_avx2` + `_has_fma`. Bit-exactness to scalar
  verified on the test suite (CI macos-x86_64 + linux-x86_64 runners
  exercise the live kernel).
-- [ ] AVX2 variant of `irrep_tp_apply_weighted_batch` (NEON also pending)
+- [x] AVX2 + NEON variants of the dim-first tensor-product batch
+ (`irrep_tp_apply_weighted_batch_flat`). 4 batch lanes per
+ `__m256d` on x86_64, 2 per `float64x2_t` on arm64. Bit-exact to
+ the per-sample scalar reference.
 - [x] Runtime dispatch verified on both macOS x86_64 and Linux x86_64 for
  `sph_harm_cart_all`, `cutoff_polynomial`, `rbf_bessel`; the new
  `wigner_d_batch` adds to that set.

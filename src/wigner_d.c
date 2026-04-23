@@ -193,6 +193,39 @@ void irrep_wigner_D_matrix(int j, double _Complex *out, double alpha, double bet
     }
 }
 
+#include <irrep/simd.h>
+
+/* SIMD kernel prototypes — present as weak / compile-time-guarded helpers
+ * implemented in wigner_d_neon.c / wigner_d_avx2.c. Only defined when the
+ * host target exposes the relevant instruction set; otherwise the scalar
+ * fallback runs. */
+extern void irrep_wigner_d_matrix_batch_scalar(int j, size_t n_betas, const double *betas,
+                                               double *out);
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+extern void irrep_wigner_d_matrix_batch_neon(int j, size_t n_betas, const double *betas,
+                                             double *out);
+#endif
+
+void irrep_wigner_d_matrix_batch(int j, size_t n_betas, const double *betas, double *out) {
+    if (j < 0 || !betas || !out || n_betas == 0)
+        return;
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+    if (irrep_cpu_has_neon() && n_betas >= 2) {
+        irrep_wigner_d_matrix_batch_neon(j, n_betas, betas, out);
+        return;
+    }
+#endif
+    irrep_wigner_d_matrix_batch_scalar(j, n_betas, betas, out);
+}
+
+void irrep_wigner_d_matrix_batch_scalar(int j, size_t n_betas, const double *betas, double *out) {
+    int    d = 2 * j + 1;
+    size_t stride = (size_t)d * (size_t)d;
+    for (size_t b = 0; b < n_betas; ++b) {
+        irrep_wigner_d_matrix(j, out + b * stride, betas[b]);
+    }
+}
+
 void irrep_wigner_d_matrix(int j, double *out, double beta) {
     if (j < 0)
         return;

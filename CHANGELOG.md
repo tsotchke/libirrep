@@ -63,6 +63,30 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
      `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
      cluster — no regression vs. 1.3.0-alpha.
 
+- **NEON Wigner-d batch kernel** (`irrep_wigner_d_matrix_batch` in
+ `irrep/wigner_d.h`). New public entry point accepting `n_betas` β
+ values and emitting a stack of `(2j+1)²` matrices, one per β.
+ Runtime-dispatched NEON kernel on arm64 pairs two β values into a
+ `float64x2_t` and runs the Jacobi-polynomial three-term recurrence
+ in SIMD lockstep — the shared (α, β_jac, k) coefficients are
+ scalar-broadcast, only `x = cos β` differs per lane. Measured
+ throughput on Apple M2 Ultra, -O2:
+
+    | j  | scalar per-β loop  | batched NEON       | speedup |
+    |----|--------------------|--------------------|---------|
+    | 2  | 2.4 M matrices/s   | 6.0 M matrices/s   | 2.52×   |
+    | 5  | 544 k matrices/s   | 1.31 M matrices/s  | 2.42×   |
+    | 10 | 108 k matrices/s   | 295 k matrices/s   | 2.72×   |
+    | 20 | 24 k matrices/s    | 59 k matrices/s    | 2.44×   |
+    | 30 | 10 k matrices/s    | 24 k matrices/s    | 2.51×   |
+
+   Scalar callers (`irrep_wigner_d_matrix`) see no change. Bit-exact
+   vs. scalar reference verified across j ∈ {0, 1, 2, 3, 4, 6, 10, 20}
+   × 12 β values (30 363 per-entry assertions pass with tolerance
+   1e-14; FP_CONTRACT OFF on both sides holds the rounding identical).
+   Closes one of the two M10 open items; `irrep_tp_apply_weighted_batch`
+   NEON still outstanding.
+
 - **Three new wallpaper groups: p2, p6, p3m1** (`irrep/space_group.h`).
 
    - **p2** (order 2: `E`, `C_2`) — 180°-rotation symmetry on ANY

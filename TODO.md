@@ -83,7 +83,8 @@ onwards plus the 1.3 section at the bottom.
 ## M10 — NEON hot paths (partial)
 - [x] `irrep_cutoff_polynomial` batched NEON kernel (1.1, bit-exact)
 - [x] `irrep_sph_harm_cart_all` NEON kernel (1.2)
-- [ ] `irrep_wigner_d_matrix` NEON kernel
+- [x] `irrep_wigner_d_matrix_batch` NEON kernel — 2.4–2.7× across j ∈ [2, 30],
+ bit-exact vs. scalar (30 363 per-entry assertions pass).
 - [ ] `irrep_tp_apply_weighted_batch` NEON kernel
 - [x] Bit-exact vs. scalar for kernels that exist
 

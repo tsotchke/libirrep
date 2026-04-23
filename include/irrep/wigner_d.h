@@ -21,6 +21,7 @@
 #define IRREP_WIGNER_D_H
 
 #include <complex.h>
+#include <stddef.h>
 
 #include <irrep/export.h>
 #include <irrep/types.h>
@@ -48,6 +49,22 @@ IRREP_API void irrep_wigner_D_matrix(int j, double _Complex *out, double alpha, 
 
 /** @brief Full real small-d matrix (same layout). */
 IRREP_API void irrep_wigner_d_matrix(int j, double *out, double beta);
+
+/** @brief Batched small-d matrix build for many β values.
+ *
+ *  Output layout: `out[b * (2j+1)² + mp * (2j+1) + m] = d^j_{mp, m}(β_b)`.
+ *  Callers invoking @ref irrep_wigner_d_matrix inside a hot loop over
+ *  edge angles (e.g. one rotation per graph edge in a NequIP forward
+ *  pass) should use this batched variant: it runs pairs of β values
+ *  through the Jacobi recurrence in lockstep under a runtime-dispatched
+ *  NEON kernel on arm64, giving ~2× throughput on the dominant inner
+ *  loop. The scalar fallback is a trivial per-β loop.
+ *
+ *  @param j        spin quantum (≥ 0).
+ *  @param n_betas  number of β values.
+ *  @param betas    length-`n_betas` array of β values.
+ *  @param out      output buffer of size `n_betas · (2j+1)²`. */
+IRREP_API void irrep_wigner_d_matrix_batch(int j, size_t n_betas, const double *betas, double *out);
 
 /** @brief Block-diagonal Wigner-D lifted onto an @ref irrep_multiset_t.
  *         Writes `total_dim × total_dim` complex entries; each irrep term

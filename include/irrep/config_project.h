@@ -195,6 +195,58 @@ IRREP_API double _Complex irrep_sg_bloch_amplitude(const irrep_space_group_t *G,
 IRREP_API int irrep_sg_bloch_basis(const irrep_space_group_t *G, int kx, int ky, int num_sites,
                                    int local_dim, double _Complex *basis_out, int n_max);
 
+/* ----- Little-group machinery at Bloch momentum k ------------------- */
+
+/** @brief Opaque handle for the little group at momentum `k = (kx/Lx)b1 +
+ *         (ky/Ly)b2`: the subset of space-group elements `g` for which
+ *         `R(g) · k ≡ k (mod reciprocal lattice)`, i.e. the point-group
+ *         stabiliser of `k` semidirect-producted with the full translation
+ *         subgroup.
+ *
+ *  On p6mm kagome at Γ the little point group is the full `C_6v` (order 12);
+ *  at the three M-points it is `C_2v` (order 4); at the two K-points
+ *  (only present on 3-divisible clusters like 6×6) it is `C_3v` (order 6).
+ *
+ *  Used to build `(k, μ_k)`-indexed space-group irreps: non-trivial
+ *  little-group irreps at M and K expose the sector structure needed to
+ *  distinguish gapped Z₂ and gapless Dirac spin-liquid candidates on the
+ *  kagome Heisenberg model. */
+typedef struct irrep_sg_little_group irrep_sg_little_group_t;
+
+/** @brief Build the little group of @p G at Bloch momentum `(kx, ky)`.
+ *
+ *  @param G         parent space group (lattice must be attached; p4mm / p6mm
+ *                   supported; p1 returns a handle with point_order = 1).
+ *  @param kx, ky    Bloch indices; canonicalised mod `(Lx, Ly)` like
+ *                   @ref irrep_sg_bloch_amplitude.
+ *  @return          new handle, or `NULL` on OOM / bad input. Reason is
+ *                   available via @ref irrep_last_error. */
+IRREP_API irrep_sg_little_group_t *irrep_sg_little_group_build(const irrep_space_group_t *G, int kx,
+                                                               int ky);
+
+/** @brief Release a little-group handle. */
+IRREP_API void irrep_sg_little_group_free(irrep_sg_little_group_t *lg);
+
+/** @brief Number of point-group elements in the little point group. For Γ
+ *         this equals `irrep_space_group_point_order(G)`; for M / K it is
+ *         strictly smaller. */
+IRREP_API int irrep_sg_little_group_point_order(const irrep_sg_little_group_t *lg);
+
+/** @brief Total order of the little group, `point_order · (Lx · Ly)`. */
+IRREP_API int irrep_sg_little_group_order(const irrep_sg_little_group_t *lg);
+
+/** @brief Write the parent space-group point-op indices that form the little
+ *         point group. Sorted ascending; length = @ref
+ *         irrep_sg_little_group_point_order. */
+IRREP_API void irrep_sg_little_group_point_ops(const irrep_sg_little_group_t *lg, int *out_indices);
+
+/** @brief Recover the `(kx, ky)` this little group was built at. */
+IRREP_API void irrep_sg_little_group_k(const irrep_sg_little_group_t *lg, int *out_kx,
+                                       int *out_ky);
+
+/** @brief Borrow the parent space group. */
+IRREP_API const irrep_space_group_t *irrep_sg_little_group_parent(const irrep_sg_little_group_t *lg);
+
 #ifdef __cplusplus
 }
 #endif

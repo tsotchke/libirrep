@@ -423,3 +423,202 @@ int irrep_sg_bloch_basis(const irrep_space_group_t *G, int kx, int ky, int num_s
     free(trans_inv);
     return n_basis;
 }
+
+/* -------------------------------------------------------------------------- *
+ * Little group at Bloch momentum k                                           *
+ *                                                                            *
+ * For each pure-point-group element p ∈ [0, point_order) we need to decide   *
+ * whether R_p fixes k (mod reciprocal lattice). We extract R_p as a 2x2      *
+ * integer matrix by applying p to sublattice-0 sites at cells (1, 0) and    *
+ * (0, 1) and reading the cell decomposition of the image. This relies on    *
+ * the wallpaper-group builder placing sublattice 0 at the rotation centre   *
+ * (true for the p4mm / p6mm constructors currently shipped), so that a      *
+ * point operation around the origin never induces an extra cell shift on    *
+ * top of the Bravais rotation.                                              *
+ *                                                                            *
+ * Once R_p is in hand, the fix-point test is                                *
+ *     R_p · (kx, ky) ≡ (kx, ky)  (mod (Lx, Ly)).                             *
+ * -------------------------------------------------------------------------- */
+
+struct irrep_sg_little_group {
+    const irrep_space_group_t *G; /* borrowed */
+    int                        kx, ky;
+    int                        point_order;   /* cardinality of little point group */
+    int                       *point_ops;     /* length = point_order */
+    int                        num_translations;
+};
+
+/* Extract the 2x2 integer matrix R_p (in lattice-cell basis) by measuring
+ * image-cell displacements. For a pure point element `p` centred at the
+ * wallpaper-group origin O (possibly not a lattice site, e.g. hexagon
+ * centre on kagome), images of same-sublattice sites transform as
+ *
+ *     cell(p · site_at(cell=v, sub=0)) = R · v + c_p
+ *
+ * where `c_p` depends on how p maps sublattice 0 to some sublattice k_p
+ * (and is independent of v). Taking the difference cancels c_p:
+ *
+ *     R · (1, 0) = cell(p · (1, 0)) - cell(p · (0, 0))
+ *     R · (0, 1) = cell(p · (0, 1)) - cell(p · (0, 0))
+ *
+ * Differences are reduced modulo (Lx, Ly) to fold wraparound back onto the
+ * torus, which is all we need for the subsequent fix-point test. */
+static int little_group_extract_rotation_(const irrep_space_group_t *G, int p, int R[2][2]) {
+    const irrep_lattice_t *L = irrep_space_group_lattice(G);
+    if (!L)
+        return -1;
+    int Lx = irrep_lattice_Lx(L);
+    int Ly = irrep_lattice_Ly(L);
+    if (Lx < 2 || Ly < 2)
+        return -1;
+
+    int g = p;
+    int s00 = irrep_lattice_site_index(L, 0, 0, 0);
+    int s10 = irrep_lattice_site_index(L, 1, 0, 0);
+    int s01 = irrep_lattice_site_index(L, 0, 1, 0);
+    if (s00 < 0 || s10 < 0 || s01 < 0)
+        return -1;
+
+    int s00_img = irrep_space_group_apply(G, g, s00);
+    int s10_img = irrep_space_group_apply(G, g, s10);
+    int s01_img = irrep_space_group_apply(G, g, s01);
+    if (s00_img < 0 || s10_img < 0 || s01_img < 0)
+        return -1;
+
+    int ix00, iy00, ix10, iy10, ix01, iy01;
+    if (irrep_lattice_cell_of(L, s00_img, &ix00, &iy00) != IRREP_OK ||
+        irrep_lattice_cell_of(L, s10_img, &ix10, &iy10) != IRREP_OK ||
+        irrep_lattice_cell_of(L, s01_img, &ix01, &iy01) != IRREP_OK)
+        return -1;
+
+    R[0][0] = ((ix10 - ix00) % Lx + Lx) % Lx;
+    R[1][0] = ((iy10 - iy00) % Ly + Ly) % Ly;
+    R[0][1] = ((ix01 - ix00) % Lx + Lx) % Lx;
+    R[1][1] = ((iy01 - iy00) % Ly + Ly) % Ly;
+
+    /* Lift to signed representatives in (-L/2, L/2] so the det computation
+     * and M^{-T} that follow are exact integer arithmetic rather than
+     * mod-(Lx·Ly) algebra. */
+    if (R[0][0] > Lx / 2)
+        R[0][0] -= Lx;
+    if (R[0][1] > Lx / 2)
+        R[0][1] -= Lx;
+    if (R[1][0] > Ly / 2)
+        R[1][0] -= Ly;
+    if (R[1][1] > Ly / 2)
+        R[1][1] -= Ly;
+    return 0;
+}
+
+/* Signed modulo into [0, m). `m` must be positive. */
+static int smod_(int v, int m) { return ((v % m) + m) % m; }
+
+/* Does point op `p` fix (kx, ky) modulo (Lx, Ly) on this lattice?
+ *
+ * `little_group_extract_rotation_` returns the real-space action M on lattice
+ * vectors: (R_p · a_j) in a-basis = column j of M. Under R_p, the reciprocal
+ * basis (b1, b2) transforms by the inverse transpose, so on a k-vector stored
+ * as (kx, ky) ∈ (b1, b2)-coords the action is M^{-T}:
+ *
+ *     k_new = M^{-T} · k.
+ *
+ * For |det M| = 1 (every wallpaper-group lattice symmetry), M^{-T} has
+ * integer entries, so the check stays in exact integer arithmetic. For square
+ * lattices M happens to be orthogonal, so M^{-T} = M and the distinction
+ * doesn't matter — but on triangular / hexagonal lattices the two differ
+ * and only M^{-T} gives the correct K-point stabiliser. */
+static int point_op_fixes_k_(const irrep_space_group_t *G, int p, int kx, int ky, int Lx, int Ly) {
+    int M[2][2];
+    if (little_group_extract_rotation_(G, p, M) != 0)
+        return 0;
+    int det = M[0][0] * M[1][1] - M[0][1] * M[1][0];
+    if (det != 1 && det != -1)
+        return 0; /* not a lattice symmetry — shouldn't happen for p4mm/p6mm */
+    /* M^{-T} = (1/det) · [[M[1][1], -M[1][0]], [-M[0][1], M[0][0]]] */
+    int MinvT[2][2] = {{det * M[1][1], -det * M[1][0]}, {-det * M[0][1], det * M[0][0]}};
+    int nkx = smod_(MinvT[0][0] * kx + MinvT[0][1] * ky, Lx);
+    int nky = smod_(MinvT[1][0] * kx + MinvT[1][1] * ky, Ly);
+    return (nkx == kx) && (nky == ky);
+}
+
+irrep_sg_little_group_t *irrep_sg_little_group_build(const irrep_space_group_t *G, int kx, int ky) {
+    if (!G) {
+        irrep_set_error_("irrep_sg_little_group_build: NULL space group");
+        return NULL;
+    }
+    const irrep_lattice_t *L = irrep_space_group_lattice(G);
+    if (!L) {
+        irrep_set_error_("irrep_sg_little_group_build: space group has no lattice handle");
+        return NULL;
+    }
+    int Lx = irrep_lattice_Lx(L);
+    int Ly = irrep_lattice_Ly(L);
+    kx = smod_(kx, Lx);
+    ky = smod_(ky, Ly);
+
+    int point_order = irrep_space_group_point_order(G);
+
+    /* p1: only identity in the point group; trivially fixes every k. */
+    /* p4mm / p6mm: run the fix-point test on each of the 8 / 12 elements. */
+    int *ops = malloc((size_t)point_order * sizeof(int));
+    if (!ops) {
+        irrep_set_error_("irrep_sg_little_group_build: out of memory");
+        return NULL;
+    }
+    int n_ops = 0;
+    for (int p = 0; p < point_order; ++p) {
+        if (point_op_fixes_k_(G, p, kx, ky, Lx, Ly)) {
+            ops[n_ops++] = p;
+        }
+    }
+
+    irrep_sg_little_group_t *lg = calloc(1, sizeof(*lg));
+    if (!lg) {
+        free(ops);
+        irrep_set_error_("irrep_sg_little_group_build: out of memory");
+        return NULL;
+    }
+    /* Shrink to fit. */
+    int *shrunk = realloc(ops, (size_t)(n_ops > 0 ? n_ops : 1) * sizeof(int));
+    lg->G = G;
+    lg->kx = kx;
+    lg->ky = ky;
+    lg->point_order = n_ops;
+    lg->point_ops = shrunk ? shrunk : ops;
+    lg->num_translations = Lx * Ly;
+    return lg;
+}
+
+void irrep_sg_little_group_free(irrep_sg_little_group_t *lg) {
+    if (!lg)
+        return;
+    free(lg->point_ops);
+    free(lg);
+}
+
+int irrep_sg_little_group_point_order(const irrep_sg_little_group_t *lg) {
+    return lg ? lg->point_order : 0;
+}
+
+int irrep_sg_little_group_order(const irrep_sg_little_group_t *lg) {
+    return lg ? lg->point_order * lg->num_translations : 0;
+}
+
+void irrep_sg_little_group_point_ops(const irrep_sg_little_group_t *lg, int *out_indices) {
+    if (!lg || !out_indices)
+        return;
+    memcpy(out_indices, lg->point_ops, (size_t)lg->point_order * sizeof(int));
+}
+
+void irrep_sg_little_group_k(const irrep_sg_little_group_t *lg, int *out_kx, int *out_ky) {
+    if (!lg)
+        return;
+    if (out_kx)
+        *out_kx = lg->kx;
+    if (out_ky)
+        *out_ky = lg->ky;
+}
+
+const irrep_space_group_t *irrep_sg_little_group_parent(const irrep_sg_little_group_t *lg) {
+    return lg ? lg->G : NULL;
+}

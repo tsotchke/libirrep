@@ -29,6 +29,7 @@
 
 #include <complex.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -497,6 +498,85 @@ void irrep_tp_apply_weighted_batch(const tp_descriptor_t *desc, size_t batch, co
         apply_core_(desc, weights, a_in + bi * (size_t)desc->a_dim, b_in + bi * (size_t)desc->b_dim,
                     c_out + bi * (size_t)desc->c_dim);
     }
+}
+
+/* -------------------------------------------------------------------------- *
+ * Dim-first batched apply. Memory layout: `a_in[i * batch + bi]` is element  *
+ * `i` of sample `bi`. Consecutive batch lanes are contiguous, so the SIMD    *
+ * kernels load/store a vector of {bi, bi+1, …} per CG-entry and produce     *
+ * NEON/AVX2 FMAs with no strided gather.                                     *
+ *                                                                            *
+ * The scalar path below is the reference and falls back when neither NEON   *
+ * nor AVX2 is available; the SIMD kernels in tensor_product_{neon,avx2}.c   *
+ * shadow it via forward declarations and an inline dispatch.                 *
+ * -------------------------------------------------------------------------- */
+
+void irrep_tp_apply_weighted_batch_flat_scalar(const tp_descriptor_t *desc, size_t batch,
+                                               const double *weights, const double *a_in,
+                                               const double *b_in, double *c_out) {
+    /* Zero c_out. */
+    for (size_t k = 0; k < (size_t)desc->c_dim * batch; ++k)
+        c_out[k] = 0.0;
+
+    for (int k = 0; k < desc->num_paths; ++k) {
+        const struct tp_path     *p = &desc->paths[k];
+        double                    w = weights ? weights[k] : 1.0;
+        int                       d_a = p->d_a, d_b = p->d_b, d_c = p->d_c;
+        const struct tp_nz_entry *nz = p->nz;
+        int                       n_nz = p->n_nz;
+
+        for (int u = 0; u < p->mult_u; ++u) {
+            const double *a_block = a_in + (size_t)(p->offset_a + u * d_a) * batch;
+            const double *b_block = b_in + (size_t)(p->offset_b + u * d_b) * batch;
+            /* */ double *c_block = c_out + (size_t)(p->offset_c + u * d_c) * batch;
+            (void)d_a;
+            (void)d_b;
+            (void)d_c;
+            for (int e = 0; e < n_nz; ++e) {
+                const double *a_row = a_block + (size_t)nz[e].ima * batch;
+                const double *b_row = b_block + (size_t)nz[e].imb * batch;
+                double       *c_row = c_block + (size_t)nz[e].imc * batch;
+                double        coef = w * nz[e].cg;
+                for (size_t bi = 0; bi < batch; ++bi)
+                    c_row[bi] += coef * a_row[bi] * b_row[bi];
+            }
+        }
+    }
+}
+
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+extern void irrep_tp_apply_weighted_batch_flat_neon(const tp_descriptor_t *desc, size_t batch,
+                                                    const double *weights, const double *a_in,
+                                                    const double *b_in, double *c_out);
+#endif
+#if (defined(__x86_64__) || defined(_M_X64)) && defined(__AVX2__) && defined(__FMA__)
+extern void irrep_tp_apply_weighted_batch_flat_avx2(const tp_descriptor_t *desc, size_t batch,
+                                                    const double *weights, const double *a_in,
+                                                    const double *b_in, double *c_out);
+#endif
+
+extern bool irrep_cpu_has_neon(void);
+extern bool irrep_cpu_has_avx2(void);
+extern bool irrep_cpu_has_fma(void);
+
+void irrep_tp_apply_weighted_batch_flat(const tp_descriptor_t *desc, size_t batch,
+                                        const double *weights, const double *a_in,
+                                        const double *b_in, double *c_out) {
+    if (!desc || !a_in || !b_in || !c_out)
+        return;
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+    if (irrep_cpu_has_neon() && batch >= 2) {
+        irrep_tp_apply_weighted_batch_flat_neon(desc, batch, weights, a_in, b_in, c_out);
+        return;
+    }
+#endif
+#if (defined(__x86_64__) || defined(_M_X64)) && defined(__AVX2__) && defined(__FMA__)
+    if (irrep_cpu_has_avx2() && irrep_cpu_has_fma() && batch >= 4) {
+        irrep_tp_apply_weighted_batch_flat_avx2(desc, batch, weights, a_in, b_in, c_out);
+        return;
+    }
+#endif
+    irrep_tp_apply_weighted_batch_flat_scalar(desc, batch, weights, a_in, b_in, c_out);
 }
 
 void irrep_tp_apply_backward_batch(const tp_descriptor_t *desc, size_t batch, const double *a_in,

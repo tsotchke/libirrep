@@ -113,6 +113,28 @@ IRREP_API void irrep_tp_apply_backward_weighted_batch(const tp_descriptor_t *des
                                                       double *grad_w);
 /** @} */
 
+/** @name Dim-first batched variants (SIMD-vectorised)
+ *
+ *  Same math as the batch-first variants above but with a transposed memory
+ *  layout: every batch sample's entry at a given irrep-slot is contiguous in
+ *  memory across samples. Specifically, `a_in[i * batch + bi]` is element
+ *  `i` of sample `bi` in a buffer of shape `[a_dim][batch]`, row-major.
+ *
+ *  The payoff is that the runtime SIMD kernel reads consecutive batch lanes
+ *  with a single contiguous vector load, turning the batch axis into two
+ *  (NEON) or four (AVX2) parallel FMAs per CG path-entry. The batch-first
+ *  variants above stride by `a_dim` across samples and cannot be vectorised
+ *  cleanly without the layout transpose — callers with a NequIP forward
+ *  pass over hundreds of edges per step should use this variant.
+ *
+ *  Bit-exactness to the batch-first + per-sample scalar path is preserved
+ *  under `FP_CONTRACT OFF` (pragma-pinned in both scalar reference and the
+ *  SIMD kernels). @{ */
+IRREP_API void irrep_tp_apply_weighted_batch_flat(const tp_descriptor_t *desc, size_t batch,
+                                                  const double *weights, const double *a_in,
+                                                  const double *b_in, double *c_out);
+/** @} */
+
 /** @brief Total dimension of the descriptor's output space. */
 IRREP_API int irrep_tp_output_dim(const tp_descriptor_t *desc);
 /** @brief Number of selected paths in the descriptor. */

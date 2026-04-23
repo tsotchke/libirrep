@@ -85,7 +85,15 @@ onwards plus the 1.3 section at the bottom.
 - [x] `irrep_sph_harm_cart_all` NEON kernel (1.2)
 - [x] `irrep_wigner_d_matrix_batch` NEON kernel — 2.4–2.7× across j ∈ [2, 30],
  bit-exact vs. scalar (30 363 per-entry assertions pass).
-- [ ] `irrep_tp_apply_weighted_batch` NEON kernel
+- [x] `irrep_tp_apply_weighted_batch_flat` (dim-first layout) +
+ NEON + AVX2 kernels. Batch dim is innermost in memory so vector
+ loads/stores are contiguous across samples — 2.14–2.47× measured
+ speedup over the batch-first scalar path on NEON (Apple M2 Ultra).
+ Bit-exact via transpose against per-sample `irrep_tp_apply_weighted`;
+ 443 per-entry assertions pass at 1e-14. The existing batch-first
+ `irrep_tp_apply_weighted_batch` API stays scalar (gather-scatter
+ bound without a layout change); callers needing the SIMD win
+ transpose their inputs and call the `_flat` variant.
 - [x] Bit-exact vs. scalar for kernels that exist
 
 ## Numerical stability replacements (open)

@@ -63,6 +63,24 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
      `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
      cluster — no regression vs. 1.3.0-alpha.
 
+- **NEON + AVX2 dim-first tensor-product batch**
+ (`irrep_tp_apply_weighted_batch_flat` in `irrep/tensor_product.h`).
+ Closes the last M10 / M11 SIMD hot path. The existing
+ `irrep_tp_apply_weighted_batch` (batch-first layout) stays scalar —
+ its inner loop
+ `c_block[nz.imc] += w · nz.cg · a_block[nz.ima] · b_block[nz.imb]`
+ is gather-scatter dominated without a memory-layout change. The new
+ `_flat` variant takes dim-first buffers (`a_in[i * batch + bi]` is
+ element `i` of sample `bi`), so consecutive batch lanes are
+ contiguous and the SIMD kernels read them with a single vector load
+ per CG entry. Two lanes per `float64x2_t` on arm64, four per
+ `__m256d` on x86_64 with AVX2 + FMA. Measured: **2.1–2.5× speedup**
+ over the batch-first scalar path on Apple M2 Ultra across batch
+ sizes 2 k–32 k. Bit-exact to the per-sample scalar reference
+ (`FP_CONTRACT OFF` pragma-pinned on both sides); 443 per-entry
+ assertions pass at 1e-14 across batch sizes {1..5, 17} and valid
+ / invalid CG path configurations.
+
 - **NEON + AVX2 Wigner-d batch kernels** (`irrep_wigner_d_matrix_batch`
  in `irrep/wigner_d.h`). New public entry point accepting `n_betas` β
  values and emitting a stack of `(2j+1)²` matrices, one per β.

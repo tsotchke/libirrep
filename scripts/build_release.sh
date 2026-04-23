@@ -76,6 +76,24 @@ sed -e "s|@PREFIX@|/usr/local|g" \
     -e "s|@PKGCONFIG_LIBS@|${PKGCONFIG_LIBS}|g" \
     scripts/libirrep.pc.in > "${ROOT}/pkgconfig/libirrep.pc"
 
+# Doxygen HTML — shipped inside the tarball when doxygen is available on
+# the build host. Absence is tolerated (not every CI runner has doxygen
+# installed); the tarball still ships the headers + man-equivalent inline
+# comments. When present, the HTML tree lands at `${ROOT}/docs/html/` so
+# consumers can browse the API offline without rebuilding the docs.
+if command -v doxygen >/dev/null 2>&1; then
+    # Build quietly — docs warnings are a lint-gated regression, not a
+    # release blocker; the CI doxygen job polices them separately.
+    make docs >/dev/null 2>&1 || true
+    if [ -d build/docs/html ]; then
+        mkdir -p "${ROOT}/docs"
+        cp -R build/docs/html "${ROOT}/docs/html"
+        echo "# bundled doxygen HTML under ${ROOT}/docs/html"
+    fi
+else
+    echo "# doxygen not found on build host — skipping HTML bundle"
+fi
+
 # SPDX 2.3 software bill of materials — enumerates every source file shipped
 # in the release with its SHA-256 and declared license.
 bash scripts/make_sbom.sh "${VERSION}" > "${ROOT}/SBOM.spdx.json"

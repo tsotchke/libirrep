@@ -19,6 +19,9 @@ release/*.tar.gz.sha256
 release/*.tar.gz.sig
 !release/.gitkeep
 
+# Lebedev-Laikov 1999 tables (fetched on demand, not tracked)
+data/lebedev/
+
 # benchmark output (baseline, coverage and fuzz reports are tracked;
 # dated run directories are not)
 benchmarks/results/*/

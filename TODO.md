@@ -70,7 +70,8 @@ onwards plus the 1.3 section at the bottom.
 - [x] Cosine / polynomial cutoffs + analytic derivatives
 - [x] Gauss-Legendre via Newton iteration (any n)
 - [x] Lebedev orders 3, 5, 7
-- [ ] Lebedev orders 9..41 — pending data import
+- [x] Lebedev orders 9..41 — runtime registry + `scripts/fetch_lebedev_tables.sh`
+ + `examples/register_lebedev.c`. Exact to ±5e-15 at every order.
 - [x] Exactness tests + SH orthonormality via Gauss-Legendre tensor product
 
 ## M9 — equivariant layers (done)

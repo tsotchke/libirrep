@@ -5,8 +5,11 @@
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <irrep/quadrature.h>
+#include <irrep/types.h>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -67,6 +70,105 @@ bool irrep_gauss_legendre(int n, double *nodes, double *weights) {
  * full Lebedev-Laikov 1999 data import in a future polish pass.              *
  * -------------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------- *
+ * Runtime registry for Lebedev rules at orders the library does not hard-code.
+ *
+ * `scripts/fetch_lebedev_tables.sh` downloads public-domain Lebedev-Laikov
+ * 1999 tables into `data/lebedev/`, and `examples/register_lebedev.c` parses
+ * them and feeds them through `irrep_lebedev_register_rule`. The library
+ * keeps the data in process-local storage — no filesystem dependency at
+ * runtime, and no data bundled with the source tree.
+ * -------------------------------------------------------------------------- */
+
+struct lebedev_rule_entry {
+    int     order;
+    int     n_points;
+    double *xyz_w; /* owned */
+};
+
+/* Small fixed-capacity table. Lebedev orders cap at ≈ 131 (5810 pts) and the
+ * shipped menu tops out at 41 — 32 slots is overkill. */
+#define LEBEDEV_REGISTRY_CAP 32
+static struct lebedev_rule_entry lebedev_registry_[LEBEDEV_REGISTRY_CAP];
+static int                       lebedev_registry_count_ = 0;
+
+extern void irrep_set_error_(const char *fmt, ...);
+
+static const struct lebedev_rule_entry *lookup_registered_(int order) {
+    for (int i = 0; i < lebedev_registry_count_; ++i) {
+        if (lebedev_registry_[i].order == order)
+            return &lebedev_registry_[i];
+    }
+    return NULL;
+}
+
+irrep_status_t irrep_lebedev_register_rule(int order, int n_points, const double *xyz_weights) {
+    if (!xyz_weights || n_points < 1 || order < 3 || (order & 1) == 0)
+        return IRREP_ERR_INVALID_ARG;
+    if (order == 3 || order == 5 || order == 7) {
+        irrep_set_error_("irrep_lebedev_register_rule: order %d is hard-coded and cannot be "
+                         "overridden at runtime",
+                         order);
+        return IRREP_ERR_PRECONDITION;
+    }
+    /* Validate: unit-sphere points, weights sum to 1. */
+    double w_sum = 0.0;
+    for (int i = 0; i < n_points; ++i) {
+        const double *p = xyz_weights + 4 * i;
+        double        n2 = p[0] * p[0] + p[1] * p[1] + p[2] * p[2];
+        if (n2 < 1.0 - 1e-9 || n2 > 1.0 + 1e-9) {
+            irrep_set_error_(
+                "irrep_lebedev_register_rule: point %d not on unit sphere (|r|² = %g)", i, n2);
+            return IRREP_ERR_INVALID_ARG;
+        }
+        w_sum += p[3];
+    }
+    if (w_sum < 1.0 - 1e-9 || w_sum > 1.0 + 1e-9) {
+        irrep_set_error_("irrep_lebedev_register_rule: weights sum to %g, expected 1", w_sum);
+        return IRREP_ERR_INVALID_ARG;
+    }
+
+    /* Replace an existing entry at this order, or append. */
+    struct lebedev_rule_entry *slot = NULL;
+    for (int i = 0; i < lebedev_registry_count_; ++i) {
+        if (lebedev_registry_[i].order == order) {
+            slot = &lebedev_registry_[i];
+            free(slot->xyz_w);
+            slot->xyz_w = NULL;
+            break;
+        }
+    }
+    if (!slot) {
+        if (lebedev_registry_count_ >= LEBEDEV_REGISTRY_CAP) {
+            irrep_set_error_("irrep_lebedev_register_rule: registry full (cap %d)",
+                             LEBEDEV_REGISTRY_CAP);
+            return IRREP_ERR_OUT_OF_MEMORY;
+        }
+        slot = &lebedev_registry_[lebedev_registry_count_++];
+    }
+    slot->order    = order;
+    slot->n_points = n_points;
+    slot->xyz_w    = malloc((size_t)n_points * 4 * sizeof(double));
+    if (!slot->xyz_w) {
+        /* Still leaves the entry in place but with a NULL buffer so the
+         * fill path can distinguish. Undo the append to avoid a lingering
+         * bad entry. */
+        if (slot == &lebedev_registry_[lebedev_registry_count_ - 1])
+            --lebedev_registry_count_;
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    memcpy(slot->xyz_w, xyz_weights, (size_t)n_points * 4 * sizeof(double));
+    return IRREP_OK;
+}
+
+void irrep_lebedev_clear_registry(void) {
+    for (int i = 0; i < lebedev_registry_count_; ++i) {
+        free(lebedev_registry_[i].xyz_w);
+        lebedev_registry_[i].xyz_w = NULL;
+    }
+    lebedev_registry_count_ = 0;
+}
+
 int irrep_lebedev_size(int order) {
     switch (order) {
     case 3:
@@ -75,8 +177,10 @@ int irrep_lebedev_size(int order) {
         return 14;
     case 7:
         return 26;
-    default:
-        return 0;
+    default: {
+        const struct lebedev_rule_entry *r = lookup_registered_(order);
+        return r ? r->n_points : 0;
+    }
     }
 }
 
@@ -146,8 +250,13 @@ bool irrep_lebedev_fill(int order, double *xyz_weights) {
         add_a2_(xyz_weights, &idx, 4.0 / 105.0);
         add_a3_(xyz_weights, &idx, 9.0 / 280.0);
         return true;
-    default:
-        return false;
+    default: {
+        const struct lebedev_rule_entry *r = lookup_registered_(order);
+        if (!r || !r->xyz_w)
+            return false;
+        memcpy(xyz_weights, r->xyz_w, (size_t)r->n_points * 4 * sizeof(double));
+        return true;
+    }
     }
 }
 

@@ -63,6 +63,40 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
      `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
      cluster — no regression vs. 1.3.0-alpha.
 
+- **Lebedev quadrature orders 9 through 41** via runtime registration.
+ Closes the `M8` TODO without bundling numerical data in the source
+ tree. Two new API entry points:
+
+       irrep_lebedev_register_rule(order, n_points, xyz_weights)
+       irrep_lebedev_clear_registry()
+
+   `irrep_lebedev_size` / `_fill` now check the runtime registry on
+   orders past the hard-coded 3 / 5 / 7 set. Callers fetch the
+   Lebedev-Laikov 1999 public-domain tables via the shipped
+   `scripts/fetch_lebedev_tables.sh` (downloads from John Burkardt's
+   `sphere_lebedev_rule` FSU dataset, 14 orders: 9, 11, 13, 15, 17,
+   19, 21, 23, 25, 27, 29, 31, 35, 41) and register them through the
+   example parser `examples/register_lebedev.c`. No data bundled in
+   the repo — `.gitignore` excludes `data/lebedev/`.
+
+   Registration validates: points are unit-sphere-normalised to
+   ±1 × 10⁻⁹, weights sum to 1 ± 10⁻⁹, order is odd and ≥ 3 (3, 5, 7
+   remain hard-coded and cannot be overridden — attempting yields
+   `IRREP_ERR_PRECONDITION`). Storage is process-local; registrations
+   survive until `_clear_registry` or exit.
+
+   Polynomial exactness was confirmed across all 14 orders by
+   integrating `x^{order-1}` against the sphere; every order produces
+   Δ ≤ 5 × 10⁻¹⁵ from the closed-form `1/(order)`.
+
+   Tests (+47 assertions, `test_lebedev_registry`): hardcoded orders
+   always resolve, unregistered high orders return 0 / false, register
+   round-trip bit-exact, replace-in-place at same order works, every
+   validation path (bad weight sum, non-unit point, even order,
+   negative/zero n_points, NULL, protected-order override) returns
+   the right error code, `_clear_registry` wipes runtime entries
+   without touching 3 / 5 / 7.
+
 - **Named-irrep builtins for C_6v and C_3v on p6mm kagome**
  (`irrep_sg_little_group_irrep_named`). Ergonomic layer over the
  low-level `_irrep_new` — builds a little-group-irrep handle from a

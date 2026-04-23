@@ -143,7 +143,11 @@ onwards plus the 1.3 section at the bottom.
 - [x] `nequip_message` (one NequIP-style TP convolution)
 - [x] Seven tutorials committed (rotations, SH, CG, Wigner-D, TP, equivariant
  NN, and the 1.3 Kagome NQS substrate)
-- [ ] Doxygen HTML generated and checked into release artifacts
+- [x] Doxygen HTML generated and bundled into the release tarball at
+ `docs/html/`. `scripts/build_release.sh` detects `doxygen` on the
+ build host; absent, the tarball ships without the HTML (not a
+ release blocker — the CI doxygen job enforces zero warnings
+ independently).
 - [x] README polished
 - [x] Consumer smoke test against the release tarball
 

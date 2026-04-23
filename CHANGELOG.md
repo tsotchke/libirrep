@@ -63,6 +63,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
      `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
      cluster — no regression vs. 1.3.0-alpha.
 
+- **Doxygen HTML bundled into release tarballs**
+ (`scripts/build_release.sh`). Closes the last `M14` open item.
+ When `doxygen` is available on the build host, `make docs` runs
+ quietly and the generated HTML tree is copied into the per-triple
+ tarball at `docs/html/`. Consumers who download a release can
+ browse the full API offline (tutorials, module index, function
+ cross-references, search) without needing doxygen themselves. When
+ doxygen is absent the tarball ships without the HTML — the CI
+ doxygen job enforces zero-warning generation separately and isn't
+ a release blocker.
+
 - **NEON + AVX2 dim-first tensor-product batch**
  (`irrep_tp_apply_weighted_batch_flat` in `irrep/tensor_product.h`).
  Closes the last M10 / M11 SIMD hot path. The existing

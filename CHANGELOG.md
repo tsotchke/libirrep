@@ -63,6 +63,32 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
      `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
      cluster — no regression vs. 1.3.0-alpha.
 
+- **Lanczos with full Gram–Schmidt reorthogonalisation**
+ (`irrep/rdm.h`, `irrep_lanczos_eigvals_reorth`). Stores the complete
+ Krylov basis and reorthogonalises the residual against every
+ preceding basis vector on each step, suppressing the ghost-eigenvalue
+ pathology of the 3-vector recurrence past ~100 iterations on
+ nearly-degenerate spectra (a kagome-Heisenberg singlet-tower
+ symptom). Same signature as `irrep_lanczos_eigvals`; additive API,
+ no behavioural change for existing callers of the 3-vector path.
+ Memory cost is `max_iters · dim` complex doubles (e.g. ~256 MB at
+ `dim = 2^24, max_iters = 128`). Kernel adapted from
+ `spin_based_neural_network/src/mps/lanczos.c` (real-double MPS
+ Lanczos), promoted to complex amplitudes and the multi-eigenvalue
+ contract. Tests: 20 assertions including agreement with the
+ 3-vector path on a well-separated diagonal spectrum, 4-eigenvalue
+ extraction from a run-to-completion tridiagonalisation, near-
+ degenerate-cluster stability at 150 iterations, and N = 4 Heisenberg
+ ring E_0 = −2J.
+
+ Sanity check of the open PHYSICS_RESULTS.md question: both Lanczos
+ variants agree on the 18-site kagome E_0 to 4.5 × 10⁻⁸ at 80
+ iterations. The 2×3-torus E_0/N = −0.4471 falling below Waldtmann
+ et al.'s hexagonal-sample published range (−0.43 to −0.44) is
+ therefore genuine cluster-geometry dependence, not a Lanczos
+ convergence artefact. `PHYSICS_RESULTS.md` § 1.1 updated to
+ reflect the falsified hypothesis.
+
 - **`irrep/hamiltonian.h` — on-the-fly Hamiltonian apply operators.**
  Every ED example previously re-implemented the same spin-½ Heisenberg
  `apply_op` callback by hand (~40 LOC each). Promoted to a library

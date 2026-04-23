@@ -474,6 +474,161 @@ irrep_status_t irrep_lanczos_eigvals(void (*apply_op)(const double _Complex *x, 
     return IRREP_OK;
 }
 
+/* -------------------------------------------------------------------------- *
+ * Lanczos with full Gram–Schmidt reorthogonalisation                         *
+ *                                                                            *
+ * Stores the complete Krylov basis (max_iters · dim complex doubles) and    *
+ * orthogonalises the residual against every preceding basis vector on each   *
+ * step. Algorithm lifted from `spin_based_neural_network/src/mps/lanczos.c`  *
+ * and promoted from real-double to complex amplitudes; multi-eigenvalue     *
+ * extraction replaces the single-smallest-Ritz path.                         *
+ * -------------------------------------------------------------------------- */
+
+irrep_status_t irrep_lanczos_eigvals_reorth(void (*apply_op)(const double _Complex *x,
+                                                             double _Complex *y, void *ctx),
+                                            void *ctx, long long dim, int k_wanted, int max_iters,
+                                            const double _Complex *seed, double *eigvals_out) {
+    if (!apply_op || dim <= 0 || k_wanted < 1 || max_iters < 2 * k_wanted || !eigvals_out)
+        return IRREP_ERR_INVALID_ARG;
+    if (max_iters > dim)
+        max_iters = (int)dim;
+
+    /* Full Lanczos basis V[max_iters][dim] + a working vector w. */
+    double _Complex *V =
+        calloc((size_t)max_iters * (size_t)dim, sizeof(double _Complex));
+    double _Complex *w     = malloc((size_t)dim * sizeof(double _Complex));
+    double          *alpha = malloc((size_t)max_iters * sizeof(double));
+    double          *beta  = malloc((size_t)(max_iters + 1) * sizeof(double));
+    if (!V || !w || !alpha || !beta) {
+        free(V);
+        free(w);
+        free(alpha);
+        free(beta);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+
+    /* Seed v_0. */
+    if (seed) {
+        memcpy(V, seed, (size_t)dim * sizeof(double _Complex));
+    } else {
+        uint64_t rng = 0xdeadbeefcafeULL;
+        for (long long i = 0; i < dim; ++i) {
+            rng = rng * 6364136223846793005ULL + 1442695040888963407ULL;
+            double re = (double)(rng >> 32) / (double)0xFFFFFFFFULL - 0.5;
+            rng = rng * 6364136223846793005ULL + 1442695040888963407ULL;
+            double im = (double)(rng >> 32) / (double)0xFFFFFFFFULL - 0.5;
+            V[i] = re + im * I;
+        }
+    }
+    double norm = 0.0;
+    for (long long i = 0; i < dim; ++i)
+        norm += creal(V[i]) * creal(V[i]) + cimag(V[i]) * cimag(V[i]);
+    norm = sqrt(norm);
+    if (norm < 1e-300) {
+        free(V);
+        free(w);
+        free(alpha);
+        free(beta);
+        return IRREP_ERR_PRECONDITION;
+    }
+    for (long long i = 0; i < dim; ++i)
+        V[i] /= norm;
+
+    beta[0] = 0.0;
+    int n_iters = 0;
+
+    for (int k = 0; k < max_iters; ++k) {
+        double _Complex *v_k = V + (size_t)k * (size_t)dim;
+        apply_op(v_k, w, ctx);
+
+        /* α_k = Re ⟨v_k | w⟩ (real because H is Hermitian). */
+        double a = 0.0;
+        for (long long i = 0; i < dim; ++i)
+            a += creal(conj(v_k[i]) * w[i]);
+        alpha[k] = a;
+
+        /* w ← w − α_k v_k − β_k v_{k-1} */
+        for (long long i = 0; i < dim; ++i)
+            w[i] -= a * v_k[i];
+        if (k > 0) {
+            double _Complex *v_prev = V + (size_t)(k - 1) * (size_t)dim;
+            for (long long i = 0; i < dim; ++i)
+                w[i] -= beta[k] * v_prev[i];
+        }
+
+        /* Full reorthogonalisation: subtract every projection onto the
+         * existing basis. Modified Gram–Schmidt — iterate the subtraction
+         * rather than accumulate coefficients, so later projections see the
+         * already-reduced residual. */
+        for (int j = 0; j <= k; ++j) {
+            double _Complex *v_j = V + (size_t)j * (size_t)dim;
+            double _Complex  p   = 0.0 + 0.0 * I;
+            for (long long i = 0; i < dim; ++i)
+                p += conj(v_j[i]) * w[i];
+            for (long long i = 0; i < dim; ++i)
+                w[i] -= p * v_j[i];
+        }
+
+        /* β_{k+1} = ‖w‖ */
+        double b2 = 0.0;
+        for (long long i = 0; i < dim; ++i)
+            b2 += creal(w[i]) * creal(w[i]) + cimag(w[i]) * cimag(w[i]);
+        double b = sqrt(b2);
+        ++n_iters;
+
+        if (b < 1e-14)
+            break; /* happy breakdown — invariant subspace found */
+        beta[k + 1] = b;
+
+        if (k + 1 < max_iters) {
+            double _Complex *v_next = V + (size_t)(k + 1) * (size_t)dim;
+            for (long long i = 0; i < dim; ++i)
+                v_next[i] = w[i] / b;
+        }
+    }
+
+    /* Diagonalise the real symmetric tridiagonal T_{n_iters × n_iters}. */
+    double _Complex *T = calloc((size_t)n_iters * n_iters, sizeof(double _Complex));
+    if (!T) {
+        free(V);
+        free(w);
+        free(alpha);
+        free(beta);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    for (int i = 0; i < n_iters; ++i) {
+        T[(size_t)i * n_iters + i] = alpha[i];
+        if (i + 1 < n_iters) {
+            T[(size_t)i * n_iters + (i + 1)] = beta[i + 1];
+            T[(size_t)(i + 1) * n_iters + i] = beta[i + 1];
+        }
+    }
+    double *ritz = malloc((size_t)n_iters * sizeof(double));
+    if (!ritz) {
+        free(T);
+        free(V);
+        free(w);
+        free(alpha);
+        free(beta);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    irrep_hermitian_eigvals(n_iters, T, ritz);
+
+    /* ritz sorted descending; caller wants ascending "lowest k". */
+    if (k_wanted > n_iters)
+        k_wanted = n_iters;
+    for (int k = 0; k < k_wanted; ++k)
+        eigvals_out[k] = ritz[n_iters - 1 - k];
+
+    free(ritz);
+    free(T);
+    free(V);
+    free(w);
+    free(alpha);
+    free(beta);
+    return IRREP_OK;
+}
+
 double irrep_topological_entanglement_entropy(double SA, double SB, double SC, double SAB,
                                               double SBC, double SAC, double SABC) {
     return SA + SB + SC - SAB - SBC - SAC + SABC;

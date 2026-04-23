@@ -132,6 +132,29 @@ IRREP_API irrep_status_t irrep_lanczos_eigvals(
     void (*apply_op)(const double _Complex *x, double _Complex *y, void *ctx), void *ctx,
     long long dim, int k_wanted, int max_iters, const double _Complex *seed, double *eigvals_out);
 
+/** @brief Lanczos with full Gram–Schmidt reorthogonalisation.
+ *
+ *  Same contract and signature as @ref irrep_lanczos_eigvals but stores
+ *  the complete Lanczos basis and reorthogonalises the Krylov residual
+ *  against every previously generated vector at each step. Suppresses
+ *  the "ghost eigenvalue" pathology that appears in the 3-vector
+ *  recurrence past ~100 iterations on nearly-degenerate spectra (a
+ *  classic kagome-Heisenberg symptom — low-lying singlet tower in the
+ *  ground-state sector is nearly degenerate).
+ *
+ *  Memory cost is `max_iters · dim` complex doubles (e.g. 256 MB at
+ *  `dim = 2^24, max_iters = 128`), acceptable up to `N ≈ 30` sites on
+ *  a workstation. Use @ref irrep_lanczos_eigvals for well-separated
+ *  spectra (cheaper, same accuracy); use this variant when
+ *  `max_iters ≥ ~100`, the spectrum is nearly degenerate, or you need
+ *  multiple low eigenvalues from a single invocation.
+ *
+ *  Kernel adapted from `spin_based_neural_network/src/mps/lanczos.c`;
+ *  promoted to complex amplitudes + the multi-eigenvalue contract. */
+IRREP_API irrep_status_t irrep_lanczos_eigvals_reorth(
+    void (*apply_op)(const double _Complex *x, double _Complex *y, void *ctx), void *ctx,
+    long long dim, int k_wanted, int max_iters, const double _Complex *seed, double *eigvals_out);
+
 /** @brief Kitaev-Preskill topological entanglement entropy `γ`:
  *
  *      γ = S_A + S_B + S_C − S_AB − S_BC − S_AC + S_ABC

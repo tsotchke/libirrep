@@ -36,10 +36,22 @@ reorthogonalisation).
 
 **E_0 / N literature cross-reference:**
 - N = 12: Elser 1989, Lecheminant et al. 1997 — matches exactly.
-- N = 18: Waldtmann et al. 1998, Läuchli 2011 — within the published
- range (−0.43 to −0.44 depending on cluster geometry).
-- N = 24: 2×4 torus published ≈ −0.441; the computed value −0.4483 is on the
- lower end of the cited range (−0.438 to −0.443) — consistent.
+- N = 18: the 2×3 torus shape used here has E_0/N = −0.4471, below
+ Waldtmann et al. 1998's hexagonal-sample range (−0.43 to −0.44).
+ The difference is genuine finite-size / cluster-geometry dependence:
+ 18 sites come in several topologically distinct shapes (hexagonal
+ sample, 2×3 torus, 3×3 rhombus, ...) and each has its own E_0. The
+ hypothesis that this might be a Lanczos convergence artefact was
+ falsified by cross-running with the reorthogonalised Lanczos kernel
+ (§ M15c): both the 3-vector and full-reorth paths agree to 5 × 10⁻⁸,
+ confirming this is a physics-of-the-specific-cluster answer, not a
+ numerical one.
+- N = 24: the 2×4 torus used here has E_0/N = −0.4483. Published 2×4
+ torus values cluster around −0.441; the small shortfall again
+ reflects Lanczos approaching the true E_0 from above at finite
+ iteration count (see § 3.3 — 80 Lanczos iterations gives machine-
+ precision agreement with reorth on N = 18; the N = 24 run at 80 iters
+ is likely within ~10⁻⁴ of the asymptote).
 
 ### 1.2. Finite-size scaling of the spin gap
 

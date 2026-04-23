@@ -205,6 +205,10 @@ extern void irrep_wigner_d_matrix_batch_scalar(int j, size_t n_betas, const doub
 extern void irrep_wigner_d_matrix_batch_neon(int j, size_t n_betas, const double *betas,
                                              double *out);
 #endif
+#if (defined(__x86_64__) || defined(_M_X64)) && defined(__AVX2__) && defined(__FMA__)
+extern void irrep_wigner_d_matrix_batch_avx2(int j, size_t n_betas, const double *betas,
+                                             double *out);
+#endif
 
 void irrep_wigner_d_matrix_batch(int j, size_t n_betas, const double *betas, double *out) {
     if (j < 0 || !betas || !out || n_betas == 0)
@@ -212,6 +216,12 @@ void irrep_wigner_d_matrix_batch(int j, size_t n_betas, const double *betas, dou
 #if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
     if (irrep_cpu_has_neon() && n_betas >= 2) {
         irrep_wigner_d_matrix_batch_neon(j, n_betas, betas, out);
+        return;
+    }
+#endif
+#if (defined(__x86_64__) || defined(_M_X64)) && defined(__AVX2__) && defined(__FMA__)
+    if (irrep_cpu_has_avx2() && irrep_cpu_has_fma() && n_betas >= 4) {
+        irrep_wigner_d_matrix_batch_avx2(j, n_betas, betas, out);
         return;
     }
 #endif

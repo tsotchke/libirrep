@@ -101,9 +101,17 @@ onwards plus the 1.3 section at the bottom.
  Machine precision to at least j ≈ 200 in regression tests.
 
 ## M11 — x86 SIMD hot paths (open)
-- [ ] SSE4.2 + AVX2 variants of the above
-- [ ] Runtime dispatch verified on both macOS x86_64 and Linux x86_64
-- [ ] NEON-to-AVX2 bit-exactness acceptable tolerance documented
+- [x] AVX2 + FMA variant of `irrep_wigner_d_matrix_batch` — 4 β lanes per
+ `__m256d`, same Jacobi-coefficient-broadcast design as the NEON kernel.
+ Dispatch via `irrep_cpu_has_avx2` + `_has_fma`. Bit-exactness to scalar
+ verified on the test suite (CI macos-x86_64 + linux-x86_64 runners
+ exercise the live kernel).
+- [ ] AVX2 variant of `irrep_tp_apply_weighted_batch` (NEON also pending)
+- [x] Runtime dispatch verified on both macOS x86_64 and Linux x86_64 for
+ `sph_harm_cart_all`, `cutoff_polynomial`, `rbf_bessel`; the new
+ `wigner_d_batch` adds to that set.
+- [x] NEON-to-AVX2 bit-exactness documented (matching pragma `FP_CONTRACT
+ OFF` on both sides; scalar reference is the same in both cases).
 
 ## M12 — benchmarks + fuzz + sanitizer CI (done)
 - [x] All benchmarks produce JSON (harness emits per-result record)

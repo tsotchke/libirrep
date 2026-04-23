@@ -63,14 +63,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
      `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
      cluster — no regression vs. 1.3.0-alpha.
 
-- **NEON Wigner-d batch kernel** (`irrep_wigner_d_matrix_batch` in
- `irrep/wigner_d.h`). New public entry point accepting `n_betas` β
+- **NEON + AVX2 Wigner-d batch kernels** (`irrep_wigner_d_matrix_batch`
+ in `irrep/wigner_d.h`). New public entry point accepting `n_betas` β
  values and emitting a stack of `(2j+1)²` matrices, one per β.
- Runtime-dispatched NEON kernel on arm64 pairs two β values into a
- `float64x2_t` and runs the Jacobi-polynomial three-term recurrence
- in SIMD lockstep — the shared (α, β_jac, k) coefficients are
- scalar-broadcast, only `x = cos β` differs per lane. Measured
- throughput on Apple M2 Ultra, -O2:
+
+ Runtime-dispatched:
+   - arm64 NEON: 2 β lanes per `float64x2_t`.
+   - x86_64 AVX2 + FMA: 4 β lanes per `__m256d`.
+
+ Both kernels run the Jacobi-polynomial three-term recurrence in SIMD
+ lockstep — the shared (α, β_jac, k) coefficients are scalar-broadcast,
+ only `x = cos β` differs per lane. Measured NEON throughput on Apple
+ M2 Ultra, -O2:
 
     | j  | scalar per-β loop  | batched NEON       | speedup |
     |----|--------------------|--------------------|---------|

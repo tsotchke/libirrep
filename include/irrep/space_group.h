@@ -70,7 +70,9 @@ typedef enum {
     IRREP_WALLPAPER_P6MM = 2, /**< Triangular / honeycomb / kagome: C6 + 6 mirrors, 12 point ops. */
     IRREP_WALLPAPER_P2 = 3,   /**< 180° rotation on any lattice; no `Lx = Ly` constraint. */
     IRREP_WALLPAPER_P6 = 4,   /**< Chiral hex: 6 rotations, no mirrors. */
-    IRREP_WALLPAPER_P3M1 = 5  /**< Hex 3-fold + 3 mirrors through vertices. */
+    IRREP_WALLPAPER_P3M1 = 5, /**< Hex 3-fold + 3 mirrors through vertices. */
+    IRREP_WALLPAPER_P4 = 6,   /**< Chiral square: 4 rotations, no mirrors. */
+    IRREP_WALLPAPER_P31M = 7  /**< Hex 3-fold + 3 mirrors bisecting vertex pairs (30° offset from p3m1). */
 } irrep_wallpaper_t;
 
 /** @brief Opaque space-group handle. Built by @ref irrep_space_group_build

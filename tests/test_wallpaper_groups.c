@@ -147,6 +147,65 @@ int main(void) {
         irrep_lattice_free(L_hex);
     }
 
+    /* ---- p4 on a 4×4 square: 4 rotations, no mirrors, subgroup of p4mm --- */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_SQUARE, 4, 4);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P4);
+        IRREP_ASSERT(G != NULL);
+        IRREP_ASSERT(irrep_space_group_point_order(G) == 4);
+        int perm[16];
+        for (int g = 0; g < irrep_space_group_order(G); ++g) {
+            irrep_space_group_permutation(G, g, perm);
+            IRREP_ASSERT(perm_is_bijection_(perm, 16));
+        }
+        /* Subgroup bit-exactness: p4 rotations == first 4 elements of p4mm. */
+        irrep_space_group_t *G_full = irrep_space_group_build(L, IRREP_WALLPAPER_P4MM);
+        for (int p = 0; p < 4; ++p) {
+            int pa[16], pb[16];
+            irrep_space_group_permutation(G, p, pa);
+            irrep_space_group_permutation(G_full, p, pb);
+            IRREP_ASSERT(perm_equal_(pa, pb, 16));
+        }
+        irrep_space_group_free(G_full);
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
+    /* ---- p31m on a 3×3 kagome: 3 rotations + 3 mirrors (distinct from p3m1) ---- */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 3, 3);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P31M);
+        IRREP_ASSERT(G != NULL);
+        IRREP_ASSERT(irrep_space_group_point_order(G) == 6);
+        int perm[27];
+        for (int g = 0; g < irrep_space_group_order(G); ++g) {
+            irrep_space_group_permutation(G, g, perm);
+            IRREP_ASSERT(perm_is_bijection_(perm, 27));
+        }
+        /* Rotations match p3m1's rotations bit-exactly (same C_3 on hex). */
+        irrep_space_group_t *G_p3m1 = irrep_space_group_build(L, IRREP_WALLPAPER_P3M1);
+        for (int p = 0; p < 3; ++p) {
+            int pa[27], pb[27];
+            irrep_space_group_permutation(G, p, pa);
+            irrep_space_group_permutation(G_p3m1, p, pb);
+            IRREP_ASSERT(perm_equal_(pa, pb, 27));
+        }
+        /* Mirror-classes differ: p31m's mirrors at slots 3..5 must NOT equal
+         * p3m1's mirrors at slots 3..5 (different axis orientation). */
+        int mirror_mismatch = 0;
+        for (int p = 3; p < 6; ++p) {
+            int pa[27], pb[27];
+            irrep_space_group_permutation(G, p, pa);
+            irrep_space_group_permutation(G_p3m1, p, pb);
+            if (!perm_equal_(pa, pb, 27))
+                ++mirror_mismatch;
+        }
+        IRREP_ASSERT(mirror_mismatch > 0);
+        irrep_space_group_free(G_p3m1);
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
     /* ---- Non-square clusters rejected by groups that require Lx = Ly --- */
     {
         irrep_lattice_t *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 2, 3);

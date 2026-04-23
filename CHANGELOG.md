@@ -82,10 +82,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    for the `Lx = Ly` groups; subgroup bit-exactness (every p6 point
    op agrees with the corresponding p6mm op on its site permutation).
 
-   Remaining wallpaper groups from TODO M1.3 (p31m, p4, p4gm) are
-   deferred — p31m differs from p3m1 only in mirror-axis orientation,
-   p4 is the chiral subgroup of p4mm, p4gm is non-symmorphic (glide
-   mirrors, needs the permutation builder extended).
+   Remaining wallpaper groups from TODO M1.3 shipped in a follow-up
+   (`p31m` with 30°-offset mirrors vs p3m1's; `p4` as the chiral
+   subgroup of p4mm). `p4gm` (non-symmorphic, glide mirrors) deferred
+   — needs the permutation builder extended to support non-origin-
+   fixing point operations; less commonly needed.
 
 - **Lebedev quadrature orders 9 through 41** via runtime registration.
  Closes the `M8` TODO without bundling numerical data in the source

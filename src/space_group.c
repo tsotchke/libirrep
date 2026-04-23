@@ -172,10 +172,8 @@ static int fill_p6_(double mats[][4]) {
 
 /* Fill p3m1 (order 6): three C_3 rotations + three σ_v mirrors through
  * the rotation centre. Convention: σ_v mirrors the y-axis (maps y → −y)
- * and its C_3-conjugates. Complementary convention p31m (mirrors rotated
- * by 30°) is not in this commit — use p3m1 for the mirror-through-vertex
- * placement that matches the standard triangular / kagome Wigner-Seitz
- * orientation. */
+ * and its C_3-conjugates. The mirror axes pass through the vertices of
+ * the hexagonal Wigner-Seitz cell. */
 static int fill_p3m1_(double mats[][4]) {
     /* Rotations E, C_3, C_3² at slots 0, 1, 2. */
     for (int k = 0; k < 3; ++k)
@@ -185,6 +183,35 @@ static int fill_p3m1_(double mats[][4]) {
     for (int k = 0; k < 3; ++k)
         mat_mul_(sigma_v, mats[k], mats[3 + k]);
     return 6;
+}
+
+/* Fill p31m (order 6): three C_3 rotations + three mirrors whose axes
+ * bisect the vertex pairs of the hexagonal cell — 30° rotated relative
+ * to p3m1's mirror placement. Built by conjugating the p3m1 mirror
+ * generator by R(30°): σ_d = R(30°) · σ_v · R(−30°). */
+static int fill_p31m_(double mats[][4]) {
+    /* Rotations E, C_3, C_3² at slots 0, 1, 2. */
+    for (int k = 0; k < 3; ++k)
+        rot_mat_(2.0 * (double)k * M_PI / 3.0, mats[k]);
+    /* σ_d = R(π/6) · σ_v · R(−π/6). */
+    double sigma_v[4]  = {1.0, 0.0, 0.0, -1.0};
+    double R30[4], Rm30[4], tmp[4], sigma_d[4];
+    rot_mat_(+M_PI / 6.0, R30);
+    rot_mat_(-M_PI / 6.0, Rm30);
+    mat_mul_(sigma_v, Rm30, tmp);
+    mat_mul_(R30, tmp, sigma_d);
+    /* Mirrors σ_d · rotation at slots 3, 4, 5. */
+    for (int k = 0; k < 3; ++k)
+        mat_mul_(sigma_d, mats[k], mats[3 + k]);
+    return 6;
+}
+
+/* Fill p4 (order 4): chiral square — E, C_4, C_2, C_4³. Subgroup of
+ * p4mm with the mirrors stripped. */
+static int fill_p4_(double mats[][4]) {
+    for (int k = 0; k < 4; ++k)
+        rot_mat_((double)k * M_PI / 2.0, mats[k]);
+    return 4;
 }
 
 /* -------------------------------------------------------------------------- *
@@ -351,6 +378,20 @@ irrep_space_group_t *irrep_space_group_build(const irrep_lattice_t *L, irrep_wal
             return NULL;
         }
         point_order = fill_p3m1_(mats);
+        break;
+    case IRREP_WALLPAPER_P31M:
+        if (irrep_lattice_kind(L) == IRREP_LATTICE_SQUARE) {
+            irrep_set_error_("irrep_space_group_build: p31m not compatible with square lattice");
+            return NULL;
+        }
+        point_order = fill_p31m_(mats);
+        break;
+    case IRREP_WALLPAPER_P4:
+        if (irrep_lattice_kind(L) != IRREP_LATTICE_SQUARE) {
+            irrep_set_error_("irrep_space_group_build: p4 requires the square lattice");
+            return NULL;
+        }
+        point_order = fill_p4_(mats);
         break;
     default:
         irrep_set_error_("irrep_space_group_build: unknown wallpaper kind %d", (int)kind);

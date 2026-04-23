@@ -147,14 +147,17 @@ See the 1.3 CHANGELOG.
 - [x] k-point-resolved symmetry-adapted basis at arbitrary k (integer
  `(kx, ky)` with `k = (kx/Lx) b1 + (ky/Ly) b2`; little-group point-group
  overlay on top of the pure-momentum basis remains deferred)
-- [x] **p2, p6, p3m1** wallpaper groups — enables C_2 symmetry on
- non-square clusters (the 2×3 kagome N = 18 was previously p1-only),
- chiral C_6, and hex C_3v. Shipped with full site permutations, 177
- test assertions, same orbit-rep + projection pipeline as p4mm / p6mm.
-- [ ] Remaining wallpaper groups: **p31m, p4, p4gm**. (p31m differs from
- p3m1 only in mirror placement — 30° rotated. p4 is the chiral subgroup
- of p4mm. p4gm is non-symmorphic — glide mirrors, needs the
- permutation framework extended.)
+- [x] **p2, p6, p3m1, p31m, p4** wallpaper groups. Enables:
+ - C_2 on non-square clusters (2×3 kagome N = 18 was p1-only previously)
+ - chiral hex C_6 and chiral square C_4 (rotations without mirrors)
+ - both hexagonal-mirror-orientation classes p3m1 (axes through vertices)
+  and p31m (axes bisecting vertex pairs, 30° offset)
+ 307 test assertions covering bijectivity, lattice-compatibility
+ gates, subgroup bit-exactness with p4mm / p6mm parent groups, and
+ p31m mirror-distinction from p3m1.
+- [ ] **p4gm** (non-symmorphic, glide mirrors) — needs the permutation
+ framework extended to support non-origin-fixing point operations.
+ Less commonly needed than the others.
 - [ ] Downstream integration smoke test against
  `spin_based_neural_network` once that project consumes the 1.3 headers
 

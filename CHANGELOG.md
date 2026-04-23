@@ -63,6 +63,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
      `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
      cluster — no regression vs. 1.3.0-alpha.
 
+- **Named-irrep builtins for C_6v and C_3v on p6mm kagome**
+ (`irrep_sg_little_group_irrep_named`). Ergonomic layer over the
+ low-level `_irrep_new` — builds a little-group-irrep handle from a
+ named enum (`A_1`, `A_2`, `B_1`, `B_2`, `E_1`, `E_2`, `E`) by
+ classifying each little-group element via a hard-coded p6mm
+ parent-op → conjugacy-class table. Covers the two little groups the
+ kagome-Heisenberg protocol consumes: C_6v at Γ (6 irreps) and C_3v
+ at K (3 irreps). Other little groups (C_2v at M on p6mm, C_4v /
+ C_2v on p4mm) return `NULL` with a clean `irrep_last_error` until
+ they ship — the low-level `_irrep_new` remains available for every
+ case. Tests: 19 assertions cross-checking builtin A_1 vs manual
+ all-ones, E_1 orthogonality to A_1-symmetric inputs, named-irrep
+ validation against wrong-little-group mismatches. 100 % additive
+ (one new enum + one new function). ABI: `57cc06a325…`.
+
 - **Batched RDM + entropy pipeline for NQS samples** (`irrep/rdm.h`).
  Four new entry points that turn a batch of `n_samples` amplitude
  vectors into per-sample entanglement entropies at a uniform row-major

@@ -281,6 +281,41 @@ IRREP_API void irrep_sg_little_group_irrep_free(irrep_sg_little_group_irrep_t *m
 /** @brief Dimension `d_μ` of the irrep. */
 IRREP_API int irrep_sg_little_group_irrep_dim(const irrep_sg_little_group_irrep_t *mu_k);
 
+/** @brief Named irreps of the little point groups that appear on p1 /
+ *         p4mm / p6mm. Used by @ref irrep_sg_little_group_irrep_named to
+ *         construct a handle without the caller assembling a character
+ *         row by hand. */
+typedef enum {
+    IRREP_LG_IRREP_A1,  /**< Totally symmetric; valid for every little group. */
+    IRREP_LG_IRREP_A2,  /**< Sign on reflections; C_2v / C_3v / C_4v / C_6v. */
+    IRREP_LG_IRREP_B1,  /**< C_2v / C_4v / C_6v (not C_3v). */
+    IRREP_LG_IRREP_B2,  /**< C_2v / C_4v / C_6v (not C_3v). */
+    IRREP_LG_IRREP_E,   /**< 2D irrep on C_3v (at K on kagome). */
+    IRREP_LG_IRREP_E1,  /**< First 2D irrep on C_6v (at Γ on kagome). */
+    IRREP_LG_IRREP_E2,  /**< Second 2D irrep on C_6v. */
+    IRREP_LG_IRREP_E_C4V /**< 2D irrep on C_4v (Γ / M on p4mm). */
+} irrep_lg_named_irrep_t;
+
+/** @brief Build a named irrep of the little point group at `lg`'s base
+ *         point, auto-classifying each element by its conjugacy class
+ *         within the abstract little group.
+ *
+ *  Supported so far: Γ on p6mm (C_6v) and K on p6mm (C_3v) — the two
+ *  little groups the gapped-vs-gapless kagome-Heisenberg protocol
+ *  consumes. Other little groups (C_2v at M on p6mm, C_4v at Γ/M on
+ *  p4mm, C_s, C_1, …) return `NULL` with an informative error in
+ *  @ref irrep_last_error pending follow-up support; the lower-level
+ *  @ref irrep_sg_little_group_irrep_new remains available for every
+ *  case.
+ *
+ *  @param lg    little group built via @ref irrep_sg_little_group_build.
+ *  @param name  named irrep to construct.
+ *  @return      handle or `NULL` on mismatch (e.g. `E_1` on a `C_3v`
+ *               little group). Caller frees with
+ *               @ref irrep_sg_little_group_irrep_free. */
+IRREP_API irrep_sg_little_group_irrep_t *
+irrep_sg_little_group_irrep_named(const irrep_sg_little_group_t *lg, irrep_lg_named_irrep_t name);
+
 /** @brief Composite Bloch + little-group projection:
  *
  *  \f[ P_{k,\mu_k}\,\psi(\sigma) \;=\; \frac{d_{\mu_k}}{|G_k|}\;

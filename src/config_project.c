@@ -679,6 +679,167 @@ int irrep_sg_little_group_irrep_dim(const irrep_sg_little_group_irrep_t *mu_k) {
     return mu_k ? mu_k->dim : 0;
 }
 
+/* ---- p6mm parent-op → conjugacy-class table ------------------------
+ * Enumerated once on 6×6 kagome (where the lattice-rotation-matrix
+ * extraction is unambiguous) and cached here. Valid for any cluster
+ * size: the space-group builder indexes point ops the same way
+ * regardless of `(Lx, Ly)`.
+ *
+ * Classes (in the order the C_6v character table expects):
+ *   0 = E, 1 = C_6, 2 = C_3, 3 = C_2, 4 = σ_v, 5 = σ_d.
+ *
+ * Mirror split {6, 8, 10} σ_v vs {7, 9, 11} σ_d verified by explicit
+ * conjugation `C_3 · M_6 · C_3⁻¹ = M_8` — geometric axes at
+ * 0°/60°/120° (σ_v) vs 30°/90°/150° (σ_d) in cartesian. */
+static const int p6mm_point_class_[12] = {
+    0,                   /* parent 0: E         */
+    1, 2, 3, 2, 1,       /* parent 1..5: C_6, C_3, C_2, C_3², C_6⁵ */
+    4, 5, 4, 5, 4, 5,    /* parent 6..11: σ_v, σ_d, σ_v, σ_d, σ_v, σ_d */
+};
+
+/* C_6v character table, rows indexed by named irrep subset, columns by
+ * conjugacy class (E, C_6, C_3, C_2, σ_v, σ_d). Unused named irreps are
+ * flagged with INT_MIN in the dim-lookup so caller gets a clean error. */
+static const double c6v_chi_[6][6] = {
+    /*            E    C_6   C_3   C_2   σ_v   σ_d  */
+    /* A_1 */  { +1,  +1,  +1,  +1,  +1,  +1 },
+    /* A_2 */  { +1,  +1,  +1,  +1,  -1,  -1 },
+    /* B_1 */  { +1,  -1,  +1,  -1,  +1,  -1 },
+    /* B_2 */  { +1,  -1,  +1,  -1,  -1,  +1 },
+    /* E_1 */  { +2,  +1,  -1,  -2,   0,   0 },
+    /* E_2 */  { +2,  -1,  -1,  +2,   0,   0 },
+};
+static const int c6v_dim_[6] = {1, 1, 1, 1, 2, 2};
+
+/* C_3v at the K-point on p6mm kagome. Little group {E, C_3, C_3², 3σ}
+ * with parent indices {0, 2, 4, σ_1, σ_2, σ_3}. Classes (E, C_3, σ_v).
+ *
+ * Which three of the six C_6v mirrors appear at a given K depends on the
+ * K-point, but all three are in the SAME C_6v class (σ_v or σ_d
+ * exclusively). The C_3v classification below uses that invariant to
+ * pick the class-2 slot. */
+static const double c3v_chi_[3][3] = {
+    /*          E    2C_3   3σ   */
+    /* A_1 */  { 1,    1,    1 },
+    /* A_2 */  { 1,    1,   -1 },
+    /* E   */  { 2,   -1,    0 },
+};
+static const int c3v_dim_[3] = {1, 1, 2};
+
+irrep_sg_little_group_irrep_t *
+irrep_sg_little_group_irrep_named(const irrep_sg_little_group_t *lg, irrep_lg_named_irrep_t name) {
+    if (!lg) {
+        irrep_set_error_("irrep_sg_little_group_irrep_named: NULL little group");
+        return NULL;
+    }
+    int n = lg->point_order;
+    if (n != 12 && n != 6) {
+        irrep_set_error_("irrep_sg_little_group_irrep_named: only C_6v (order 12) and C_3v "
+                         "(order 6) supported; got order %d",
+                         n);
+        return NULL;
+    }
+
+    /* Validate name vs little-group shape and pick the character table. */
+    int             idx_in_table;
+    int             dim;
+    const double   *table_row;
+    int             classes; /* for the table's column count */
+    const double (*full_table)[6];
+    const double (*c3v_table)[3];
+
+    if (n == 12) {
+        /* C_6v. */
+        switch (name) {
+            case IRREP_LG_IRREP_A1: idx_in_table = 0; break;
+            case IRREP_LG_IRREP_A2: idx_in_table = 1; break;
+            case IRREP_LG_IRREP_B1: idx_in_table = 2; break;
+            case IRREP_LG_IRREP_B2: idx_in_table = 3; break;
+            case IRREP_LG_IRREP_E1: idx_in_table = 4; break;
+            case IRREP_LG_IRREP_E2: idx_in_table = 5; break;
+            default:
+                irrep_set_error_(
+                    "irrep_sg_little_group_irrep_named: named irrep not valid on C_6v");
+                return NULL;
+        }
+        dim        = c6v_dim_[idx_in_table];
+        full_table = c6v_chi_;
+        table_row  = c6v_chi_[idx_in_table];
+        classes    = 6;
+        c3v_table  = NULL;
+        (void)table_row;
+        (void)c3v_table;
+    } else {
+        /* n == 6; C_3v. */
+        switch (name) {
+            case IRREP_LG_IRREP_A1: idx_in_table = 0; break;
+            case IRREP_LG_IRREP_A2: idx_in_table = 1; break;
+            case IRREP_LG_IRREP_E:  idx_in_table = 2; break;
+            default:
+                irrep_set_error_(
+                    "irrep_sg_little_group_irrep_named: named irrep not valid on C_3v");
+                return NULL;
+        }
+        dim       = c3v_dim_[idx_in_table];
+        full_table = NULL;
+        c3v_table  = c3v_chi_;
+        classes    = 3;
+        (void)full_table;
+    }
+
+    /* Build the per-element character row. */
+    double _Complex *chi = malloc((size_t)n * sizeof(double _Complex));
+    if (!chi) {
+        irrep_set_error_("irrep_sg_little_group_irrep_named: out of memory");
+        return NULL;
+    }
+    for (int i = 0; i < n; ++i) {
+        int parent = lg->point_ops[i];
+        if (parent < 0 || parent >= 12) {
+            free(chi);
+            irrep_set_error_("irrep_sg_little_group_irrep_named: parent op out of range");
+            return NULL;
+        }
+        int p6mm_cls = p6mm_point_class_[parent];
+        int lg_cls;
+        if (n == 12) {
+            /* C_6v: parent class maps 1-to-1 to table column. */
+            lg_cls = p6mm_cls;
+        } else {
+            /* C_3v at K. Classes {E=0, C_3=1, σ=2}. The 6-element little
+             * group contains parent classes {E, C_3, σ_v OR σ_d}. The
+             * three rotations (including E) map to C_3v classes 0 / 1;
+             * the three mirrors map to class 2. */
+            if (p6mm_cls == 0)
+                lg_cls = 0; /* E */
+            else if (p6mm_cls == 2)
+                lg_cls = 1; /* C_3 or C_3² */
+            else if (p6mm_cls == 4 || p6mm_cls == 5)
+                lg_cls = 2; /* mirror */
+            else {
+                free(chi);
+                irrep_set_error_(
+                    "irrep_sg_little_group_irrep_named: unexpected element at C_3v slot %d (parent %d, "
+                    "p6mm class %d)",
+                    i, parent, p6mm_cls);
+                return NULL;
+            }
+        }
+        if (lg_cls < 0 || lg_cls >= classes) {
+            free(chi);
+            irrep_set_error_(
+                "irrep_sg_little_group_irrep_named: internal class index out of range");
+            return NULL;
+        }
+        double v = (n == 12) ? full_table[idx_in_table][lg_cls] : c3v_table[idx_in_table][lg_cls];
+        chi[i]   = v + 0.0 * I;
+    }
+
+    irrep_sg_little_group_irrep_t *mu = irrep_sg_little_group_irrep_new(lg, chi, dim);
+    free(chi);
+    return mu;
+}
+
 double _Complex irrep_sg_project_at_k(const irrep_sg_little_group_t       *lg,
                                       const irrep_sg_little_group_irrep_t *mu_k,
                                       const double _Complex               *psi_of_g) {

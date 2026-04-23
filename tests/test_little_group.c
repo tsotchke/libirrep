@@ -377,6 +377,110 @@ int main(void) {
         irrep_lattice_free(L);
     }
 
+    /* ---- Named irrep builtins: C_6v at Γ, C_3v at K on kagome ---------- */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 3, 3);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P6MM);
+
+        /* Γ: C_6v — A_1 via builtin == A_1 via manual all-ones. */
+        irrep_sg_little_group_t *lg_G = irrep_sg_little_group_build(G, 0, 0);
+        int                      n_G  = irrep_sg_little_group_point_order(lg_G);
+        IRREP_ASSERT(n_G == 12);
+
+        irrep_sg_little_group_irrep_t *A1_builtin =
+            irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_A1);
+        IRREP_ASSERT(A1_builtin != NULL);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(A1_builtin) == 1);
+
+        double _Complex ones[12];
+        for (int i = 0; i < 12; ++i)
+            ones[i] = 1.0 + 0.0 * I;
+        irrep_sg_little_group_irrep_t *A1_manual =
+            irrep_sg_little_group_irrep_new(lg_G, ones, 1);
+
+        /* Project a probe vector through both — results must be bit-equal. */
+        double _Complex psi[432];
+        for (int g = 0; g < 432; ++g) /* 12 · Lx · Ly = 12·9 */
+            psi[g] = 0.0;
+        /* Construct a non-trivial psi_of_g. */
+        for (int g = 0; g < 432; ++g)
+            psi[g] = (0.17 * g - 0.3) + I * (0.21 * g - 0.5);
+
+        double _Complex p_builtin = irrep_sg_project_at_k(lg_G, A1_builtin, psi);
+        double _Complex p_manual  = irrep_sg_project_at_k(lg_G, A1_manual, psi);
+        IRREP_ASSERT(cabs(p_builtin - p_manual) < 1e-13);
+
+        irrep_sg_little_group_irrep_free(A1_builtin);
+        irrep_sg_little_group_irrep_free(A1_manual);
+
+        /* E_1 via builtin: dim = 2, non-trivial character row. Project
+         * twice and assert a sanity property — E_1 on A_1-symmetric
+         * input must vanish (A_1 ⊥ E_1). */
+        irrep_sg_little_group_irrep_t *E1 =
+            irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_E1);
+        IRREP_ASSERT(E1 != NULL);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(E1) == 2);
+        double _Complex psi_sym[432];
+        double _Complex mean = 0;
+        for (int g = 0; g < 432; ++g)
+            mean += psi[g];
+        mean /= 432.0;
+        for (int g = 0; g < 432; ++g)
+            psi_sym[g] = mean; /* totally symmetric */
+        double _Complex p_E1 = irrep_sg_project_at_k(lg_G, E1, psi_sym);
+        IRREP_ASSERT(cabs(p_E1) < 1e-12);
+        irrep_sg_little_group_irrep_free(E1);
+
+        /* B_1 via builtin: also valid on C_6v. */
+        irrep_sg_little_group_irrep_t *B1 =
+            irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_B1);
+        IRREP_ASSERT(B1 != NULL);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(B1) == 1);
+        irrep_sg_little_group_irrep_free(B1);
+
+        /* Named irrep "E" (the C_3v 2D) is NOT valid on C_6v — must return NULL. */
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_E) == NULL);
+
+        irrep_sg_little_group_free(lg_G);
+
+        /* K on 3×3 kagome: C_3v. A_1 / A_2 / E must all build. */
+        irrep_sg_little_group_t *lg_K = irrep_sg_little_group_build(G, 1, 2);
+        IRREP_ASSERT(irrep_sg_little_group_point_order(lg_K) == 6);
+
+        irrep_sg_little_group_irrep_t *K_A1 =
+            irrep_sg_little_group_irrep_named(lg_K, IRREP_LG_IRREP_A1);
+        irrep_sg_little_group_irrep_t *K_A2 =
+            irrep_sg_little_group_irrep_named(lg_K, IRREP_LG_IRREP_A2);
+        irrep_sg_little_group_irrep_t *K_E =
+            irrep_sg_little_group_irrep_named(lg_K, IRREP_LG_IRREP_E);
+        IRREP_ASSERT(K_A1 != NULL && K_A2 != NULL && K_E != NULL);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(K_A1) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(K_A2) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(K_E) == 2);
+
+        /* B_1 is NOT valid on C_3v — must return NULL. */
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_K, IRREP_LG_IRREP_B1) == NULL);
+
+        irrep_sg_little_group_irrep_free(K_A1);
+        irrep_sg_little_group_irrep_free(K_A2);
+        irrep_sg_little_group_irrep_free(K_E);
+        irrep_sg_little_group_free(lg_K);
+
+        /* M on 2×2 kagome: C_2v (order 4) — not yet in the builtin menu,
+         * must return NULL with a clean diagnostic (not crash). */
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+
+        irrep_lattice_t     *L2 = irrep_lattice_build(IRREP_LATTICE_KAGOME, 2, 2);
+        irrep_space_group_t *G2 = irrep_space_group_build(L2, IRREP_WALLPAPER_P6MM);
+        irrep_sg_little_group_t *lg_M = irrep_sg_little_group_build(G2, 1, 0);
+        IRREP_ASSERT(irrep_sg_little_group_point_order(lg_M) == 4);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_M, IRREP_LG_IRREP_A1) == NULL);
+        irrep_sg_little_group_free(lg_M);
+        irrep_space_group_free(G2);
+        irrep_lattice_free(L2);
+    }
+
     /* ---- Canonicalisation: negative or out-of-range k maps correctly ---- */
     {
         irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_SQUARE, 2, 2);

@@ -297,6 +297,34 @@ IRREP_API double _Complex irrep_sg_project_at_k(const irrep_sg_little_group_t *l
                                                 const irrep_sg_little_group_irrep_t *mu_k,
                                                 const double _Complex               *psi_of_g);
 
+/** @brief Build an orthonormal basis for the `(k, μ_k)`-irrep sector of a
+ *         `local_dim^num_sites`-dimensional configuration Hilbert space.
+ *
+ *  Applies @ref irrep_sg_project_at_k to each computational basis state
+ *  and Gram-Schmidt-orthogonalises against previously accepted vectors.
+ *  Non-zero residuals (norm > 1e-9) are normalised and appended.
+ *
+ *  Block-diagonal ED recipe: build the basis at each `(k, μ_k)`, sandwich
+ *  the Hamiltonian against it, diagonalise each dense block. Sector
+ *  dimensions sum to the full Hilbert-space dimension across all `(k, μ_k)`
+ *  — a finer decomposition than the pure @ref irrep_sg_bloch_basis (which
+ *  only resolves translations).
+ *
+ *  @param lg          little group at `(kx, ky)` (carries the parent
+ *                     space group internally)
+ *  @param mu_k        target irrep of the little point group
+ *  @param num_sites   configuration length (must equal
+ *                     `irrep_space_group_num_sites(parent)`)
+ *  @param local_dim   per-site Hilbert-space dimension (2 for spin-½)
+ *  @param basis_out   output buffer of length `n_max · local_dim^num_sites`
+ *  @param n_max       row capacity of @p basis_out; pass the full
+ *                     Hilbert-space dimension for safety
+ *  @return            actual basis size, or `-1` on error (NULL input,
+ *                     overflow, OOM). */
+IRREP_API int irrep_sg_adapted_basis_at_k(const irrep_sg_little_group_t       *lg,
+                                          const irrep_sg_little_group_irrep_t *mu_k, int num_sites,
+                                          int local_dim, double _Complex *basis_out, int n_max);
+
 #ifdef __cplusplus
 }
 #endif

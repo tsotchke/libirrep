@@ -714,6 +714,140 @@ double _Complex irrep_sg_project_at_k(const irrep_sg_little_group_t       *lg,
     return acc * ((double)mu_k->dim / (double)group_order);
 }
 
+int irrep_sg_adapted_basis_at_k(const irrep_sg_little_group_t       *lg,
+                                const irrep_sg_little_group_irrep_t *mu_k, int num_sites,
+                                int local_dim, double _Complex *basis_out, int n_max) {
+    if (!lg || !mu_k || !basis_out || n_max <= 0 || num_sites < 1 || local_dim < 2 ||
+        mu_k->lg != lg)
+        return -1;
+    if (num_sites != irrep_space_group_num_sites(lg->G))
+        return -1;
+    const irrep_lattice_t *L = irrep_space_group_lattice(lg->G);
+    if (!L)
+        return -1;
+    int Lx = irrep_lattice_Lx(L);
+    int Ly = irrep_lattice_Ly(L);
+    int point_order = irrep_space_group_point_order(lg->G);
+    int num_trans = Lx * Ly;
+    int lg_point = lg->point_order;
+    int group_order = num_trans * lg_point;
+
+    long long D = ipow_ll_(local_dim, num_sites);
+    if (D <= 0)
+        return -1;
+
+    /* Cache the inverse permutation of every space-group element that lies
+     * inside the little group — i.e. (tidx, p) with p ∈ lg->point_ops. Stored
+     * as a flat [num_trans × lg_point × num_sites] int tensor. */
+    int *perm_inv = malloc((size_t)num_trans * (size_t)lg_point * (size_t)num_sites * sizeof(int));
+    if (!perm_inv)
+        return -1;
+    int *scratch = malloc((size_t)num_sites * sizeof(int));
+    if (!scratch) {
+        free(perm_inv);
+        return -1;
+    }
+    for (int tidx = 0; tidx < num_trans; ++tidx) {
+        for (int i = 0; i < lg_point; ++i) {
+            int p = lg->point_ops[i];
+            int g = tidx * point_order + p;
+            irrep_space_group_permutation_inverse(lg->G, g, scratch);
+            size_t off = ((size_t)tidx * lg_point + i) * num_sites;
+            memcpy(perm_inv + off, scratch, (size_t)num_sites * sizeof(int));
+        }
+    }
+    free(scratch);
+
+    /* Precompute per-(tidx, i) phase weights: e^{-i k·t} · conj(χ_μ(p_i)). */
+    double _Complex *weights =
+        malloc((size_t)num_trans * (size_t)lg_point * sizeof(double _Complex));
+    if (!weights) {
+        free(perm_inv);
+        return -1;
+    }
+    double inv_Lx = 1.0 / (double)Lx;
+    double inv_Ly = 1.0 / (double)Ly;
+    for (int ty = 0; ty < Ly; ++ty) {
+        for (int tx = 0; tx < Lx; ++tx) {
+            int    tidx = ty * Lx + tx;
+            double ph =
+                -2.0 * M_PI * ((double)(lg->kx * tx) * inv_Lx + (double)(lg->ky * ty) * inv_Ly);
+            double _Complex bloch = cos(ph) + I * sin(ph);
+            for (int i = 0; i < lg_point; ++i) {
+                weights[(size_t)tidx * lg_point + i] = bloch * conj(mu_k->characters[i]);
+            }
+        }
+    }
+
+    double _Complex *v = malloc((size_t)D * sizeof(double _Complex));
+    if (!v) {
+        free(weights);
+        free(perm_inv);
+        return -1;
+    }
+
+    const double tol = 1e-9;
+    int          n_basis = 0;
+    double _Complex scale = (double)mu_k->dim / (double)group_order;
+
+    for (long long s = 0; s < D; ++s) {
+        /* Orbit-representative filter over the FULL little group: skip |s⟩
+         * if any (tidx, p ∈ P_k) maps it to a smaller index — that smaller
+         * index is (or will be) the seed for this orbit. */
+        int is_min = 1;
+        for (int tidx = 0; tidx < num_trans && is_min; ++tidx) {
+            for (int i = 0; i < lg_point && is_min; ++i) {
+                if (tidx == 0 && i == 0)
+                    continue; /* identity */
+                const int *perm = perm_inv + ((size_t)tidx * lg_point + i) * num_sites;
+                long long  s_g = permute_digits_(s, num_sites, local_dim, perm);
+                if (s_g < s)
+                    is_min = 0;
+            }
+        }
+        if (!is_min)
+            continue;
+
+        memset(v, 0, (size_t)D * sizeof(double _Complex));
+        for (int tidx = 0; tidx < num_trans; ++tidx) {
+            for (int i = 0; i < lg_point; ++i) {
+                const int      *perm = perm_inv + ((size_t)tidx * lg_point + i) * num_sites;
+                long long       s_g = permute_digits_(s, num_sites, local_dim, perm);
+                double _Complex w = weights[(size_t)tidx * lg_point + i];
+                v[s_g] += scale * w;
+            }
+        }
+
+        for (int k = 0; k < n_basis; ++k) {
+            const double _Complex *b_k = basis_out + (size_t)k * D;
+            double _Complex        overlap = 0.0;
+            for (long long t = 0; t < D; ++t)
+                overlap += conj(b_k[t]) * v[t];
+            for (long long t = 0; t < D; ++t)
+                v[t] -= overlap * b_k[t];
+        }
+
+        double norm2 = 0.0;
+        for (long long t = 0; t < D; ++t)
+            norm2 += creal(v[t]) * creal(v[t]) + cimag(v[t]) * cimag(v[t]);
+        double norm = sqrt(norm2);
+
+        if (norm > tol && n_basis < n_max) {
+            double _Complex *dst = basis_out + (size_t)n_basis * D;
+            for (long long t = 0; t < D; ++t)
+                dst[t] = v[t] / norm;
+            ++n_basis;
+        }
+        if (n_basis >= n_max)
+            break;
+    }
+
+    free(v);
+    free(weights);
+    free(perm_inv);
+    return n_basis;
+}
+
 int irrep_sg_little_group_point_order(const irrep_sg_little_group_t *lg) {
     return lg ? lg->point_order : 0;
 }

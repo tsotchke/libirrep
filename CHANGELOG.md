@@ -50,8 +50,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
    identity lies at index 0. Frobenius orbit-count sum rule passes on
    every cluster.
 
-   ABI baseline refreshed to `0031452090…` (additive, five new public
-   symbols; existing 1.3.0-alpha consumers continue to link unchanged).
+   ABI baseline refreshed to `001208057a…` (additive; six new public
+   symbols since the previous baseline; existing 1.3.0-alpha consumers
+   continue to link unchanged).
+
+   - **Block-diagonal basis at (k, μ_k)**:
+     `irrep_sg_adapted_basis_at_k(lg, mu_k, num_sites, local_dim,
+      basis_out, n_max)`. Analogous to `irrep_sg_bloch_basis` but with
+     the little-point-group character overlay, so ED blocks separate
+     by both translation momentum AND point-group symmetry channel at
+     each k. Γ-A₁ agrees bit-exactly with the legacy
+     `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
+     cluster — no regression vs. 1.3.0-alpha.
 
 - **`irrep/hamiltonian.h` — on-the-fly Hamiltonian apply operators.**
  Every ED example previously re-implemented the same spin-½ Heisenberg

@@ -629,6 +629,113 @@ irrep_status_t irrep_lanczos_eigvals_reorth(void (*apply_op)(const double _Compl
     return IRREP_OK;
 }
 
+/* -------------------------------------------------------------------------- *
+ * Batched per-sample entanglement pipeline                                   *
+ * -------------------------------------------------------------------------- */
+
+static long long ipow_ll_rdm_(int base, int exp) {
+    long long r = 1;
+    for (int k = 0; k < exp; ++k)
+        r *= (long long)base;
+    return r;
+}
+
+irrep_status_t irrep_rdm_batch_partial_trace(int num_sites, int local_dim, int n_samples,
+                                             const double _Complex *psi_batch,
+                                             const int *sites_A, int nA,
+                                             double _Complex *rho_A_batch) {
+    if (!psi_batch || !rho_A_batch || n_samples < 1 || nA < 0 || num_sites < 1 || local_dim < 2)
+        return IRREP_ERR_INVALID_ARG;
+
+    long long D = ipow_ll_rdm_(local_dim, num_sites);
+    long long dA = ipow_ll_rdm_(local_dim, nA);
+    if (D <= 0 || dA <= 0)
+        return IRREP_ERR_INVALID_ARG;
+
+    for (int m = 0; m < n_samples; ++m) {
+        const double _Complex *psi = psi_batch + (size_t)m * (size_t)D;
+        double _Complex       *rho = rho_A_batch + (size_t)m * (size_t)dA * (size_t)dA;
+        irrep_status_t rc = irrep_partial_trace(num_sites, local_dim, psi, sites_A, nA, rho);
+        if (rc != IRREP_OK)
+            return rc;
+    }
+    return IRREP_OK;
+}
+
+irrep_status_t irrep_rdm_batch_entropy_vonneumann(int dim_A, int n_samples,
+                                                  double _Complex *rho_A_batch, double *vn_out) {
+    if (!rho_A_batch || !vn_out || dim_A < 1 || n_samples < 1)
+        return IRREP_ERR_INVALID_ARG;
+    double *eigvals = malloc((size_t)dim_A * sizeof(double));
+    if (!eigvals)
+        return IRREP_ERR_OUT_OF_MEMORY;
+    for (int m = 0; m < n_samples; ++m) {
+        double _Complex *rho = rho_A_batch + (size_t)m * (size_t)dim_A * (size_t)dim_A;
+        irrep_status_t   rc  = irrep_hermitian_eigvals(dim_A, rho, eigvals);
+        if (rc != IRREP_OK) {
+            free(eigvals);
+            return rc;
+        }
+        vn_out[m] = irrep_entropy_vonneumann_spectrum(eigvals, dim_A);
+    }
+    free(eigvals);
+    return IRREP_OK;
+}
+
+irrep_status_t irrep_rdm_batch_entropy_renyi(int dim_A, int n_samples,
+                                             double _Complex *rho_A_batch, double alpha,
+                                             double *renyi_out) {
+    if (!rho_A_batch || !renyi_out || dim_A < 1 || n_samples < 1)
+        return IRREP_ERR_INVALID_ARG;
+    double *eigvals = malloc((size_t)dim_A * sizeof(double));
+    if (!eigvals)
+        return IRREP_ERR_OUT_OF_MEMORY;
+    for (int m = 0; m < n_samples; ++m) {
+        double _Complex *rho = rho_A_batch + (size_t)m * (size_t)dim_A * (size_t)dim_A;
+        irrep_status_t   rc  = irrep_hermitian_eigvals(dim_A, rho, eigvals);
+        if (rc != IRREP_OK) {
+            free(eigvals);
+            return rc;
+        }
+        renyi_out[m] = irrep_entropy_renyi_spectrum(eigvals, dim_A, alpha);
+    }
+    free(eigvals);
+    return IRREP_OK;
+}
+
+irrep_status_t irrep_rdm_from_sample_amplitudes(int dim_A, int n_samples,
+                                                const double _Complex *psi_A_batch,
+                                                const double          *weights,
+                                                double _Complex       *rho_A_out) {
+    if (!psi_A_batch || !rho_A_out || dim_A < 1 || n_samples < 1)
+        return IRREP_ERR_INVALID_ARG;
+
+    /* Zero the output. */
+    size_t dA2 = (size_t)dim_A * (size_t)dim_A;
+    for (size_t k = 0; k < dA2; ++k)
+        rho_A_out[k] = 0.0 + 0.0 * I;
+
+    double W = 0.0;
+    for (int m = 0; m < n_samples; ++m) {
+        double w = weights ? weights[m] : 1.0;
+        if (w < 0.0)
+            return IRREP_ERR_INVALID_ARG; /* negative weight is ill-defined */
+        const double _Complex *psi = psi_A_batch + (size_t)m * (size_t)dim_A;
+        for (int i = 0; i < dim_A; ++i) {
+            double _Complex pi = psi[i];
+            for (int j = 0; j < dim_A; ++j) {
+                rho_A_out[(size_t)i * (size_t)dim_A + (size_t)j] += w * pi * conj(psi[j]);
+            }
+        }
+        W += w;
+    }
+    if (W <= 0.0)
+        return IRREP_ERR_PRECONDITION; /* all-zero weights */
+    for (size_t k = 0; k < dA2; ++k)
+        rho_A_out[k] /= W;
+    return IRREP_OK;
+}
+
 double irrep_topological_entanglement_entropy(double SA, double SB, double SC, double SAB,
                                               double SBC, double SAC, double SABC) {
     return SA + SB + SC - SAB - SBC - SAC + SABC;

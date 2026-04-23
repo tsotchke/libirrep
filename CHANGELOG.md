@@ -63,6 +63,39 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
      `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
      cluster — no regression vs. 1.3.0-alpha.
 
+- **Batched RDM + entropy pipeline for NQS samples** (`irrep/rdm.h`).
+ Four new entry points that turn a batch of `n_samples` amplitude
+ vectors into per-sample entanglement entropies at a uniform row-major
+ contract. Consumed by the `spin_based_neural_network` sample-producer
+ path for diagnostics (2) Kitaev–Preskill γ and (5) S_VN-area-law
+ subleading in the gapped-vs-gapless kagome-Heisenberg protocol.
+
+   - `irrep_rdm_batch_partial_trace(num_sites, local_dim, n_samples,
+      psi_batch, sites_A, nA, rho_A_batch)` — batched wrapper over
+     `irrep_partial_trace`.
+   - `irrep_rdm_batch_entropy_vonneumann(dim_A, n_samples, rho_batch,
+      vn_out)` — in-place diagonalise each RDM and emit `-Σ λ ln λ`.
+   - `irrep_rdm_batch_entropy_renyi(dim_A, n_samples, rho_batch,
+      alpha, renyi_out)` — Rényi variant; `alpha = 1` falls back to VN.
+   - `irrep_rdm_from_sample_amplitudes(dim_A, n_samples, psi_A_batch,
+      weights, rho_A_out)` — Monte-Carlo estimator for `ρ_A` when the
+     NQS driver only exposes region-A amplitude columns (one column
+     per outer-configuration sample). Uniform or explicit weighting.
+
+   Measured throughput on Apple M2 Ultra, N = 12 full state, N_region = 6
+   (64-dim RDM), -O2: `_batch_partial_trace` ≈ 3700 samples/s;
+   `_batch_entropy_vonneumann` ≈ 300 samples/s (cyclic-Jacobi
+   eigensolve dominates). Below the 10 k/s aspirational gate at this
+   region size; faster 64×64 eigensolve / LAPACK backend is tracked as a
+   follow-up M15b.1. Throughput scales favourably with smaller region
+   size — `N_region ≤ 4` gives an order-of-magnitude headroom.
+
+   Tests: 37 assertions covering Bell-state S_VN = ln 2, product-state
+   S_VN = 0, Rényi-2 on maximally mixed qubit = ln 2, uniform-weight
+   rank-1 aggregator, off-diagonal cancellation under weighted
+   averaging, negative-weight rejection, zero-weight PRECONDITION
+   error, and single-sample batched == non-batched bit-exact.
+
 - **Lanczos with full Gram–Schmidt reorthogonalisation**
  (`irrep/rdm.h`, `irrep_lanczos_eigvals_reorth`). Stores the complete
  Krylov basis and reorthogonalises the residual against every

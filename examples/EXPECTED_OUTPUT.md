@@ -89,15 +89,48 @@ weighting. No RNG.
 **Expected output:**
 
 ```
-Γ-irrep dimensions sum to     = 593
-  (= orbit-rep count under the translation subgroup)
-sector dimensions by block:
-  A₁ = 151,  A₂ = 48,   B₁ = 81,   B₂ = 40
-  E₁ = 142,  E₂ = 131
+Γ-irrep multiplicities sum to = 593
+  (= orbit-rep count under the full space group)
+sector multiplicities by block:
+  A₁ = 144,  A₂ = 76,   B₁ = 74,   B₂ = 74
+  E₁ = 90,   E₂ = 135
 ground-state sector            = B₁
 ground-state energy            = -5.44487522 J
   (identical to the global power-iteration result)
 ```
+
+## `kagome12_k_resolved_ed`
+
+12-site kagome, block ED across every `(k, μ_k)` space-group sector —
+Γ (C_6v, 6 irreps) plus the three M-points (C_2v, 4 irreps each).
+Exercises the full libirrep 1.3 M15a little-group-projector stack:
+`irrep_sg_little_group_build`, `_irrep_new`, `_adapted_basis_at_k`,
+`element_matrix` introspection.
+
+**Deterministic:** hand-coded C_6v / C_2v character tables,
+conjugacy-classification keyed to the space-group builder's point-op
+indexing. No RNG.
+
+**Expected output (per-sector, J = 1):**
+
+| k   | μ   | dim | E_min       | E_max       |
+|-----|-----|----:|------------:|------------:|
+| Γ   | A_1 | 144 |    -5.328392 |    +6.000000 |
+| Γ   | A_2 |  76 |    -4.962435 |    +3.138647 |
+| Γ   | B_1 |  74 |    **-5.44487522** |    +2.256488 |
+| Γ   | B_2 |  74 |    -3.676094 |    +4.000000 |
+| Γ   | E_1 |  90 |    -3.299516 |    +3.250000 |
+| Γ   | E_2 | 135 |    -4.177552 |    +3.642602 |
+| M_a | A_1 | 270 |    -4.902343 |    +4.224745 |
+| M_a | A_2 | 210 |    -5.165293 |    +3.272791 |
+| M_a | B_1 | 264 |    -4.972554 |    +5.000000 |
+| M_a | B_2 | 264 |    -5.062207 |    +3.615360 |
+
+(M_b and M_c are equivalent to M_a under C_6; same dimensions and
+eigenvalues. Frobenius multiplicity sum = 593 + 3·1008 = 3617.)
+
+Ground-state assignment: **(Γ, B_1)** at E_0 = −5.44487522 J, matching
+the Γ-only projector and the dense power iteration.
 
 ## `kagome_a1_projection`
 

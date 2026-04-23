@@ -247,6 +247,56 @@ IRREP_API void irrep_sg_little_group_k(const irrep_sg_little_group_t *lg, int *o
 /** @brief Borrow the parent space group. */
 IRREP_API const irrep_space_group_t *irrep_sg_little_group_parent(const irrep_sg_little_group_t *lg);
 
+/** @brief Write the 2×2 integer rotation matrix of element @p i in
+ *         lattice-cell basis. Column @p j is the image of `a_{j+1}` — for
+ *         a proper rotation `det = +1`, for a mirror `det = −1`. Useful
+ *         for assembling character rows on the caller side: on C_{n}v
+ *         little groups the tuple `(order, det)` together with the
+ *         reflection axis separates every conjugacy class. */
+IRREP_API void irrep_sg_little_group_element_matrix(const irrep_sg_little_group_t *lg, int i,
+                                                    int out_M[2][2]);
+
+/** @brief Opaque handle for an irrep of the little POINT group (C_2v at M,
+ *         C_3v at K, etc.). The Bloch phase `e^{-i k·t}` is carried
+ *         separately by @ref irrep_sg_project_at_k; this object records
+ *         only the point-group characters. */
+typedef struct irrep_sg_little_group_irrep irrep_sg_little_group_irrep_t;
+
+/** @brief Build a little-group-irrep handle from a character row.
+ *
+ *  @param lg          little-group parent
+ *  @param characters  length-`point_order(lg)` array of characters,
+ *                     one per element in the same order as
+ *                     @ref irrep_sg_little_group_point_ops returns
+ *  @param dim         dimension `d_μ` of the irrep (1 for C_2v, C_3v
+ *                     one-dimensional irreps; 2 for C_3v's E irrep; etc.)
+ *  @return            new handle or `NULL` on OOM / bad input. */
+IRREP_API irrep_sg_little_group_irrep_t *
+irrep_sg_little_group_irrep_new(const irrep_sg_little_group_t *lg, const double _Complex *characters,
+                                int dim);
+
+/** @brief Release an irrep handle. */
+IRREP_API void irrep_sg_little_group_irrep_free(irrep_sg_little_group_irrep_t *mu_k);
+
+/** @brief Dimension `d_μ` of the irrep. */
+IRREP_API int irrep_sg_little_group_irrep_dim(const irrep_sg_little_group_irrep_t *mu_k);
+
+/** @brief Composite Bloch + little-group projection:
+ *
+ *  \f[ P_{k,\mu_k}\,\psi(\sigma) \;=\; \frac{d_{\mu_k}}{|G_k|}\;
+ *      \sum_{t \in T}\;\sum_{p \in P_k}\; e^{-i k \cdot t}\;\chi_{\mu_k}^*(p)\;
+ *      \psi\!\big((\tau_t p)\cdot\sigma\big) \f]
+ *
+ *  @param lg        little-group handle built at `(kx, ky)`
+ *  @param mu_k      irrep of the little point group `P_k`
+ *  @param psi_of_g  length-`order(G)` orbit amplitudes (same convention as
+ *                   @ref irrep_sg_project_amplitude — element index
+ *                   `g = tidx * point_order + p`)
+ *  @return          projected amplitude, or `NaN + NaN·i` on NULL input. */
+IRREP_API double _Complex irrep_sg_project_at_k(const irrep_sg_little_group_t *lg,
+                                                const irrep_sg_little_group_irrep_t *mu_k,
+                                                const double _Complex               *psi_of_g);
+
 #ifdef __cplusplus
 }
 #endif

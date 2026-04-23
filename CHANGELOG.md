@@ -9,20 +9,49 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - **Little-group machinery at Bloch momentum k** (`irrep/config_project.h`).
- New opaque handle `irrep_sg_little_group_t` plus `irrep_sg_little_group_build`,
- `_free`, `_order`, `_point_order`, `_point_ops`, `_k`, `_parent`. Identifies
- the point-group stabiliser of a given k-point on the Brillouin-zone mesh by
- extracting the real-space rotation matrix of each point-group element from
- the site permutation (using the diff `cell(p·v) − cell(p·0)` so the
- wallpaper-group origin does not have to be a lattice site) and checking
- `M^{-T} · (kx, ky) ≡ (kx, ky)` mod `(Lx, Ly)`. First step toward the
- `(k, μ_k)`-indexed composite space-group irrep projector needed for the
- Γ/M/K-resolved spectrum on kagome — the K-point Dirac-cone diagnostic
- in the gapped-Z₂ vs. gapless-Dirac spin-liquid protocol. Tested: 100
- assertions across p1/p4mm/p6mm + all four (non)-Γ k-classes on 2×2
- kagome (C_6v + 3×C_2v) and 3×3 kagome (C_6v + 2×C_3v K-points + 6
- generic); Frobenius orbit-count sum rule passes on every cluster.
- ABI baseline refreshed: `e8cae37f…` (additive, no removed symbols).
+ Stabiliser identification + composite projector + element-matrix
+ introspection. This is the first layer of the `(k, μ_k)`-indexed
+ space-group irrep machinery needed for the Γ/M/K-resolved spectrum on
+ kagome — the K-point Dirac-cone diagnostic in the gapped-Z₂ vs.
+ gapless-Dirac spin-liquid protocol.
+
+   - **Stabiliser**: `irrep_sg_little_group_t` + `_build(G, kx, ky)`,
+     `_free`, `_order`, `_point_order`, `_point_ops`, `_k`, `_parent`.
+     Extracts the real-space 2×2 rotation matrix of each point-group
+     element from the site permutation (using the diff
+     `cell(p·v) − cell(p·0)` so the wallpaper-group origin does not
+     have to be a lattice site — e.g. hexagon centre on kagome) and
+     checks `M^{-T} · (kx, ky) ≡ (kx, ky)` mod `(Lx, Ly)`.
+
+   - **Element introspection**: `irrep_sg_little_group_element_matrix(lg, i, out_M)`
+     returns the cached 2×2 integer matrix of element `i`. `|det|` is
+     always 1; `det = +1` / `−1` separates proper rotations from
+     improper mirrors. Together with the element order, this lets
+     callers assemble character rows without hardcoding point-group
+     conventions.
+
+   - **Irrep handle**: `irrep_sg_little_group_irrep_t` + `_new`,
+     `_free`, `_dim`. Caller supplies a characters array indexed in
+     the same order as `_point_ops` returns.
+
+   - **Composite projector**: `irrep_sg_project_at_k(lg, mu_k, psi_of_g)`
+     implements
+     `P_{k,μ_k} ψ(σ) = (d_{μ_k} / |G_k|) Σ_{t, p ∈ P_k}
+     e^{−ik·t} χ_{μ_k}^*(p) · ψ((τ_t · p)·σ)`.
+     Expects the same length-`order(G)` orbit-amplitude array as
+     `irrep_sg_project_amplitude` — drop-in upgrade from pure Γ-irrep
+     projection.
+
+   Tested: 123 assertions across p1 / p4mm / p6mm + non-Γ k-classes
+   on 2×2 kagome (C_6v + 3·C_2v) and 3×3 kagome (C_6v + 2·C_3v K-points
+   + 6 generic). Plus: trivial irrep at Γ agrees bit-exactly with
+   `irrep_sg_project_A1`; sign-representation at Γ annihilates
+   A₁-symmetric inputs; every element matrix has `|det| = 1` and
+   identity lies at index 0. Frobenius orbit-count sum rule passes on
+   every cluster.
+
+   ABI baseline refreshed to `0031452090…` (additive, five new public
+   symbols; existing 1.3.0-alpha consumers continue to link unchanged).
 
 - **`irrep/hamiltonian.h` — on-the-fly Hamiltonian apply operators.**
  Every ED example previously re-implemented the same spin-½ Heisenberg

@@ -167,6 +167,132 @@ int main(void) {
         irrep_lattice_free(L);
     }
 
+    /* ---- Element-matrix introspection: |det| = 1 on every element ------ */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 3, 3);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P6MM);
+        /* Γ's little group is the full C_6v — covers every point op. */
+        irrep_sg_little_group_t *lg = irrep_sg_little_group_build(G, 0, 0);
+        int                      n = irrep_sg_little_group_point_order(lg);
+        IRREP_ASSERT(n == 12);
+        int proper = 0, improper = 0;
+        for (int i = 0; i < n; ++i) {
+            int M[2][2];
+            irrep_sg_little_group_element_matrix(lg, i, M);
+            int det = M[0][0] * M[1][1] - M[0][1] * M[1][0];
+            IRREP_ASSERT(det == 1 || det == -1);
+            if (det == 1)
+                ++proper;
+            else
+                ++improper;
+        }
+        /* C_6v: 6 rotations (proper) + 6 mirrors (improper). */
+        IRREP_ASSERT(proper == 6);
+        IRREP_ASSERT(improper == 6);
+        /* Identity is M = [[1, 0], [0, 1]]. */
+        {
+            int M[2][2];
+            irrep_sg_little_group_element_matrix(lg, 0, M);
+            IRREP_ASSERT(M[0][0] == 1 && M[0][1] == 0 && M[1][0] == 0 && M[1][1] == 1);
+        }
+        irrep_sg_little_group_free(lg);
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
+    /* ---- Trivial irrep at Γ equals the A₁ projector ---------------------
+     * The composite projector with all-ones characters and k = (0, 0) is
+     * the totally-symmetric space-group projector. Must agree with
+     * `irrep_sg_project_A1` on every orbit-amplitude input.
+     * --------------------------------------------------------------------- */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 2, 2);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P6MM);
+        int                  order = irrep_space_group_order(G); /* 12 · 4 = 48 */
+
+        irrep_sg_little_group_t *lg = irrep_sg_little_group_build(G, 0, 0);
+        IRREP_ASSERT(irrep_sg_little_group_point_order(lg) == 12);
+
+        double _Complex ones[12];
+        for (int i = 0; i < 12; ++i)
+            ones[i] = 1.0 + 0.0 * I;
+        irrep_sg_little_group_irrep_t *mu_A1 = irrep_sg_little_group_irrep_new(lg, ones, 1);
+        IRREP_ASSERT(mu_A1 != NULL);
+
+        /* Three diverse probe vectors. */
+        double _Complex psi[48];
+        for (int g = 0; g < 48; ++g)
+            psi[g] = (0.13 * g - 0.2) + I * (0.07 * g - 0.5);
+
+        double _Complex a1_classic = irrep_sg_project_A1(G, psi);
+        double _Complex a1_at_k    = irrep_sg_project_at_k(lg, mu_A1, psi);
+        IRREP_ASSERT(cabs(a1_classic - a1_at_k) < 1e-12);
+
+        for (int g = 0; g < 48; ++g)
+            psi[g] = sin(0.3 * g) + I * cos(0.4 * g);
+        a1_classic = irrep_sg_project_A1(G, psi);
+        a1_at_k    = irrep_sg_project_at_k(lg, mu_A1, psi);
+        IRREP_ASSERT(cabs(a1_classic - a1_at_k) < 1e-12);
+
+        for (int g = 0; g < 48; ++g)
+            psi[g] = 0;
+        psi[5] = 1.0;
+        a1_classic = irrep_sg_project_A1(G, psi);
+        a1_at_k    = irrep_sg_project_at_k(lg, mu_A1, psi);
+        IRREP_ASSERT(cabs(a1_classic - a1_at_k) < 1e-12);
+
+        irrep_sg_little_group_irrep_free(mu_A1);
+        irrep_sg_little_group_free(lg);
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
+    /* ---- Orthogonality: A₁ ⊥ A₂ (sign irrep) on Γ ----------------------
+     * With Γ's full point group the "sign" little-group-irrep has χ = +1
+     * on proper rotations, −1 on reflections. A₁ and A₂ project onto
+     * orthogonal subspaces — starting from an A₁-symmetric input ψ, A₂
+     * must return 0.
+     * --------------------------------------------------------------------- */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 2, 2);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P6MM);
+
+        irrep_sg_little_group_t *lg = irrep_sg_little_group_build(G, 0, 0);
+        int                      n = irrep_sg_little_group_point_order(lg);
+        IRREP_ASSERT(n == 12);
+
+        double _Complex chi_A2[12];
+        for (int i = 0; i < n; ++i) {
+            int M[2][2];
+            irrep_sg_little_group_element_matrix(lg, i, M);
+            int det = M[0][0] * M[1][1] - M[0][1] * M[1][0];
+            chi_A2[i] = (det == 1) ? (1.0 + 0.0 * I) : (-1.0 + 0.0 * I);
+        }
+        irrep_sg_little_group_irrep_t *mu_A2 = irrep_sg_little_group_irrep_new(lg, chi_A2, 1);
+
+        /* Build a totally-symmetric ψ: average a random vector over the
+         * orbit. The averaged vector is invariant under G → lives in A₁,
+         * so A₂ projection must vanish. */
+        double _Complex raw[48];
+        for (int g = 0; g < 48; ++g)
+            raw[g] = (0.11 * g + 0.2) - I * (0.3 * g - 0.5);
+        double _Complex mean = 0;
+        for (int g = 0; g < 48; ++g)
+            mean += raw[g];
+        mean /= 48.0;
+        double _Complex psi_A1[48];
+        for (int g = 0; g < 48; ++g)
+            psi_A1[g] = mean;
+
+        double _Complex proj = irrep_sg_project_at_k(lg, mu_A2, psi_A1);
+        IRREP_ASSERT(cabs(proj) < 1e-12);
+
+        irrep_sg_little_group_irrep_free(mu_A2);
+        irrep_sg_little_group_free(lg);
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
     /* ---- Canonicalisation: negative or out-of-range k maps correctly ---- */
     {
         irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_SQUARE, 2, 2);

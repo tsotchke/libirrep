@@ -446,6 +446,17 @@ struct irrep_sg_little_group {
     int                        point_order;   /* cardinality of little point group */
     int                       *point_ops;     /* length = point_order */
     int                        num_translations;
+    /* Cached 2×2 real-space rotation matrix per little-point element (in
+     * signed-representative form, same as little_group_extract_rotation_).
+     * 4 × point_order ints. */
+    int                       *matrices;
+};
+
+struct irrep_sg_little_group_irrep {
+    const irrep_sg_little_group_t *lg; /* borrowed */
+    int                            dim;
+    int                            point_order;
+    double _Complex               *characters; /* length = point_order */
 };
 
 /* Extract the 2x2 integer matrix R_p (in lattice-cell basis) by measuring
@@ -586,14 +597,121 @@ irrep_sg_little_group_t *irrep_sg_little_group_build(const irrep_space_group_t *
     lg->point_order = n_ops;
     lg->point_ops = shrunk ? shrunk : ops;
     lg->num_translations = Lx * Ly;
+
+    /* Cache the rotation matrix of each selected point op. A fresh call to
+     * _element_matrix would re-do the extraction on every query; a few
+     * tens of ints here keep that O(1). */
+    lg->matrices = malloc((size_t)n_ops * 4 * sizeof(int));
+    if (lg->matrices) {
+        for (int i = 0; i < n_ops; ++i) {
+            int M[2][2];
+            if (little_group_extract_rotation_(G, lg->point_ops[i], M) == 0) {
+                int *base = lg->matrices + (size_t)i * 4;
+                base[0] = M[0][0];
+                base[1] = M[0][1];
+                base[2] = M[1][0];
+                base[3] = M[1][1];
+            } else {
+                /* Should not happen given build-time filtering. */
+                int *base = lg->matrices + (size_t)i * 4;
+                base[0] = base[3] = 1;
+                base[1] = base[2] = 0;
+            }
+        }
+    }
     return lg;
 }
 
 void irrep_sg_little_group_free(irrep_sg_little_group_t *lg) {
     if (!lg)
         return;
+    free(lg->matrices);
     free(lg->point_ops);
     free(lg);
+}
+
+void irrep_sg_little_group_element_matrix(const irrep_sg_little_group_t *lg, int i,
+                                          int out_M[2][2]) {
+    if (!lg || i < 0 || i >= lg->point_order || !out_M || !lg->matrices)
+        return;
+    const int *base = lg->matrices + (size_t)i * 4;
+    out_M[0][0] = base[0];
+    out_M[0][1] = base[1];
+    out_M[1][0] = base[2];
+    out_M[1][1] = base[3];
+}
+
+/* ----- Little-group-irrep handle + composite projector ----- */
+
+irrep_sg_little_group_irrep_t *irrep_sg_little_group_irrep_new(const irrep_sg_little_group_t *lg,
+                                                               const double _Complex *characters,
+                                                               int                    dim) {
+    if (!lg || !characters || dim <= 0) {
+        irrep_set_error_("irrep_sg_little_group_irrep_new: invalid arguments");
+        return NULL;
+    }
+    irrep_sg_little_group_irrep_t *mu = calloc(1, sizeof(*mu));
+    if (!mu) {
+        irrep_set_error_("irrep_sg_little_group_irrep_new: out of memory");
+        return NULL;
+    }
+    mu->characters = malloc((size_t)lg->point_order * sizeof(double _Complex));
+    if (!mu->characters) {
+        free(mu);
+        irrep_set_error_("irrep_sg_little_group_irrep_new: out of memory");
+        return NULL;
+    }
+    memcpy(mu->characters, characters, (size_t)lg->point_order * sizeof(double _Complex));
+    mu->lg = lg;
+    mu->dim = dim;
+    mu->point_order = lg->point_order;
+    return mu;
+}
+
+void irrep_sg_little_group_irrep_free(irrep_sg_little_group_irrep_t *mu_k) {
+    if (!mu_k)
+        return;
+    free(mu_k->characters);
+    free(mu_k);
+}
+
+int irrep_sg_little_group_irrep_dim(const irrep_sg_little_group_irrep_t *mu_k) {
+    return mu_k ? mu_k->dim : 0;
+}
+
+double _Complex irrep_sg_project_at_k(const irrep_sg_little_group_t       *lg,
+                                      const irrep_sg_little_group_irrep_t *mu_k,
+                                      const double _Complex               *psi_of_g) {
+    if (!lg || !mu_k || !psi_of_g || mu_k->lg != lg)
+        return NAN + NAN * I;
+    const irrep_lattice_t *L = irrep_space_group_lattice(lg->G);
+    if (!L)
+        return NAN + NAN * I;
+    int Lx = irrep_lattice_Lx(L);
+    int Ly = irrep_lattice_Ly(L);
+    int point_order = irrep_space_group_point_order(lg->G);
+    int num_trans = lg->num_translations;
+
+    double inv_Lx = 1.0 / (double)Lx;
+    double inv_Ly = 1.0 / (double)Ly;
+
+    double _Complex acc = 0.0 + 0.0 * I;
+    for (int ty = 0; ty < Ly; ++ty) {
+        for (int tx = 0; tx < Lx; ++tx) {
+            int    tidx = ty * Lx + tx;
+            double ph =
+                -2.0 * M_PI * ((double)(lg->kx * tx) * inv_Lx + (double)(lg->ky * ty) * inv_Ly);
+            double _Complex bloch = cos(ph) + I * sin(ph);
+            for (int i = 0; i < lg->point_order; ++i) {
+                int             p = lg->point_ops[i];
+                int             g = tidx * point_order + p;
+                double _Complex chi_conj = conj(mu_k->characters[i]);
+                acc += bloch * chi_conj * psi_of_g[g];
+            }
+        }
+    }
+    int group_order = num_trans * lg->point_order;
+    return acc * ((double)mu_k->dim / (double)group_order);
 }
 
 int irrep_sg_little_group_point_order(const irrep_sg_little_group_t *lg) {

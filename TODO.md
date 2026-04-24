@@ -179,9 +179,15 @@ See the 1.3 CHANGELOG.
  307 test assertions covering bijectivity, lattice-compatibility
  gates, subgroup bit-exactness with p4mm / p6mm parent groups, and
  p31m mirror-distinction from p3m1.
-- [ ] **p4gm** (non-symmorphic, glide mirrors) — needs the permutation
- framework extended to support non-origin-fixing point operations.
- Less commonly needed than the others.
+- [x] p4gm framework scaffolded (enum value, `fill_p4gm_` with
+ fractional-translation output, `t_cart` plumbing through
+ `build_point_perm_`). `IRREP_WALLPAPER_P4GM` is rejected at build
+ time on every currently-shipped lattice with a clear diagnostic —
+ the glide `½(a_1 + a_2)` maps a single-sublattice square-lattice
+ site (i, j) to (i + ½, −j + ½), off the integer-site set. Adding
+ a two-basis square lattice (`IRREP_LATTICE_SQUARE_2BASIS` — out
+ of scope here) will make p4gm constructible without further
+ space-group changes.
 - [ ] Downstream integration smoke test against
  `spin_based_neural_network` once that project consumes the 1.3 headers
 

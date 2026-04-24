@@ -63,6 +63,27 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
      `irrep_sg_adapted_basis(G, trivial, ...)` path on a 4-site p4mm
      cluster — no regression vs. 1.3.0-alpha.
 
+- **Non-symmorphic space-group framework** (`src/space_group.c`). Extends
+ the permutation builder to support per-element fractional (glide)
+ translations: `apply_point_(M, O, t_cart, r, out)` now applies a
+ post-reflection translation `t_cart` on top of the fixed-origin
+ rotation/reflection. The translation is stored in lattice basis
+ (`t_frac[point_op][2]`) and converted to cartesian via the lattice
+ primitive vectors at build time. For every symmorphic group currently
+ shipped (p1, p2, p4mm, p6mm, p6, p3m1, p31m, p4) the table is
+ all-zero and the new plumbing compiles to a no-op add. Enables
+ `IRREP_WALLPAPER_P4GM` and any future non-symmorphic group without
+ further builder changes.
+
+ `IRREP_WALLPAPER_P4GM` itself (the non-symmorphic p4gm) enters the
+ enum and scaffolding but is rejected at build time on every
+ currently-shipped lattice — the ½(a_1 + a_2) glide maps a
+ single-sublattice square-lattice site (i, j) to (i + ½, −j + ½),
+ off the integer-site set. Tests confirm the rejection across square /
+ triangular / kagome / honeycomb lattices. A future two-basis square
+ lattice (`IRREP_LATTICE_SQUARE_2BASIS`) would make p4gm constructible
+ without re-entering the space-group builder.
+
 - **Doxygen HTML bundled into release tarballs**
  (`scripts/build_release.sh`). Closes the last `M14` open item.
  When `doxygen` is available on the build host, `make docs` runs

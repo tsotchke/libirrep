@@ -206,6 +206,30 @@ int main(void) {
         irrep_lattice_free(L);
     }
 
+    /* ---- p4gm rejected on every currently-shipped lattice -------------- *
+     * p4gm is non-symmorphic: its four mirrors carry a ½·(a_1 + a_2) glide
+     * translation. On a single-sublattice square lattice the glide maps
+     * site (i, j) → (i+½, −j+½), which is not an integer-site coordinate.
+     * Until a two-basis square lattice ships, p4gm has no compatible
+     * lattice and must be rejected at build time with an informative
+     * diagnostic. The fractional-translation plumbing (`fill_p4gm_`,
+     * `t_frac` → cartesian in `build_point_perm_`) is in place and would
+     * take effect on a compatible lattice without further space-group
+     * changes. */
+    {
+        irrep_lattice_t *lattices[] = {
+            irrep_lattice_build(IRREP_LATTICE_SQUARE, 4, 4),
+            irrep_lattice_build(IRREP_LATTICE_SQUARE, 2, 2),
+            irrep_lattice_build(IRREP_LATTICE_TRIANGULAR, 4, 4),
+            irrep_lattice_build(IRREP_LATTICE_KAGOME, 4, 4),
+            irrep_lattice_build(IRREP_LATTICE_HONEYCOMB, 4, 4),
+        };
+        for (size_t i = 0; i < sizeof(lattices) / sizeof(lattices[0]); ++i) {
+            IRREP_ASSERT(irrep_space_group_build(lattices[i], IRREP_WALLPAPER_P4GM) == NULL);
+            irrep_lattice_free(lattices[i]);
+        }
+    }
+
     /* ---- Non-square clusters rejected by groups that require Lx = Ly --- */
     {
         irrep_lattice_t *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 2, 3);

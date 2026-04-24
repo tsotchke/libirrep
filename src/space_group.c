@@ -214,6 +214,42 @@ static int fill_p4_(double mats[][4]) {
     return 4;
 }
 
+/* Fill p4gm (order 8): the non-symmorphic square group. Rotation block is
+ * identical to p4mm's {E, C_4, C_2, C_4³}; the four mirrors each carry a
+ * glide translation of ½(a_1 + a_2) (lattice basis) applied AFTER the
+ * reflection. p4gm is distinct from p4mm precisely because the mirror
+ * element's fixed-point set sits on glide-lines rather than through the
+ * lattice origin, so the permutations differ on any cluster that can
+ * distinguish a glide from an origin-fixing reflection.
+ *
+ * Fills both the 2×2 rotation matrix and the lattice-basis fractional
+ * translation (output parameter `t_frac`, same length as `mats`). The caller
+ * converts `t_frac` to cartesian by multiplying against the lattice's
+ * primitive vectors: `t_cart = t_frac[0] · a_1 + t_frac[1] · a_2`. */
+static int fill_p4gm_(double mats[][4], double t_frac[][2]) {
+    /* Rotations at slots 0..3: zero glide. */
+    for (int k = 0; k < 4; ++k) {
+        rot_mat_((double)k * M_PI / 2.0, mats[k]);
+        t_frac[k][0] = 0.0;
+        t_frac[k][1] = 0.0;
+    }
+    /* Mirrors at slots 4..7 — same axes as p4mm (σ_x, σ_y, σ_d, σ_ad) but
+     * with a ½·(a_1 + a_2) glide translation applied after the reflection. */
+    /* σ_x: y → −y */
+    mats[4][0] = 1.0;  mats[4][1] = 0.0;  mats[4][2] = 0.0;  mats[4][3] = -1.0;
+    /* σ_y: x → −x */
+    mats[5][0] = -1.0; mats[5][1] = 0.0;  mats[5][2] = 0.0;  mats[5][3] = 1.0;
+    /* σ_d: x ↔ y */
+    mats[6][0] = 0.0;  mats[6][1] = 1.0;  mats[6][2] = 1.0;  mats[6][3] = 0.0;
+    /* σ_ad: (x, y) → (−y, −x) */
+    mats[7][0] = 0.0;  mats[7][1] = -1.0; mats[7][2] = -1.0; mats[7][3] = 0.0;
+    for (int k = 4; k < 8; ++k) {
+        t_frac[k][0] = 0.5;
+        t_frac[k][1] = 0.5;
+    }
+    return 8;
+}
+
 /* -------------------------------------------------------------------------- *
  * Site-finding by exact lattice-coordinate inversion.                        *
  *                                                                            *
@@ -285,21 +321,25 @@ static int find_site_by_inv_(const invbasis_t *B, const irrep_lattice_t *L, cons
  * Permutation construction                                                   *
  * -------------------------------------------------------------------------- */
 
-static int apply_point_(const double M[4], const double O[2], const double r[2], double out[2]) {
+/* Apply a space-group operation r → M · (r − O) + O + t_cartesian to one
+ * cartesian point. `t_cart` is the fractional glide translation expressed in
+ * cartesian coordinates (zero for every symmorphic group operation). */
+static int apply_point_(const double M[4], const double O[2], const double t_cart[2],
+                        const double r[2], double out[2]) {
     double d[2] = {r[0] - O[0], r[1] - O[1]};
-    out[0] = M[0] * d[0] + M[1] * d[1] + O[0];
-    out[1] = M[2] * d[0] + M[3] * d[1] + O[1];
+    out[0] = M[0] * d[0] + M[1] * d[1] + O[0] + t_cart[0];
+    out[1] = M[2] * d[0] + M[3] * d[1] + O[1] + t_cart[1];
     return 0;
 }
 
 static int build_point_perm_(const irrep_lattice_t *L, const double M[4], const double O[2],
-                             const invbasis_t *B, int *perm_out) {
+                             const double t_cart[2], const invbasis_t *B, int *perm_out) {
     int n = irrep_lattice_num_sites(L);
     for (int s = 0; s < n; ++s) {
         double r[2];
         irrep_lattice_site_position(L, s, r);
         double r_img[2];
-        apply_point_(M, O, r, r_img);
+        apply_point_(M, O, t_cart, r, r_img);
         int image = find_site_by_inv_(B, L, r_img);
         if (image < 0)
             return -1;
@@ -331,6 +371,9 @@ irrep_space_group_t *irrep_space_group_build(const irrep_lattice_t *L, irrep_wal
 
     /* Validate (lattice, wallpaper) compatibility and fill point matrices. */
     double mats[12][4];
+    /* Per-element fractional (lattice-basis) translation. Zero for symmorphic
+     * groups; non-zero on non-symmorphic groups like p4gm (glide mirrors). */
+    double t_frac[12][2] = {{0}};
     int    point_order = 0;
     /* Whether this wallpaper group requires Lx == Ly (for C_4 / C_3 / C_6
      * lattice symmetry preservation on the torus). p1 and p2 (trivial or
@@ -393,6 +436,22 @@ irrep_space_group_t *irrep_space_group_build(const irrep_lattice_t *L, irrep_wal
         }
         point_order = fill_p4_(mats);
         break;
+    case IRREP_WALLPAPER_P4GM:
+        /* The non-symmorphic p4gm carries a ½·(a_1 + a_2) glide on each of
+         * its four mirrors. On the single-sublattice square lattice the
+         * glide maps site (i, j) → (i+½, −j+½), which is not a lattice
+         * site — every glide-mirror permutation would attempt to
+         * reference an off-lattice position. Until a two-basis square
+         * lattice ships (e.g. `IRREP_LATTICE_SQUARE_2BASIS`) there is no
+         * supported (lattice, p4gm) combination; reject at build time
+         * with a clear diagnostic. The fractional-translation plumbing
+         * below (`fill_p4gm_`, `t_frac` → `t_cart` in `build_point_perm_`)
+         * is in place and would take effect on a compatible lattice. */
+        irrep_set_error_("irrep_space_group_build: p4gm is non-symmorphic and requires a "
+                         "two-basis square lattice; no currently-shipped lattice kind "
+                         "supports it (the single-sublattice square maps glide images "
+                         "off the integer-site set).");
+        return NULL;
     default:
         irrep_set_error_("irrep_space_group_build: unknown wallpaper kind %d", (int)kind);
         return NULL;
@@ -427,7 +486,15 @@ irrep_space_group_t *irrep_space_group_build(const irrep_lattice_t *L, irrep_wal
     }
     for (int p = 0; p < point_order; ++p) {
         int *slot = pperm + (size_t)p * n;
-        if (build_point_perm_(L, mats[p], O, &B, slot) != 0 || !is_valid_perm_(slot, n, validate)) {
+        /* Convert the (possibly-nonzero) lattice-basis glide translation
+         * to cartesian via the lattice primitives. Zero for symmorphic
+         * groups — the existing code path is preserved bit-for-bit. */
+        double t_cart[2] = {
+            t_frac[p][0] * B.a1[0] + t_frac[p][1] * B.a2[0],
+            t_frac[p][0] * B.a1[1] + t_frac[p][1] * B.a2[1],
+        };
+        if (build_point_perm_(L, mats[p], O, t_cart, &B, slot) != 0 ||
+            !is_valid_perm_(slot, n, validate)) {
             free(validate);
             free(pperm);
             irrep_set_error_("irrep_space_group_build: cluster does not respect the wallpaper "

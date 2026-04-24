@@ -72,7 +72,19 @@ typedef enum {
     IRREP_WALLPAPER_P6 = 4,   /**< Chiral hex: 6 rotations, no mirrors. */
     IRREP_WALLPAPER_P3M1 = 5, /**< Hex 3-fold + 3 mirrors through vertices. */
     IRREP_WALLPAPER_P4 = 6,   /**< Chiral square: 4 rotations, no mirrors. */
-    IRREP_WALLPAPER_P31M = 7  /**< Hex 3-fold + 3 mirrors bisecting vertex pairs (30° offset from p3m1). */
+    IRREP_WALLPAPER_P31M = 7, /**< Hex 3-fold + 3 mirrors bisecting vertex pairs (30° offset from p3m1). */
+    IRREP_WALLPAPER_P4GM = 8  /**< Non-symmorphic square: C_4 + 4 glide
+                               *   mirrors. **Not compatible with any
+                               *   currently-shipped lattice** — the glide
+                               *   `½(a_1 + a_2)` maps a single-sublattice
+                               *   square-lattice site (i, j) to a
+                               *   fractional position (i+½, -j+½), off
+                               *   the integer-site set. The internal
+                               *   fractional-translation plumbing is in
+                               *   place; adding a two-basis square lattice
+                               *   (e.g. `IRREP_LATTICE_SQUARE_2BASIS`) will
+                               *   make p4gm constructible without further
+                               *   space-group changes. */
 } irrep_wallpaper_t;
 
 /** @brief Opaque space-group handle. Built by @ref irrep_space_group_build

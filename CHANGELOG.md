@@ -4,7 +4,13 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.1] — 2026-04-26
+
+First non-alpha release on the 1.3 line. Drops the `-alpha` suffix
+following the 1.3.0-alpha cycle's continuation work documented below.
+Active downstream consumer: `spin_based_neural_network` (SbNN) — its
+`VERSION_PINS` records `LIBIRREP_MIN=1.3.0-alpha` which 1.3.1 strictly
+supersets via SemVer.
 
 ### Pre-publication polish
 

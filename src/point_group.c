@@ -249,6 +249,291 @@ static void              fill_d3_elements_(pg_element_t *e) {
 }
 
 /* -------------------------------------------------------------------------- *
+ * T_d  —  order 24, 5 irreps                                                 *
+ * Tetrahedral point group — symmetry of the regular tetrahedron, also the    *
+ * site-symmetry group of diamond / zincblende crystals (Td = O h ∩ proper-or-σd). *
+ * Element layout (24 total) follows the standard ordering by class:          *
+ *   [0]      E         identity                                              *
+ *   [1..8]   8 C₃      ±2π/3 about each of the 4 body-diagonal axes          *
+ *   [9..11]  3 C₂      π about each of the 3 cartesian axes (edge midpoints) *
+ *   [12..17] 6 S₄      ±π/2 improper rotations about ±x, ±y, ±z              *
+ *   [18..23] 6 σ_d     mirrors through the 6 diagonal {x±y, y±z, x±z} planes *
+ *                                                                            *
+ * Character table (Bradley-Cracknell / Mulliken).                             *
+ * -------------------------------------------------------------------------- */
+
+/*                       E   8C3 (1..8)                3C2 (9..11)  6S4 (12..17)            6σd (18..23)            */
+static const double TD_CHAR[5 * 24] = {
+    /* A1 */ 1, 1,  1, 1,  1, 1,  1, 1,  1, 1,  1, 1, 1,  1, 1,  1, 1,  1, 1,  1, 1,  1, 1,  1,
+    /* A2 */ 1, 1,  1, 1,  1, 1,  1, 1,  1, 1,  1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    /* E  */ 2, -1, -1, -1, -1, -1, -1, -1, -1, 2, 2, 2, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    /* T1 */ 3, 0,  0, 0,  0, 0,  0, 0,  0, -1, -1, -1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1,
+    /* T2 */ 3, 0,  0, 0,  0, 0,  0, 0,  0, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1,
+};
+static const int         TD_DIMS[5] = {1, 1, 2, 3, 3};
+static const char *const TD_LABELS[5] = {"A1", "A2", "E", "T1", "T2"};
+
+static void              fill_td_elements_(pg_element_t *e) {
+    e[0].R = irrep_rot_identity();
+    e[0].det = +1; /* E */
+
+    /* 8 C₃: ±2π/3 about the 4 body diagonals (1,1,1), (1,-1,-1), (-1,1,-1), (-1,-1,1). */
+    const double diag[4][3] = {
+        {1.0, 1.0, 1.0}, {1.0, -1.0, -1.0}, {-1.0, 1.0, -1.0}, {-1.0, -1.0, 1.0}};
+    for (int k = 0; k < 4; ++k) {
+        e[1 + 2 * k].R = rot_axis_(diag[k][0], diag[k][1], diag[k][2], 2.0 * M_PI / 3.0);
+        e[1 + 2 * k].det = +1;
+        e[2 + 2 * k].R = rot_axis_(diag[k][0], diag[k][1], diag[k][2], -2.0 * M_PI / 3.0);
+        e[2 + 2 * k].det = +1;
+    }
+
+    /* 3 C₂: π about ±x, ±y, ±z. */
+    e[9].R = rot_axis_(1.0, 0.0, 0.0, M_PI);
+    e[9].det = +1;
+    e[10].R = rot_axis_(0.0, 1.0, 0.0, M_PI);
+    e[10].det = +1;
+    e[11].R = rot_axis_(0.0, 0.0, 1.0, M_PI);
+    e[11].det = +1;
+
+    /* 6 S₄ improper rotations: ±π/2 about ±x, ±y, ±z. Improper = det -1 with
+     * proper part = the same axis-angle proper rotation; the eventual action
+     * on a coordinate is `-R_proper · v`, which gives the standard S₄ result. */
+    e[12].R = rot_axis_(1.0, 0.0, 0.0, M_PI / 2.0);
+    e[12].det = -1;
+    e[13].R = rot_axis_(1.0, 0.0, 0.0, -M_PI / 2.0);
+    e[13].det = -1;
+    e[14].R = rot_axis_(0.0, 1.0, 0.0, M_PI / 2.0);
+    e[14].det = -1;
+    e[15].R = rot_axis_(0.0, 1.0, 0.0, -M_PI / 2.0);
+    e[15].det = -1;
+    e[16].R = rot_axis_(0.0, 0.0, 1.0, M_PI / 2.0);
+    e[16].det = -1;
+    e[17].R = rot_axis_(0.0, 0.0, 1.0, -M_PI / 2.0);
+    e[17].det = -1;
+
+    /* 6 σ_d mirrors. Each plane normal is one of the 6 face-diagonal axes:
+     * (1,1,0), (1,-1,0), (1,0,1), (1,0,-1), (0,1,1), (0,1,-1).
+     * As with C4v's σ, the convention is `det = -1` with proper part =
+     * R_axis(plane-normal, π) — composing this with the implicit inversion
+     * yields the desired mirror action. */
+    e[18].R = rot_axis_(1.0, 1.0, 0.0, M_PI);
+    e[18].det = -1;
+    e[19].R = rot_axis_(1.0, -1.0, 0.0, M_PI);
+    e[19].det = -1;
+    e[20].R = rot_axis_(1.0, 0.0, 1.0, M_PI);
+    e[20].det = -1;
+    e[21].R = rot_axis_(1.0, 0.0, -1.0, M_PI);
+    e[21].det = -1;
+    e[22].R = rot_axis_(0.0, 1.0, 1.0, M_PI);
+    e[22].det = -1;
+    e[23].R = rot_axis_(0.0, 1.0, -1.0, M_PI);
+    e[23].det = -1;
+}
+
+/* -------------------------------------------------------------------------- *
+ * O_h  —  order 48, 10 irreps                                                *
+ *                                                                            *
+ * Full octahedral group: site symmetry of SC, BCC, FCC. O_h = O × {E, i}     *
+ * — 24 proper rotations of the cube (identical to the O group) plus 24       *
+ * improper elements obtained by composing each proper rotation with the      *
+ * inversion `i`. The g/u (gerade/ungerade) decomposition follows directly    *
+ * from how each irrep transforms under inversion.                            *
+ *                                                                            *
+ * Element layout (48 total):                                                 *
+ *   [0]      E         identity                                              *
+ *   [1..8]   8 C₃      ±2π/3 about each of the 4 body-diagonal axes          *
+ *   [9..11]  3 C₂      π about ±x, ±y, ±z (these are the C₄² of O)           *
+ *   [12..17] 6 C₄      ±π/2 about ±x, ±y, ±z                                 *
+ *   [18..23] 6 C₂'     π about face-diagonal axes (xy, xz, yz pairs)         *
+ *   [24]     i         inversion                                             *
+ *   [25..32] 8 S₆      i · (each C₃)                                         *
+ *   [33..35] 3 σ_h     i · (each cardinal-axis C₂) ≡ mirrors ⊥ ±x,±y,±z      *
+ *   [36..41] 6 S₄      i · (each C₄)                                         *
+ *   [42..47] 6 σ_d     i · (each C₂') ≡ diagonal mirrors                     *
+ *                                                                            *
+ * In the (R_proper, det) representation each improper element re-uses the    *
+ * same R_proper as its `i ·` partner; det=-1 with the original R_proper      *
+ * gives the correct action via `parity · D^l(R_proper)` per the projector.   *
+ *                                                                            *
+ * Character table follows Bradley-Cracknell / Mulliken (10 irreps).          *
+ * -------------------------------------------------------------------------- */
+
+#define R1(x) x
+#define R3(x) x, x, x
+#define R6(x) x, x, x, x, x, x
+#define R8(x) x, x, x, x, x, x, x, x
+
+/* Per-class character per irrep:
+ *   class:  E   8C₃  3C₂  6C₄  6C₂'  i   8S₆  3σ_h  6S₄  6σ_d
+ *   size:   1   8    3    6    6     1   8    3     6    6   */
+static const double OH_CHAR[10 * 48] = {
+    /* A1g */ R1(1), R8(1),  R3(1),  R6(1),  R6(1),  R1(1),  R8(1),  R3(1),  R6(1),  R6(1),
+    /* A2g */ R1(1), R8(1),  R3(1),  R6(-1), R6(-1), R1(1),  R8(1),  R3(1),  R6(-1), R6(-1),
+    /* Eg  */ R1(2), R8(-1), R3(2),  R6(0),  R6(0),  R1(2),  R8(-1), R3(2),  R6(0),  R6(0),
+    /* T1g */ R1(3), R8(0),  R3(-1), R6(1),  R6(-1), R1(3),  R8(0),  R3(-1), R6(1),  R6(-1),
+    /* T2g */ R1(3), R8(0),  R3(-1), R6(-1), R6(1),  R1(3),  R8(0),  R3(-1), R6(-1), R6(1),
+    /* A1u */ R1(1), R8(1),  R3(1),  R6(1),  R6(1),  R1(-1), R8(-1), R3(-1), R6(-1), R6(-1),
+    /* A2u */ R1(1), R8(1),  R3(1),  R6(-1), R6(-1), R1(-1), R8(-1), R3(-1), R6(1),  R6(1),
+    /* Eu  */ R1(2), R8(-1), R3(2),  R6(0),  R6(0),  R1(-2), R8(1),  R3(-2), R6(0),  R6(0),
+    /* T1u */ R1(3), R8(0),  R3(-1), R6(1),  R6(-1), R1(-3), R8(0),  R3(1),  R6(-1), R6(1),
+    /* T2u */ R1(3), R8(0),  R3(-1), R6(-1), R6(1),  R1(-3), R8(0),  R3(1),  R6(1),  R6(-1),
+};
+static const int         OH_DIMS[10] = {1, 1, 2, 3, 3, 1, 1, 2, 3, 3};
+static const char *const OH_LABELS[10] = {"A1g", "A2g", "Eg",  "T1g", "T2g",
+                                          "A1u", "A2u", "Eu",  "T1u", "T2u"};
+
+static void              fill_oh_elements_(pg_element_t *e) {
+    /* The proper part of O_h is exactly the O group. Build it once, then
+     * mirror the same R_proper matrices into the improper half with det=-1. */
+
+    /* 24 proper rotations of O. */
+    e[0].R = irrep_rot_identity();
+    e[0].det = +1; /* E */
+
+    /* 8 C₃ about the 4 body diagonals, ±2π/3 each. */
+    const double diag[4][3] = {
+        {1.0, 1.0, 1.0}, {1.0, -1.0, -1.0}, {-1.0, 1.0, -1.0}, {-1.0, -1.0, 1.0}};
+    for (int k = 0; k < 4; ++k) {
+        e[1 + 2 * k].R = rot_axis_(diag[k][0], diag[k][1], diag[k][2], 2.0 * M_PI / 3.0);
+        e[1 + 2 * k].det = +1;
+        e[2 + 2 * k].R = rot_axis_(diag[k][0], diag[k][1], diag[k][2], -2.0 * M_PI / 3.0);
+        e[2 + 2 * k].det = +1;
+    }
+
+    /* 3 C₂ about ±x, ±y, ±z (cardinal axes), π each. */
+    e[9].R = rot_axis_(1.0, 0.0, 0.0, M_PI);
+    e[9].det = +1;
+    e[10].R = rot_axis_(0.0, 1.0, 0.0, M_PI);
+    e[10].det = +1;
+    e[11].R = rot_axis_(0.0, 0.0, 1.0, M_PI);
+    e[11].det = +1;
+
+    /* 6 C₄ about ±x, ±y, ±z, ±π/2 each. */
+    e[12].R = rot_axis_(1.0, 0.0, 0.0, M_PI / 2.0);
+    e[12].det = +1;
+    e[13].R = rot_axis_(1.0, 0.0, 0.0, -M_PI / 2.0);
+    e[13].det = +1;
+    e[14].R = rot_axis_(0.0, 1.0, 0.0, M_PI / 2.0);
+    e[14].det = +1;
+    e[15].R = rot_axis_(0.0, 1.0, 0.0, -M_PI / 2.0);
+    e[15].det = +1;
+    e[16].R = rot_axis_(0.0, 0.0, 1.0, M_PI / 2.0);
+    e[16].det = +1;
+    e[17].R = rot_axis_(0.0, 0.0, 1.0, -M_PI / 2.0);
+    e[17].det = +1;
+
+    /* 6 C₂' about face-diagonal axes, π each. */
+    e[18].R = rot_axis_(1.0, 1.0, 0.0, M_PI);
+    e[18].det = +1;
+    e[19].R = rot_axis_(1.0, -1.0, 0.0, M_PI);
+    e[19].det = +1;
+    e[20].R = rot_axis_(1.0, 0.0, 1.0, M_PI);
+    e[20].det = +1;
+    e[21].R = rot_axis_(1.0, 0.0, -1.0, M_PI);
+    e[21].det = +1;
+    e[22].R = rot_axis_(0.0, 1.0, 1.0, M_PI);
+    e[22].det = +1;
+    e[23].R = rot_axis_(0.0, 1.0, -1.0, M_PI);
+    e[23].det = +1;
+
+    /* 24 improper elements: same R_proper as the proper half, det = -1. */
+    for (int k = 0; k < 24; ++k) {
+        e[24 + k].R = e[k].R;
+        e[24 + k].det = -1;
+    }
+}
+
+#undef R1
+#undef R3
+#undef R6
+#undef R8
+
+/* -------------------------------------------------------------------------- *
+ * O  —  order 24, 5 irreps                                                   *
+ *                                                                            *
+ * Chiral cubic group: the proper-rotation subgroup of O_h, no improper       *
+ * elements. Site symmetry of chiral cubic magnets like MnSi, Cu₂OSeO₃,       *
+ * Co-Zn-Mn alloys — the skyrmion hosts. Element list is exactly the first    *
+ * 24 of O_h (all det=+1).                                                    *
+ *                                                                            *
+ * Element layout:                                                            *
+ *   [0]      E         identity                                              *
+ *   [1..8]   8 C₃      ±2π/3 about each of the 4 body-diagonal axes          *
+ *   [9..11]  3 C₂      π about ±x, ±y, ±z                                    *
+ *   [12..17] 6 C₄      ±π/2 about ±x, ±y, ±z                                 *
+ *   [18..23] 6 C₂'     π about face-diagonal axes                            *
+ *                                                                            *
+ * Character table is abstractly identical to T_d's (O ≅ T_d as abstract      *
+ * groups), but the geometric realization differs: O has proper C₄, C₂'       *
+ * where T_d has improper S₄, σ_d. Action on parity-odd features is           *
+ * identical to parity-even (since no improper element flips parity), so      *
+ * O cannot distinguish polar from axial vectors — both give T₁.              *
+ * -------------------------------------------------------------------------- */
+
+/*                       E   8C3 (1..8)                3C2 (9..11)  6C4 (12..17)            6C2' (18..23)            */
+static const double O_CHAR[5 * 24] = {
+    /* A1 */ 1, 1,  1, 1,  1, 1,  1, 1,  1, 1,  1, 1, 1,  1, 1,  1, 1,  1, 1,  1, 1,  1, 1,  1,
+    /* A2 */ 1, 1,  1, 1,  1, 1,  1, 1,  1, 1,  1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    /* E  */ 2, -1, -1, -1, -1, -1, -1, -1, -1, 2, 2, 2, 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
+    /* T1 */ 3, 0,  0, 0,  0, 0,  0, 0,  0, -1, -1, -1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1,
+    /* T2 */ 3, 0,  0, 0,  0, 0,  0, 0,  0, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1, 1, 1,
+};
+static const int         O_DIMS[5] = {1, 1, 2, 3, 3};
+static const char *const O_LABELS[5] = {"A1", "A2", "E", "T1", "T2"};
+
+static void              fill_o_elements_(pg_element_t *e) {
+    /* Identical to the proper part of O_h. Build O_h's element list and copy
+     * the first 24. The fill_oh_elements_ function writes the proper part
+     * to slots [0..23], so we can call it on a 48-slot buffer if available
+     * — but the simpler approach is to inline the proper-part construction. */
+
+    e[0].R = irrep_rot_identity();
+    e[0].det = +1;
+
+    const double diag[4][3] = {
+        {1.0, 1.0, 1.0}, {1.0, -1.0, -1.0}, {-1.0, 1.0, -1.0}, {-1.0, -1.0, 1.0}};
+    for (int k = 0; k < 4; ++k) {
+        e[1 + 2 * k].R = rot_axis_(diag[k][0], diag[k][1], diag[k][2], 2.0 * M_PI / 3.0);
+        e[1 + 2 * k].det = +1;
+        e[2 + 2 * k].R = rot_axis_(diag[k][0], diag[k][1], diag[k][2], -2.0 * M_PI / 3.0);
+        e[2 + 2 * k].det = +1;
+    }
+
+    e[9].R = rot_axis_(1.0, 0.0, 0.0, M_PI);
+    e[9].det = +1;
+    e[10].R = rot_axis_(0.0, 1.0, 0.0, M_PI);
+    e[10].det = +1;
+    e[11].R = rot_axis_(0.0, 0.0, 1.0, M_PI);
+    e[11].det = +1;
+
+    e[12].R = rot_axis_(1.0, 0.0, 0.0, M_PI / 2.0);
+    e[12].det = +1;
+    e[13].R = rot_axis_(1.0, 0.0, 0.0, -M_PI / 2.0);
+    e[13].det = +1;
+    e[14].R = rot_axis_(0.0, 1.0, 0.0, M_PI / 2.0);
+    e[14].det = +1;
+    e[15].R = rot_axis_(0.0, 1.0, 0.0, -M_PI / 2.0);
+    e[15].det = +1;
+    e[16].R = rot_axis_(0.0, 0.0, 1.0, M_PI / 2.0);
+    e[16].det = +1;
+    e[17].R = rot_axis_(0.0, 0.0, 1.0, -M_PI / 2.0);
+    e[17].det = +1;
+
+    e[18].R = rot_axis_(1.0, 1.0, 0.0, M_PI);
+    e[18].det = +1;
+    e[19].R = rot_axis_(1.0, -1.0, 0.0, M_PI);
+    e[19].det = +1;
+    e[20].R = rot_axis_(1.0, 0.0, 1.0, M_PI);
+    e[20].det = +1;
+    e[21].R = rot_axis_(1.0, 0.0, -1.0, M_PI);
+    e[21].det = +1;
+    e[22].R = rot_axis_(0.0, 1.0, 1.0, M_PI);
+    e[22].det = +1;
+    e[23].R = rot_axis_(0.0, 1.0, -1.0, M_PI);
+    e[23].det = +1;
+}
+
+/* -------------------------------------------------------------------------- *
  * Table build / destroy                                                      *
  * -------------------------------------------------------------------------- */
 
@@ -312,6 +597,45 @@ irrep_pg_table_t *irrep_pg_table_build(irrep_point_group_t g) {
         }
         fill_d3_elements_(t->elements);
         break;
+    case IRREP_PG_TD:
+        t->num_irreps = 5;
+        t->order = 24;
+        t->irrep_dims = (int *)TD_DIMS;
+        t->irrep_labels = (const char **)TD_LABELS;
+        chars_src = TD_CHAR;
+        t->elements = calloc(24, sizeof(*t->elements));
+        if (!t->elements) {
+            free(t);
+            return NULL;
+        }
+        fill_td_elements_(t->elements);
+        break;
+    case IRREP_PG_OH:
+        t->num_irreps = 10;
+        t->order = 48;
+        t->irrep_dims = (int *)OH_DIMS;
+        t->irrep_labels = (const char **)OH_LABELS;
+        chars_src = OH_CHAR;
+        t->elements = calloc(48, sizeof(*t->elements));
+        if (!t->elements) {
+            free(t);
+            return NULL;
+        }
+        fill_oh_elements_(t->elements);
+        break;
+    case IRREP_PG_O:
+        t->num_irreps = 5;
+        t->order = 24;
+        t->irrep_dims = (int *)O_DIMS;
+        t->irrep_labels = (const char **)O_LABELS;
+        chars_src = O_CHAR;
+        t->elements = calloc(24, sizeof(*t->elements));
+        if (!t->elements) {
+            free(t);
+            return NULL;
+        }
+        fill_o_elements_(t->elements);
+        break;
     default:
         irrep_set_error_("irrep_pg_table_build: unknown point group %d", (int)g);
         free(t);
@@ -363,6 +687,15 @@ int irrep_pg_num_irreps(const irrep_pg_table_t *t) {
 }
 int irrep_pg_order(const irrep_pg_table_t *t) {
     return t ? t->order : 0;
+}
+int irrep_pg_element(const irrep_pg_table_t *t, int i, double R_proper_out[9], int *det_out) {
+    if (!t || i < 0 || i >= t->order)
+        return -1;
+    if (R_proper_out)
+        memcpy(R_proper_out, t->elements[i].R.m, 9 * sizeof(double));
+    if (det_out)
+        *det_out = t->elements[i].det;
+    return 0;
 }
 const char *irrep_pg_irrep_label(const irrep_pg_table_t *t, int mu) {
     if (!t || mu < 0 || mu >= t->num_irreps)

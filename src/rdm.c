@@ -258,6 +258,125 @@ irrep_status_t irrep_hermitian_eigvals(int n, double _Complex *A, double *eigval
     return IRREP_OK;
 }
 
+/* Full eigendecomposition: same Jacobi sweep but track the accumulated
+ * unitary V such that V† A_initial V = diag(eigvals). V-columns are
+ * eigenvectors. Identical rotation logic with an extra V update per sweep. */
+irrep_status_t irrep_hermitian_eigendecomp(int n, double _Complex *A,
+                                           double *eigvals, double _Complex *eigvecs) {
+    if (n < 1 || !A || !eigvals || !eigvecs)
+        return IRREP_ERR_INVALID_ARG;
+
+    /* Initialise V = I. */
+    for (int i = 0; i < n; ++i)
+        for (int j = 0; j < n; ++j)
+            eigvecs[(size_t)i * n + j] = (i == j) ? 1.0 : 0.0;
+
+    if (n == 1) {
+        eigvals[0] = creal(A[0]);
+        return IRREP_OK;
+    }
+
+    /* Symmetrise. */
+    for (int i = 0; i < n; ++i) {
+        A[(size_t)i * n + i] = creal(A[(size_t)i * n + i]);
+        for (int j = i + 1; j < n; ++j) {
+            double _Complex avg = 0.5 * (A[(size_t)i * n + j] + conj(A[(size_t)j * n + i]));
+            A[(size_t)i * n + j] = avg;
+            A[(size_t)j * n + i] = conj(avg);
+        }
+    }
+
+    const int    max_sweeps = 60 * n;
+    const double tol = 1e-14;
+    double       norm = 0.0;
+    for (int i = 0; i < n; ++i) {
+        double d = creal(A[(size_t)i * n + i]);
+        norm += d * d;
+    }
+    norm = sqrt(norm);
+    double tol_abs = (norm > 1e-300 ? norm : 1.0) * tol;
+
+    for (int sweep = 0; sweep < max_sweeps; ++sweep) {
+        double off = 0.0;
+        for (int p = 0; p < n - 1; ++p)
+            for (int q = p + 1; q < n; ++q) {
+                double _Complex apq = A[(size_t)p * n + q];
+                off += 2.0 * (creal(apq) * creal(apq) + cimag(apq) * cimag(apq));
+            }
+        if (sqrt(off) <= tol_abs) break;
+
+        for (int p = 0; p < n - 1; ++p) {
+            for (int q = p + 1; q < n; ++q) {
+                double _Complex apq = A[(size_t)p * n + q];
+                double r = cabs(apq);
+                if (r < 1e-300) continue;
+
+                double _Complex e_pos = apq / r;
+                double _Complex e_neg = conj(e_pos);
+                for (int k = 0; k < n; ++k) {
+                    if (k == q) continue;
+                    A[(size_t)q * n + k] *= e_pos;
+                    A[(size_t)k * n + q] *= e_neg;
+                }
+                /* Apply same phase to V's columns: column q of V gets
+                 * multiplied by e_neg (since A_new = Q† A Q where Q
+                 * carries the inverse phase on column q). */
+                for (int k = 0; k < n; ++k)
+                    eigvecs[(size_t)k * n + q] *= e_neg;
+
+                double a = creal(A[(size_t)p * n + p]);
+                double b = creal(A[(size_t)q * n + q]);
+                double psi = (fabs(a - b) < 1e-300) ? (-M_PI / 4.0) : 0.5 * atan2(-2.0 * r, a - b);
+                double c_p = cos(psi), s_p = sin(psi);
+
+                for (int k = 0; k < n; ++k) {
+                    double _Complex rp = A[(size_t)p * n + k];
+                    double _Complex rq = A[(size_t)q * n + k];
+                    A[(size_t)p * n + k] = c_p * rp - s_p * rq;
+                    A[(size_t)q * n + k] = s_p * rp + c_p * rq;
+                }
+                for (int k = 0; k < n; ++k) {
+                    double _Complex cp = A[(size_t)k * n + p];
+                    double _Complex cq = A[(size_t)k * n + q];
+                    A[(size_t)k * n + p] = c_p * cp - s_p * cq;
+                    A[(size_t)k * n + q] = s_p * cp + c_p * cq;
+                }
+                /* Update V: V ← V · G where G is the Givens rotation in
+                 * the (p, q) plane. V_{k, p} ← c·V_{k, p} − s·V_{k, q},
+                 * V_{k, q} ← s·V_{k, p} + c·V_{k, q}. */
+                for (int k = 0; k < n; ++k) {
+                    double _Complex vp = eigvecs[(size_t)k * n + p];
+                    double _Complex vq = eigvecs[(size_t)k * n + q];
+                    eigvecs[(size_t)k * n + p] = c_p * vp - s_p * vq;
+                    eigvecs[(size_t)k * n + q] = s_p * vp + c_p * vq;
+                }
+
+                A[(size_t)p * n + q] = 0.0 + 0.0 * I;
+                A[(size_t)q * n + p] = 0.0 + 0.0 * I;
+            }
+        }
+    }
+
+    for (int i = 0; i < n; ++i)
+        eigvals[i] = creal(A[(size_t)i * n + i]);
+
+    /* Sort descending + permute V columns accordingly. */
+    for (int i = 0; i < n - 1; ++i) {
+        int maxk = i;
+        for (int k = i + 1; k < n; ++k)
+            if (eigvals[k] > eigvals[maxk]) maxk = k;
+        if (maxk != i) {
+            double t = eigvals[i]; eigvals[i] = eigvals[maxk]; eigvals[maxk] = t;
+            for (int r = 0; r < n; ++r) {
+                double _Complex tmp = eigvecs[(size_t)r * n + i];
+                eigvecs[(size_t)r * n + i] = eigvecs[(size_t)r * n + maxk];
+                eigvecs[(size_t)r * n + maxk] = tmp;
+            }
+        }
+    }
+    return IRREP_OK;
+}
+
 /* -------------------------------------------------------------------------- *
  * Entropies                                                                  *
  * -------------------------------------------------------------------------- */
@@ -626,6 +745,145 @@ irrep_status_t irrep_lanczos_eigvals_reorth(void (*apply_op)(const double _Compl
     free(w);
     free(alpha);
     free(beta);
+    return IRREP_OK;
+}
+
+/* Same reorth-Lanczos core as above but keeps the Ritz-vector matrix from
+ * the tridiagonal eigendecomposition, lifts Ritz vectors into the full
+ * dim-d space via V · ritz, and returns eigenvectors alongside eigenvalues. */
+irrep_status_t irrep_lanczos_eigvecs_reorth(void (*apply_op)(const double _Complex *x,
+                                                             double _Complex *y, void *ctx),
+                                            void *ctx, long long dim, int k_wanted, int max_iters,
+                                            const double _Complex *seed,
+                                            double *eigvals_out,
+                                            double _Complex *eigvecs_out) {
+    if (!apply_op || dim <= 0 || k_wanted < 1 || max_iters < 2 * k_wanted
+        || !eigvals_out || !eigvecs_out)
+        return IRREP_ERR_INVALID_ARG;
+    if (max_iters > dim)
+        max_iters = (int)dim;
+
+    double _Complex *V =
+        calloc((size_t)max_iters * (size_t)dim, sizeof(double _Complex));
+    double _Complex *w     = malloc((size_t)dim * sizeof(double _Complex));
+    double          *alpha = malloc((size_t)max_iters * sizeof(double));
+    double          *beta  = malloc((size_t)(max_iters + 1) * sizeof(double));
+    if (!V || !w || !alpha || !beta) {
+        free(V); free(w); free(alpha); free(beta);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+
+    if (seed) {
+        memcpy(V, seed, (size_t)dim * sizeof(double _Complex));
+    } else {
+        uint64_t rng = 0xdeadbeefcafeULL;
+        for (long long i = 0; i < dim; ++i) {
+            rng = rng * 6364136223846793005ULL + 1442695040888963407ULL;
+            double re = (double)(rng >> 32) / (double)0xFFFFFFFFULL - 0.5;
+            rng = rng * 6364136223846793005ULL + 1442695040888963407ULL;
+            double im = (double)(rng >> 32) / (double)0xFFFFFFFFULL - 0.5;
+            V[i] = re + im * I;
+        }
+    }
+    double norm = 0.0;
+    for (long long i = 0; i < dim; ++i)
+        norm += creal(V[i]) * creal(V[i]) + cimag(V[i]) * cimag(V[i]);
+    norm = sqrt(norm);
+    if (norm < 1e-300) {
+        free(V); free(w); free(alpha); free(beta);
+        return IRREP_ERR_PRECONDITION;
+    }
+    for (long long i = 0; i < dim; ++i) V[i] /= norm;
+
+    beta[0] = 0.0;
+    int n_iters = 0;
+
+    for (int k = 0; k < max_iters; ++k) {
+        double _Complex *v_k = V + (size_t)k * (size_t)dim;
+        apply_op(v_k, w, ctx);
+
+        double a = 0.0;
+        for (long long i = 0; i < dim; ++i)
+            a += creal(conj(v_k[i]) * w[i]);
+        alpha[k] = a;
+
+        for (long long i = 0; i < dim; ++i)
+            w[i] -= a * v_k[i];
+        if (k > 0) {
+            double _Complex *v_prev = V + (size_t)(k - 1) * (size_t)dim;
+            for (long long i = 0; i < dim; ++i)
+                w[i] -= beta[k] * v_prev[i];
+        }
+
+        for (int j = 0; j <= k; ++j) {
+            double _Complex *v_j = V + (size_t)j * (size_t)dim;
+            double _Complex  p   = 0.0 + 0.0 * I;
+            for (long long i = 0; i < dim; ++i)
+                p += conj(v_j[i]) * w[i];
+            for (long long i = 0; i < dim; ++i)
+                w[i] -= p * v_j[i];
+        }
+
+        double b2 = 0.0;
+        for (long long i = 0; i < dim; ++i)
+            b2 += creal(w[i]) * creal(w[i]) + cimag(w[i]) * cimag(w[i]);
+        double b = sqrt(b2);
+        ++n_iters;
+
+        if (b < 1e-14) break;
+        beta[k + 1] = b;
+
+        if (k + 1 < max_iters) {
+            double _Complex *v_next = V + (size_t)(k + 1) * (size_t)dim;
+            for (long long i = 0; i < dim; ++i)
+                v_next[i] = w[i] / b;
+        }
+    }
+
+    /* Diagonalise T with eigendecomp (returns both eigvals + eigvecs). */
+    double _Complex *T = calloc((size_t)n_iters * n_iters, sizeof(double _Complex));
+    double _Complex *U = malloc((size_t)n_iters * n_iters * sizeof(double _Complex));
+    double          *ritz = malloc((size_t)n_iters * sizeof(double));
+    if (!T || !U || !ritz) {
+        free(T); free(U); free(ritz);
+        free(V); free(w); free(alpha); free(beta);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    for (int i = 0; i < n_iters; ++i) {
+        T[(size_t)i * n_iters + i] = alpha[i];
+        if (i + 1 < n_iters) {
+            T[(size_t)i * n_iters + (i + 1)] = beta[i + 1];
+            T[(size_t)(i + 1) * n_iters + i] = beta[i + 1];
+        }
+    }
+    irrep_hermitian_eigendecomp(n_iters, T, ritz, U);
+
+    /* ritz sorted descending; we want ascending "lowest k_wanted". The
+     * corresponding Ritz vector is column (n_iters - 1 - k) of U. */
+    if (k_wanted > n_iters)
+        k_wanted = n_iters;
+    for (int k = 0; k < k_wanted; ++k) {
+        eigvals_out[k] = ritz[n_iters - 1 - k];
+        int col = n_iters - 1 - k;
+        /* Lift: eigvec_k = Σ_j U[j, col] · V[j, :] */
+        double _Complex *evec = eigvecs_out + (size_t)k * (size_t)dim;
+        for (long long i = 0; i < dim; ++i) evec[i] = 0.0;
+        for (int j = 0; j < n_iters; ++j) {
+            double _Complex coeff = U[(size_t)j * n_iters + col];
+            const double _Complex *v_j = V + (size_t)j * (size_t)dim;
+            for (long long i = 0; i < dim; ++i)
+                evec[i] += coeff * v_j[i];
+        }
+        /* Normalise (should be ~1.0 already; guard against accumulated fp). */
+        double nn = 0.0;
+        for (long long i = 0; i < dim; ++i)
+            nn += creal(evec[i] * conj(evec[i]));
+        double inv = 1.0 / sqrt(nn);
+        for (long long i = 0; i < dim; ++i) evec[i] *= inv;
+    }
+
+    free(ritz); free(U); free(T);
+    free(V); free(w); free(alpha); free(beta);
     return IRREP_OK;
 }
 

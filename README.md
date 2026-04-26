@@ -2,13 +2,32 @@
 
 > **Status: pre-release — `v1.3.0-alpha`.** Public API guarded by an ABI
 > hash and a regression gate. Numerical kernels at machine precision across
-> every documented `j` regime.
+> every documented `j` regime. **31 public headers, 42 test suites, 0
+> Doxygen warnings, ASan + UBSan clean.** Active downstream consumer:
+> `spin_based_neural_network` (SbNN) pins `LIBIRREP_MIN=1.3.0-alpha`
+> and links via `src/libirrep_bridge.c` against the multiset / NequIP /
+> spherical-harmonic / CG / Wigner-d API surfaces.
 
 A pure-C11 library of SO(3) / SU(2) / O(3) / SE(3) representation-theory
 primitives — spherical harmonics, Wigner-D rotation matrices, Clebsch–
 Gordan coupling, e3nn-style tensor products — with a stable ABI, no
 runtime dependencies beyond `libc` + `libm`, and runtime-dispatched
 NEON / AVX2 kernels on the hot paths.
+
+### What's validated, what's experimental
+
+| layer | maturity | notes |
+|---|---|---|
+| Rotation conversions, SH, CG, Wigner-D | **production** | machine precision through `j ≥ 80`, SIMD-accelerated, tested against analytical references |
+| Multisets, tensor products, NequIP layer | **production** | e3nn parity; 2488× faster than e3nn on per-call CG (`scripts/bench_vs_e3nn.py`) |
+| 2D lattices, wallpaper groups, sector ED | **production** | kagome 24-site ED matches Läuchli 2011 to 4 decimals |
+| 3D Bravais lattices (5 families) | **validated** | BCC 2³ Heisenberg matches K₈,₈ closed-form `−n(n+2)/4` exactly |
+| Cubic point groups (T_d, O_h, O) | **validated** | textbook crystal-field decompositions (eg + t_2g) reproduced |
+| DMI / J^s / scalar-chirality analyzer | **validated against textbook** | reproduces Bak-Jensen B20 pattern, Curnoe-Ross-Kao pyrochlore, Mn₃Sn-via-T·σ_h |
+| Magnetic point groups via `antiunitary` flag | **framework only** | sign rules verified per Moriya/Shubnikov; no pre-tabulated 122-group set yet |
+| 3D space groups (P2_1 3, Fd-3m, etc.) | **deferred past 1.3** | only 2D wallpaper + 3D point groups in 1.3.0-alpha |
+| Pyrochlore N≥32 sector ED | **out of reach** | requires the deferred 3D space-group machinery |
+| Downstream consumer linkage | **live (SbNN)** | `spin_based_neural_network` pins `LIBIRREP_MIN=1.3.0-alpha`, integrates via `src/libirrep_bridge.c` and `tests/test_libirrep_bridge.c`. Currently consumes the multiset, NequIP layer, real spherical harmonics, CG, and small-d kernels; the 1.3 lattice / DMI / cubic-PG additions are available for future bridge expansion. |
 
 ## Quickstart
 
@@ -177,11 +196,24 @@ Forward, backward through hidden features and weights, and through
 edge geometry (`_apply_forces`). Spec-string constructor accepts
 e3nn-style layer descriptions.
 
-**Point-group and space-group projection.** C₄ᵥ / D₆ / C₃ᵥ / D₃
-character tables with pre-computed real-basis Wigner-D matrices
-(~80× speedup on projection). 2D wallpaper groups p1 / p4mm / p6mm
-as site-permutation tables. Configuration-space character-weighted
-projection `P_μ ψ(σ)` including non-Γ Bloch-momentum sectors.
+**Point-group and space-group projection.** Six 2D / 3D point groups:
+C₄ᵥ / D₆ / C₃ᵥ / D₃ (lattice point groups for 2D wallpaper) plus
+T_d / O_h / O (cubic point groups for diamond / zincblende /
+perovskite / FCC / BCC / chiral skyrmion magnets). Character tables
+with pre-computed real-basis Wigner-D matrices (~80× speedup on
+projection). 2D wallpaper groups p1 / p4mm / p6mm as site-permutation
+tables. Configuration-space character-weighted projection `P_μ ψ(σ)`
+including non-Γ Bloch-momentum sectors.
+
+**3D Bravais lattices.** SC / BCC / FCC / Diamond / Pyrochlore in the
+conventional cubic cell, sibling of the 2D `lattice.h`. Auto-discovered
+NN / NNN bond directions per family — coordination numbers (6, 8, 12,
+4, 6) verified against textbook values. FCC at 3³ lands at exactly
+N = 108 sites — the SbNN/moonlab target size; pyrochlore at 1³ gives a
+16-site frustrated cluster. Bond lists feed straight into
+`irrep_heisenberg_new` for 3D ED, full-space, Γ-momentum, or
+k-resolved (see `examples/pyrochlore16_heisenberg.c`,
+`examples/lattice3d_kspace_ed.c`).
 
 **Hamiltonians, RDM, entanglement.** Spin-½ Heisenberg apply-op
 (`irrep_heisenberg_t`) plugs directly into `irrep_lanczos_eigvals`.
@@ -232,6 +264,29 @@ substrate is consumed by downstream NQS / VMC code. The 1.3 primitives
 that enable this — `lattice.h`, `space_group.h`, `config_project.h`,
 `rdm.h`, `sym_group.h`, `spin_project.h`, `hamiltonian.h` — are all
 shipped and tested.
+
+### 3D extension
+
+The 1.3-alpha cycle also adds a 3D substrate via `lattice3d.h` and the
+cubic point groups T_d / O_h / O. The natural 3D analog of the kagome
+problem is the **pyrochlore lattice** (corner-sharing tetrahedra,
+3D analog of corner-sharing triangles, hosts spin-ice and quantum
+spin-liquid candidates). `examples/pyrochlore16_heisenberg.c` runs ED
+on the 16-site pyrochlore Heisenberg AFM:
+
+| observable | value | interpretation |
+|---|---|---|
+| E₀ | −8.809 J | per site −0.551, per bond −0.184 |
+| E₁ | −8.441 J | 4-fold degenerate (cubic-multiplet structure) |
+| Δ_01 | 0.368 J | gap to first excited |
+| frustration measure | 73 % of −12 J | independent-tetrahedron lower bound |
+
+The same pipeline drives `lattice3d_sector_ed.c` (Γ-momentum reduction
+on BCC 2³ — recovers the K_{8,8} closed form −20 J exactly with 39× dim
+shrink) and `lattice3d_kspace_ed.c` (full BZ momentum scan — minimum
+E₀(k) recovers the full-space ground state to 4×10⁻⁷). All without
+3D-space-group infrastructure — pure translation symmetry on the 3D
+lattice via `irrep_lattice3d_translate`.
 
 Details in [`docs/PHYSICS_RESULTS.md`](docs/PHYSICS_RESULTS.md).
 
@@ -351,7 +406,7 @@ Derivations and primary-source citations in
 
 ```
 make             # lib + test + examples + check-headers + check-abi
-make test        # run 29 test suites
+make test        # run 42 test suites
 make bench       # benchmark JSON under benchmarks/results/<utc>/
 make asan        # rebuild and test with -fsanitize=address
 make ubsan       # rebuild and test with -fsanitize=undefined
@@ -392,7 +447,7 @@ docker run --rm --platform linux/amd64 -v "$(pwd):/w" -w /w libirrep-dev-x64 mak
 | [`docs/REFERENCES.md`](docs/REFERENCES.md) | Annotated bibliography (DOIs + edition specificity) |
 | [`docs/MIGRATION_FROM_E3NN.md`](docs/MIGRATION_FROM_E3NN.md) | e3nn-to-libirrep mapping |
 | [`docs/PHYSICS_RESULTS.md`](docs/PHYSICS_RESULTS.md) | Kagome ED numerical results |
-| [`docs/tutorials/`](docs/tutorials/) | Seven walk-throughs |
+| [`docs/tutorials/`](docs/tutorials/) | Eight walk-throughs (rotations → spherical harmonics → CG → Wigner-D → tensor products → equivariant NNs → kagome NQS substrate → materials-search pipeline) |
 | [`examples/EXPECTED_OUTPUT.md`](examples/EXPECTED_OUTPUT.md) | Reproducibility catalogue |
 | [`CHANGELOG.md`](CHANGELOG.md) | Per-release changes |
 

@@ -81,6 +81,24 @@ IRREP_API irrep_status_t irrep_partial_trace(int num_sites, int local_dim,
  *         comes first. Returns #IRREP_OK or #IRREP_ERR_INVALID_ARG. */
 IRREP_API irrep_status_t irrep_hermitian_eigvals(int n, double _Complex *A, double *eigvals);
 
+/** @brief Full eigendecomposition of a small Hermitian matrix.
+ *
+ *  Same cyclic-Jacobi algorithm as @ref irrep_hermitian_eigvals but also
+ *  accumulates the eigenvector matrix V. On return, columns of @p eigvecs
+ *  are orthonormal eigenvectors of the input A, and `A · V = V · diag(eigvals)`
+ *  holds to machine precision. Eigenvalues and vectors are sorted in the
+ *  same descending-eigenvalue order used by `irrep_hermitian_eigvals`.
+ *
+ *  @param n         matrix dimension (also column count of @p eigvecs)
+ *  @param A         n×n Hermitian matrix, row-major. Destroyed on return.
+ *  @param eigvals   length-n output for eigenvalues (descending)
+ *  @param eigvecs   n×n output matrix, row-major; column k is the eigenvector
+ *                   for eigvals[k]
+ *  @return IRREP_OK or IRREP_ERR_INVALID_ARG */
+IRREP_API irrep_status_t irrep_hermitian_eigendecomp(int n, double _Complex *A,
+                                                     double *eigvals,
+                                                     double _Complex *eigvecs);
+
 /** @brief von Neumann entropy `− Σ λ_i ln λ_i` from an eigenvalue list.
  *         Treats `λ ≤ 1e-15` as zero (since `0 ln 0 = 0`). */
 IRREP_API double irrep_entropy_vonneumann_spectrum(const double *eigvals, int n);
@@ -154,6 +172,41 @@ IRREP_API irrep_status_t irrep_lanczos_eigvals(
 IRREP_API irrep_status_t irrep_lanczos_eigvals_reorth(
     void (*apply_op)(const double _Complex *x, double _Complex *y, void *ctx), void *ctx,
     long long dim, int k_wanted, int max_iters, const double _Complex *seed, double *eigvals_out);
+
+/** @brief Lanczos with full reorth returning eigenvalues + eigenvectors.
+ *
+ *  Same algorithm as @ref irrep_lanczos_eigvals_reorth — full Krylov basis
+ *  stored for Gram-Schmidt reorth — plus a lift of the tridiagonal-matrix
+ *  Ritz vectors into the full vector space via `eigvec = V · ritz_vec`.
+ *
+ *  Memory: `max_iters · dim · 16 B` (Krylov basis) + `k_wanted · dim · 16 B`
+ *  (output vectors). At `dim = 186000, max_iters = 60` that's ~180 MB —
+ *  workstation-scale.
+ *
+ *  Accuracy: Ritz vectors at the extremal eigenvalues converge fastest;
+ *  typical 60-iteration ground-state residual < 1e-10 on well-separated
+ *  spectra.
+ *
+ *  @param apply_op     callback `y = H · x`. Must preserve any conserved
+ *                      quantum numbers carried by the seed (e.g., S_z_total
+ *                      for spin-½ Heisenberg).
+ *  @param ctx          opaque pointer forwarded to @p apply_op as its third
+ *                      argument; typically the apply-operator handle.
+ *  @param dim          Hilbert-space dimension; the length of the input,
+ *                      output, and seed vectors.
+ *  @param k_wanted     number of eigenvalues / eigenvectors to return; the
+ *                      `k_wanted` algebraically-smallest are computed.
+ *  @param max_iters    maximum Lanczos iterations; the Krylov subspace and
+ *                      the eigenvector buffer are sized at this depth.
+ *  @param seed         length-`dim` initial vector; if @c NULL, the builder
+ *                      uses a deterministic pseudo-random seed.
+ *  @param eigvals_out  length-`k_wanted` output, sorted ascending.
+ *  @param eigvecs_out  caller buffer of `k_wanted · dim` complex doubles.
+ *                      On return, row k is the eigenvector for eigvals[k]. */
+IRREP_API irrep_status_t irrep_lanczos_eigvecs_reorth(
+    void (*apply_op)(const double _Complex *x, double _Complex *y, void *ctx), void *ctx,
+    long long dim, int k_wanted, int max_iters, const double _Complex *seed,
+    double *eigvals_out, double _Complex *eigvecs_out);
 
 /* ----- Batched per-sample entanglement pipeline ---------------------- *
  *                                                                        *

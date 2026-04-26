@@ -281,6 +281,24 @@ IRREP_API void irrep_sg_little_group_irrep_free(irrep_sg_little_group_irrep_t *m
 /** @brief Dimension `d_μ` of the irrep. */
 IRREP_API int irrep_sg_little_group_irrep_dim(const irrep_sg_little_group_irrep_t *mu_k);
 
+/** @brief Read the d_μ × d_μ representation matrix D_μ(g_i) for the i-th
+ *  element of the little group (i = 0 is the identity, matching the
+ *  ordering of @ref irrep_sg_little_group_point_ops).
+ *
+ *  For 1D irreps this is a single complex scalar (the character). For
+ *  2D irreps the matrix is orthogonal (unitary with real entries in the
+ *  standard E-irrep basis) and satisfies D(g·h) = D(g)·D(h).
+ *
+ *  @param mu_k    little-group irrep
+ *  @param i       element index, `i ∈ [0, point_order(lg))`
+ *  @param D_out   caller buffer of size d_μ² written in row-major order
+ *                 (`D[row][col] = D_out[row * d_μ + col]`)
+ *  @return 0 on success, -1 on invalid input or if the irrep has no
+ *          matrix data stored (e.g. hand-supplied via _irrep_new with
+ *          characters only). */
+IRREP_API int irrep_sg_little_group_irrep_matrix(const irrep_sg_little_group_irrep_t *mu_k,
+                                                 int i, double _Complex *D_out);
+
 /** @brief Named irreps of the little point groups that appear on p1 /
  *         p4mm / p6mm. Used by @ref irrep_sg_little_group_irrep_named to
  *         construct a handle without the caller assembling a character
@@ -359,6 +377,133 @@ IRREP_API double _Complex irrep_sg_project_at_k(const irrep_sg_little_group_t *l
 IRREP_API int irrep_sg_adapted_basis_at_k(const irrep_sg_little_group_t       *lg,
                                           const irrep_sg_little_group_irrep_t *mu_k, int num_sites,
                                           int local_dim, double _Complex *basis_out, int n_max);
+
+/** @brief Emit per-group-element weights for the composite `(k, μ_k)` projector.
+ *
+ *  Writes `weights_out[g] = (d_μ / |G|) · e^{-i k · t(g)} · conj(χ_μ(p(g)))`
+ *  for every `g ∈ [0, order(G))`, or `0` when the point part `p(g)` is not
+ *  in the little point group. Together with
+ *  @ref irrep_space_group_permutation, this is the triple a downstream MPO
+ *  builder needs to assemble
+ *  `P_{k,μ_k} = Σ_g weights[g] · π_g` as a tensor-network operator.
+ *
+ *  Invariant (bit-exact within floating-point associativity):
+ *    `Σ_g weights[g] · ψ(g·σ) == irrep_sg_project_at_k(lg, mu_k, ψ_of_g)`
+ *  for any orbit-amplitude vector `ψ_of_g` of length `order(G)`.
+ *
+ *  @param lg          little-group handle at `(kx, ky)`
+ *  @param mu_k        irrep of the little point group (same `lg`)
+ *  @param weights_out caller buffer of length `irrep_space_group_order(lg->G)`
+ *  @return            0 on success, -1 on invalid input. */
+IRREP_API int irrep_sg_projector_weights(const irrep_sg_little_group_t       *lg,
+                                         const irrep_sg_little_group_irrep_t *mu_k,
+                                         double _Complex                     *weights_out);
+
+/** @brief Orbit canonical form: find the lexicographically minimum
+ *  bitstring in the orbit of @p config_in under the full space group,
+ *  and the element `g` that maps @p config_in to that representative.
+ *
+ *  Core primitive for sparse Lanczos / ED in symmetry sectors. Given
+ *  any spin configuration, the orbit representative is a single
+ *  canonical label per orbit; downstream consumers enumerate orbits
+ *  by keeping only configs for which `canonicalise(c) == c`.
+ *
+ *  Supports up to 64 sites. Ties in the orbit (configs invariant under
+ *  a subgroup, hence reachable from the rep by multiple `g`) are broken
+ *  by the smallest `g` index.
+ *
+ *  @param G          space group with cached site-permutation table.
+ *  @param config_in  input spin configuration (bit i = site i occupancy).
+ *  @param rep_out    receives the orbit representative.
+ *  @param g_idx_out  receives the group element index such that
+ *                    `irrep_space_group_apply_bits(G, g_idx, config_in) == rep_out`.
+ *                    May be NULL if the caller only wants the rep. */
+IRREP_API void irrep_sg_canonicalise(const irrep_space_group_t *G,
+                                     uint64_t config_in,
+                                     uint64_t *rep_out, int *g_idx_out);
+
+/** @brief Orbit size: the number of distinct bitstrings in the orbit
+ *  of @p config under the full space group (= |G| / |stabiliser|).
+ *
+ *  Useful for orthonormal sector basis construction — the normalisation
+ *  factor of a representative `r` in a symmetry-adapted basis is
+ *  `1 / sqrt(|G| · orbit_size(r))`. */
+IRREP_API int irrep_sg_orbit_size(const irrep_space_group_t *G, uint64_t config);
+
+/** @brief Emit the indices of group elements fixing @p config.
+ *
+ *  Writes every `g ∈ [0, order(G))` satisfying `π_g(config) == config`
+ *  into @p out_indices in ascending order, and returns the count
+ *  |Stab(config)|.
+ *
+ *  **Precondition (not runtime-checked)**: `out_indices` must point to a
+ *  buffer of at least `irrep_space_group_order(G)` ints. The fully-
+ *  invariant configuration (all zero bits or all one bits) has stabiliser
+ *  equal to the full group, so in the worst case the function writes
+ *  `order` entries. Passing a smaller buffer is undefined behaviour
+ *  (heap corruption). `out_indices = NULL` is detected and returns 0.
+ *
+ *  Relation: `orbit_size · stabiliser_size = |G|` (orbit-stabiliser
+ *  theorem). The stabiliser is the raw building block for sector-basis
+ *  norm computation at a non-trivial `(k, μ_k)` irrep: the norm is
+ *  `Σ_{g ∈ Stab} w_g` with `w_g` the composite projector weight; when
+ *  this sum vanishes the rep is annihilated by the sector projector. */
+IRREP_API int irrep_sg_stabiliser(const irrep_space_group_t *G, uint64_t config,
+                                  int *out_indices);
+
+/** @brief Opaque table of orbit representatives at a fixed popcount.
+ *
+ *  Enumerates every lex-minimum orbit representative under the full
+ *  space group at fixed `S_z = popcount − N/2` (i.e. every config with
+ *  exactly @p popcount bits set, keeping only canonical-form ones).
+ *  Stores representatives in sorted ascending order plus the parallel
+ *  orbit-size array. `rep → index` lookup uses binary search; suitable
+ *  for sparse-matvec inner loops in Lanczos-on-representatives.
+ *
+ *  Build cost is O(C(N, popcount) · |G| · N) and is typically the
+ *  dominant one-shot cost. The table is reused across all Lanczos
+ *  iterations inside the same `(popcount, k, μ_k)` sector. */
+typedef struct irrep_sg_rep_table irrep_sg_rep_table_t;
+
+/** @brief Build the table of orbit representatives at fixed popcount.
+ *  Returns NULL on OOM / invalid input. Supports up to 64 sites. */
+IRREP_API irrep_sg_rep_table_t *irrep_sg_rep_table_build(const irrep_space_group_t *G,
+                                                         int popcount);
+
+IRREP_API void irrep_sg_rep_table_free(irrep_sg_rep_table_t *T);
+
+/** @brief Number of representatives in the table. */
+IRREP_API long long irrep_sg_rep_table_count(const irrep_sg_rep_table_t *T);
+
+/** @brief Read representative at linear index `k ∈ [0, count)`. Returns 0
+ *  if `k` is out of range (caller should guard). */
+IRREP_API uint64_t irrep_sg_rep_table_get(const irrep_sg_rep_table_t *T, long long k);
+
+/** @brief Orbit size of the representative at linear index @p k. */
+IRREP_API int irrep_sg_rep_table_orbit_size(const irrep_sg_rep_table_t *T, long long k);
+
+/** @brief Look up the linear index of representative @p rep. Returns -1
+ *  if @p rep is not a representative in the table (wrong popcount, or
+ *  not its orbit's canonical form). */
+IRREP_API long long irrep_sg_rep_table_index(const irrep_sg_rep_table_t *T, uint64_t rep);
+
+/** @brief Accessor: the space group the table was built against. The
+ *  returned handle is borrowed — do not free. */
+IRREP_API const irrep_space_group_t *irrep_sg_rep_table_space_group(
+    const irrep_sg_rep_table_t *T);
+
+/** @brief Serialise @p T to @p path (binary format, not cross-architecture-
+ *  portable without care: little-endian uint64_t assumed). Rebuilds at
+ *  N = 27 kagome take ~12 s; a loaded table takes ~100 ms. Returns 0 on
+ *  success, -1 on I/O error. */
+IRREP_API int irrep_sg_rep_table_save(const irrep_sg_rep_table_t *T, const char *path);
+
+/** @brief Load a rep table previously saved via @ref irrep_sg_rep_table_save.
+ *  The caller provides @p G (not serialised — must match the group used
+ *  to build the table originally) and @p popcount (a checked redundancy).
+ *  Returns NULL on any mismatch or I/O error. */
+IRREP_API irrep_sg_rep_table_t *irrep_sg_rep_table_load(
+    const irrep_space_group_t *G, int popcount, const char *path);
 
 #ifdef __cplusplus
 }

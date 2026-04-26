@@ -27,10 +27,15 @@ ground-state nature) and the library's surface area:
 | ED at clusters too big for dense storage | `rdm.h` | `irrep_lanczos_eigvals` with callback H-apply |
 | Fermion antisymmetrisation for 2D Hubbard target | `sym_group.h` | `irrep_sym_group_antisymmetrize` |
 | Spin-orbit-coupled / spinor equivariant NN layers | `tensor_product.h` half-integer | `irrep_tp_2j_build` + `_apply_weighted` + `_apply_backward` |
+| 3D crystal-lattice geometry (frustrated 3D magnets, materials hunt) | `lattice3d.h` | `irrep_lattice3d_build` + 5 Bravais families (SC/BCC/FCC/Diamond/Pyrochlore) |
+| Crystallographic site-symmetry projection on 3D crystals | `point_group.h` (cubic) | `IRREP_PG_TD` / `IRREP_PG_OH` / `IRREP_PG_O` |
+| Symmetry-allowed exchange tensor structure for chiral magnets | `dmi.h` | `irrep_dmi_allowed_basis` + `irrep_exchange_symmetric_basis` |
 
 The 1.2 core (spherical harmonics, Clebsch-Gordan, Wigner-D, NequIP
 layer, point-group projection on feature vectors) sits below this
-physics substrate and is reused intact; see §2 for its layering.
+physics substrate and is reused intact; see §2 for its layering. The
+1.3 cycle adds the 3D-substrate row and the materials-search analyzer
+without disturbing the lower layers.
 
 ---
 
@@ -78,14 +83,18 @@ pulling in transitive implementation details.
  │
  ▼
  ┌───────────────────────────────────────────────┐
- │ 1.3 physics substrate () │
- │ lattice.h (2D Bravais, PBC) │
- │ space_group.h (p1, p4mm, p6mm tables) │
- │ config_project.h (P_μ ψ(σ) reducer) │
- │ rdm.h (partial trace, S_VN, γ) │
- │ sym_group.h (S_N, hook-length, A/S) │
- │ spin_project.h (total-J projection) │
+ │ 1.3 physics substrate (12 modules total) │
+ │ lattice.h (2D Bravais — sq/tri/hex/kagome) │
+ │ lattice3d.h (3D Bravais — SC/BCC/FCC/Dia/Pyr)│
+ │ space_group.h (p1..p6mm, p3m1, p31m wallpap) │
+ │ config_project.h (P_μ ψ(σ) reducer + (k,μ_k))│
+ │ rdm.h (partial trace, S_VN, γ, Lanczos±r) │
+ │ hamiltonian.h (Heisenberg / J₁J₂ / XY apply) │
+ │ sym_group.h (S_N, hook-length, A/S projs) │
+ │ spin_project.h (total-J projection on S=½) │
  │ tensor_product.h [_2j] (half-integer UVW TP) │
+ │ point_group.h (cubic: T_d, O_h, O additions) │
+ │ dmi.h (bond exchange tensor symmetry) │
  └───────────────────────┬───────────────────────┘
  │
  ▼
@@ -93,6 +102,21 @@ pulling in transitive implementation details.
  │ irrep.h │ umbrella (pulls all)
  └────────────┘
 ```
+
+The 1.3.0-alpha cycle added three modules to this layer beyond what
+1.3 originally targeted: `lattice3d.h` (3D Bravais lattices for
+chiral-magnet / pyrochlore work), the cubic point-group additions to
+`point_group.h` (T_d, O_h, O — for diamond / SC-BCC-FCC site symmetry
+and chiral cubic magnets like MnSi), and `dmi.h` (the bond-exchange-
+tensor symmetry analyzer that automates Moriya's rules + symmetric
+exchange decomposition for the materials-search pipeline).
+
+These additions were strict downstream of the existing layers — no
+re-layering was needed. `lattice3d.h` consumes only `types.h` and is
+peer-equivalent to `lattice.h`. `dmi.h` consumes `point_group.h` and
+operates on bond geometry, putting it logically below the
+configuration-space and Hamiltonian layers but above the angular-
+function core.
 
 The layering has three practical consequences:
 
@@ -385,7 +409,7 @@ out under `release/<version>/`:
 
 ```
 release/<version>/
-├── include/irrep/ # all 21 public headers
+├── include/irrep/ # all 31 public headers (1.3.0-alpha)
 ├── lib/<triple>/ # static .a + shared .so|.dylib|.dll
 ├── pkgconfig/libirrep.pc # with baked abi_hash variable + embedded rpath
 ├── VERSION # plain text version string

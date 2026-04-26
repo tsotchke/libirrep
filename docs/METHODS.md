@@ -242,6 +242,124 @@ of N single-qubit updates (O(N · 2^N) per grid point). Validated on
 18, and 24-site kagome to confirm the Heisenberg ground state is a
 pure J = 0 singlet (`‖P_{J=0}|gs⟩‖² = 1.000000`).
 
+### 3.11. Translation orbit canonicalisation for sector ED
+
+The sector-ED machinery in `irrep_heisenberg_apply_in_sector` (2D)
+and the worked-example `lattice3d_sector_ed.c` (3D) reduces the
+Hilbert dimension by translation-orbit canonicalisation. For a
+translation group `T` of order `|T|` (= `Lx · Ly` in 2D or
+`Lx · Ly · Lz` in 3D), each bit-string `s` lives in an orbit of
+size `|T| / |Stab(s)|`. The canonical representative is the
+lexicographically smallest element of the orbit:
+
+```
+    canonical(s) = min_{g ∈ T}  bit_permute(s, π_g)
+```
+
+where `π_g` is the site-permutation pulled from the lattice's
+translation table. Computing it costs `O(|T| · N)` bit operations
+per state (apply each translation's permutation, take minimum).
+
+Building the canonical-rep list iterates over the Sz=0 sector
+using **Gosper's hack** (next-popcount-preserving permutation
+in O(1) per step), avoiding the full `2^N` outer loop. For each
+candidate Sz=0 state, compute its canonical and keep it iff it
+equals itself — this defines the orbit representative set without
+explicit equivalence-class clustering.
+
+Off-diagonal Heisenberg coupling at non-trivial momentum picks up
+a phase from the canonicalising translation: if a bond-flip on
+canonical `u` produces `u_ab`, find its canonical `v = T_{t_R} ·
+u_ab` (with `t_R` recorded during the canonicalise call), and
+the matrix element is
+
+```
+    ⟨k, v | H | k, u⟩  +=  ½J · e^{−i k·t_R} · √(σ_v / σ_u) · k_uv
+```
+
+where `σ_u = Σ_{g ∈ Stab_u} e^{−i k·t_g}` is the stabiliser phase
+sum (orbits with `σ_u = 0` are filtered out per-k). At `k = 0`
+this reduces to `½J · √(N_u / N_v)` (source-orbit-size in
+numerator — corrected during the 1.3.0-alpha cycle from the
+previously-misdocumented `√(N_v / N_u)`).
+
+For the Γ sector at `lattice3d_sector_ed` on BCC 2³ (16 sites),
+the reduction is from full Hilbert 65536 → Sz=0 12870 →
+Γ-momentum 1670, a **39× shrink** that keeps the GS exact at
+−20.000000 J (the K_{8,8} closed form, validating the
+canonicalisation pipeline against a hand-derivable reference).
+
+### 3.12. Symmetry-allowed bond-exchange-tensor projector
+
+The DMI and symmetric-exchange analyzers in `dmi.h` reduce the
+bond-symmetry analysis to projector construction on a low-dim
+representation of the bond's site stabiliser:
+
+- **DMI (axial 3-vector)**: 3-dim representation. Projector
+  ``P_DMI = (1/|S|) Σ_{g ∈ S} (±R_g)``, sign + for
+  bond-preserving operations, − for bond-reversing. Diagonalise
+  via the 3×3 Jacobi sweep used elsewhere in the library; eigenvectors
+  with eigenvalue 1 (within `1e-9`) are the orthonormal allowed-D
+  basis. Tr(P_DMI) reads out the dimension `n_D ∈ {0, 1, 2, 3}`.
+
+- **Symmetric exchange (rank-2 axial-axial → polar rank-2)**:
+  6-dim representation on the symmetric subspace of `R^{3×3}`,
+  spanned by `{diag, (E_xy + E_yx)/√2, …}` (orthonormal under
+  Frobenius). The rank-2 representation matrix of `J → R J R^T`
+  in this basis is computed entry-wise:
+
+  ```
+      M_g[β, α]  =  ⟨e_β, R · e_α · R^T⟩_F
+                  =  trace( e_β · R · e_α · R^T )    (since e_β symmetric)
+  ```
+
+  Projector `P_sym = (1/|S|) Σ M_g`, diagonalised with a generic
+  N×N Jacobi (see §3.13). `Tr(P_sym) ∈ {0, 1, 2, 3, 4, 5, 6}`
+  reads out the J^s subspace dimension. Eigenvectors with
+  eigenvalue 1 reconstruct as 3×3 symmetric matrices via
+  `J = Σ_α c_α e_α` and are written into the caller's output
+  buffer.
+
+Both projectors satisfy `P^2 = P` exactly (up to numerical
+noise) and `Tr(P) ∈ Z`, providing a self-check: if `Tr(P)` is not
+near-integer the operator list isn't a valid stabiliser.
+
+The rank-2 axial-axial → polar argument explains why the same
+symmetric-tensor projector is independent of `det(g)`: the cross
+product of two axial vectors is a polar vector, so a rank-2
+"axial squared" tensor transforms as polar rank-2, with `det(g)²
+= 1` cancelling out. Consequence: **O_h and its chiral subgroup
+O give identical J^s constraints on every bond** — the asymmetry
+between centrosymmetric and chiral cubic groups appears only in
+the DMI sector. This is verified directly by
+`examples/dmi_pyrochlore_pattern.c` returning identical 3-dim
+J^s subspaces under all three of O_h / O / T_d.
+
+### 3.13. Generic N×N symmetric Jacobi diagonaliser
+
+A small support routine in `dmi.c` (file-static) for the 6×6
+projector diagonalisation. The N×N Jacobi method:
+
+1. Find the largest off-diagonal element |A[p,q]|.
+2. Compute the rotation angle `θ = ½ atan2(2·A[p,q], A[p,p] − A[q,q])`.
+3. Apply the rotation to rows / columns p, q of A; accumulate the
+   rotation in V.
+4. Repeat until max off-diagonal < `1e-15` or 80 sweeps elapse.
+
+The implementation is straightforward: O(N³) per sweep, ~5–10
+sweeps to converge for well-conditioned symmetric matrices. For
+N = 6, this costs <1 ms; the cost is dominated by the cache-friendly
+6×6 matrix-vector products, not arithmetic. Eigenvalues are
+sorted descending by selection sort (negligible at N = 6); each
+eigenvector is a row of the eigenvector matrix.
+
+This generic Jacobi is internal to `dmi.c`; the public
+`irrep_hermitian_eigvals` (in `rdm.h`) is the cyclic-Jacobi
+variant tuned for the larger matrices that ED produces. The two
+have the same algorithmic family but different code paths to keep
+the small-N projector cost low without dragging in the larger
+solver's setup overhead.
+
 ## 4. Performance characteristics
 
 libirrep is written for a single modern CPU core first. Key
@@ -272,9 +390,11 @@ Every primitive has a unit test; every unit test cross-validates
 against a primary-source value where one exists. Summary as of
 1.3.0-alpha:
 
-- 28 test suites, ~11 000 assertions total.
+- 42 test suites, ~40 000 assertions total (substantial growth in the
+ 1.3.0-alpha cycle from new lattice3d, cubic point group, and DMI
+ symmetry-analyzer modules).
 - All suites pass under normal, ASan, and UBSan builds.
-- 28 public headers are self-contained (each compiles standalone
+- 31 public headers are self-contained (each compiles standalone
  under `-Wall -Wextra -Wpedantic -Werror -std=c11`).
 - 9 libFuzzer targets run 60 s each in CI.
 - Bit-exactness tests for every SIMD kernel against the scalar path.

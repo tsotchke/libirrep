@@ -44,7 +44,10 @@ typedef enum {
     IRREP_PG_C4V = 0, /**< C₄ᵥ — square-lattice symmetry.          */
     IRREP_PG_D6 = 1,  /**< D₆  — hexagonal / kagome lattice.       */
     IRREP_PG_C3V = 2, /**< C₃ᵥ — triangular lattice with σᵥ mirrors. */
-    IRREP_PG_D3 = 3   /**< D₃  — triangular lattice, proper only.    */
+    IRREP_PG_D3 = 3,  /**< D₃  — triangular lattice, proper only.    */
+    IRREP_PG_TD = 4,  /**< T_d — tetrahedral, 24 elements, 5 irreps (diamond / zincblende site sym). */
+    IRREP_PG_OH = 5,  /**< O_h — full cubic, 48 elements, 10 irreps (SC / BCC / FCC site sym). */
+    IRREP_PG_O = 6    /**< O   — chiral cubic, 24 proper-only elements, 5 irreps (chiral magnets, MnSi etc.). */
 } irrep_point_group_t;
 
 /** @brief Opaque character table + element list for a point group. */
@@ -95,6 +98,22 @@ IRREP_API void irrep_pg_project(const irrep_pg_table_t *t, int mu, const irrep_m
  *         representation carried by @p spec. */
 IRREP_API void irrep_pg_reduce(const irrep_pg_table_t *t, const irrep_multiset_t *spec,
                                int *out_mult);
+
+/** @brief Read out the i-th group element as a (proper rotation, det)
+ *         pair. The actual O(3) action on a polar vector is
+ *         `det · R_proper · v`; the action on an axial (pseudo-)vector
+ *         is `R_proper · v` regardless of `det`.
+ *
+ *  Index convention follows the per-group element layout documented in
+ *  `point_group.c` (E first, then Cₙ classes, then improper elements).
+ *
+ *  @param t            character table from #irrep_pg_table_build.
+ *  @param i            element index in `[0, irrep_pg_order(t))`.
+ *  @param R_proper_out 9-element row-major 3×3 matrix output.
+ *  @param det_out      ±1.
+ *  @return 0 on success, -1 if @p i is out of range. */
+IRREP_API int irrep_pg_element(const irrep_pg_table_t *t, int i, double R_proper_out[9],
+                               int *det_out);
 /** @} */
 
 #ifdef __cplusplus

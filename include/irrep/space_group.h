@@ -42,6 +42,7 @@
 #define IRREP_SPACE_GROUP_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include <irrep/export.h>
 #include <irrep/types.h>
@@ -144,6 +145,21 @@ IRREP_API void irrep_space_group_permutation_inverse(const irrep_space_group_t *
  *         — otherwise the permutation is written out-of-place. */
 IRREP_API void irrep_space_group_apply_config(const irrep_space_group_t *G, int g, const double *in,
                                               double *out);
+
+/** @brief Apply group element @p g to a bit-packed spin configuration.
+ *
+ *  Bit `i` of @p config_in (spin occupancy at site i ∈ {0, 1}) maps to bit
+ *  `perm[i]` of the returned value, where `perm = irrep_space_group_permutation(G, g)`.
+ *  Equivalent to the pushforward action on configs: `(g·c)[perm[i]] = c[i]`.
+ *
+ *  Supports up to 64 sites. For hot loops that re-apply the same element,
+ *  fetch @ref irrep_space_group_permutation once and use a caller-side
+ *  bit-loop instead — this function re-fetches the permutation per call.
+ *
+ *  @return permuted bitstring, or `config_in` unchanged if `G` is NULL or
+ *          `g` is out of range. */
+IRREP_API uint64_t irrep_space_group_apply_bits(const irrep_space_group_t *G, int g,
+                                                uint64_t config_in);
 /** @} */
 
 #ifdef __cplusplus

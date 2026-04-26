@@ -627,7 +627,357 @@ that it is tractable to audit.
 
 ---
 
-## 13. Bibliography anchor
+## 13. Bond exchange tensor symmetry
+
+The full bilinear two-spin coupling on a bond `(i, j)` is
+
+```
+    H_ij = S_i · J_ij · S_j        (J_ij a 3×3 real matrix, 9 components)
+```
+
+The symmetric / antisymmetric decomposition is
+
+```
+    J_ij^{ab} = J^s_ij^{ab} + J^a_ij^{ab}
+              = ½(J_ij^{ab} + J_ij^{ba})  +  ½(J_ij^{ab} - J_ij^{ba})
+```
+
+The antisymmetric part has three independent components and is
+encoded as the **DMI vector** `D_ij` via
+
+```
+    J^a_{ij,ab} = ε_{abc} · D_ij^c            (Levi-Civita encoding)
+    H^a_ij      = D_ij · (S_i × S_j)
+```
+
+The symmetric part has six independent components: one Heisenberg
+(trace, transforms as `A₁` of every group) plus five traceless
+anisotropic components transforming as the rank-2 symmetric
+representation (= `Eg + T2g` under cubic).
+
+### 13.1. Transformation under symmetry
+
+Under a spatial symmetry operation `g` acting on cartesian space as
+`r → det(g) · R(g) · r` (libirrep's `(R_proper, det)` convention,
+where `R_proper` is the proper-rotation matrix and `det = ±1`
+distinguishes proper from improper), spins transform as **axial
+vectors**:
+
+```
+    S_i  →  R(g) · S_{g(i)}
+```
+
+with **no `det(g)` factor** — improper operations (mirrors, S_n,
+inversion) act on the spin's vector value the same as their
+proper-rotation counterpart. Inversion leaves the spin at its
+original direction (since the position flip and the axial-vector
+structure cancel).
+
+For the cross product:
+
+```
+    (R u) × (R v) = det(R) · R · (u × v)
+```
+
+but since `R = R_proper` is proper (det = +1), we get
+`(R u) × (R v) = R (u × v)` for spin transformations — the cross
+product of two axial vectors transforms as `R` regardless of the
+symmetry operation's parity. This is the cancellation that makes
+DMI insensitive to `det(g)` in its matrix-element form.
+
+### 13.2. DMI: Moriya's five rules
+
+For invariance of `H = D_ij · (S_i × S_j)` under operation `g`:
+
+- If `g` **preserves** the bond as an ordered pair (`g(i) = i`,
+  `g(j) = j`), the constraint is `D_ij = R(g) D_ij`. `D_ij` must lie
+  in the +1 eigenspace of `R(g)`.
+
+- If `g` **reverses** the bond (`g(i) = j`, `g(j) = i`), then
+  `D_g(i)g(j) = D_ji = -D_ij` (antisymmetric exchange), and the
+  constraint becomes `D_ij = -R(g) D_ij`. `D_ij` must lie in the
+  −1 eigenspace of `R(g)`, i.e., the +1 eigenspace of `-R(g)`.
+
+The **bond's site-symmetry group** is the subgroup of the parent
+crystallographic point group that maps `{r_a, r_b}` to itself as
+an unordered set. The symmetry-allowed `D` subspace is the joint
++1 eigenspace of all operators
+
+```
+    M_g  =  +R(g)   if g preserves the bond
+            -R(g)   if g reverses the bond
+```
+
+equivalently the range of the projector
+
+```
+    P  =  (1/|S|) · Σ_{g ∈ S} M_g
+```
+
+where `S` is the bond's site-symmetry group. **The dimension of
+the allowed D-subspace is `Tr(P)`.**
+
+Specialising this projector to the five Moriya cases recovers his
+1960 rules:
+
+| case | g | role | M_g | constraint | D-direction |
+|------|---|------|------|------------|-------------|
+| (a)  | inversion at midpoint | reversing, `R = I` | `−I` | `D = −D` | `D = 0` |
+| (b)  | mirror ⊥ bond, midpoint on plane | reversing, `R = R(n_b, π)` | `−R(n_b, π)` | `D ⊥ n_b` | D in mirror plane |
+| (c)  | mirror containing bond | preserving, `R = R(n_M, π)` | `+R(n_M, π)` | `D ∥ n_M` | D ⊥ that plane |
+| (d)  | C₂ ⊥ bond | reversing, `R = R(n_⊥, π)` | `−R(n_⊥, π)` | `D ⊥ n_⊥` | D ⊥ axis |
+| (e)  | C_n along bond, n ≥ 2 | preserving, `R = R(n_b, 2π/n)` | `+R(n_b, 2π/n)` | `D ∥ n_b` | D ∥ bond |
+
+In each row, `n_b` is the bond direction and `n_M` is the mirror
+plane normal. The analyzer in `irrep/dmi.h` constructs `P` exactly
+this way and returns its +1 eigenspace as an orthonormal basis.
+
+### 13.3. Symmetric exchange tensor
+
+For `J^s_ij` the constraint under `g` is
+
+```
+    J^s_ij  =  R(g) · J^s_ij · R(g)^T
+```
+
+for **both** preserving and reversing operations: bond reversal
+acts as `J^s_ji = (J^s_ij)^T = J^s_ij` (symmetric tensor is its
+own transpose), so the constraint coincides with the preserving
+case. Improper operations contribute the same constraint as their
+proper-rotation counterparts (the `det(g)` factors cancel for a
+rank-2 tensor of axial vectors). Consequently **the centrosymmetric
+group `O_h` and its chiral subgroup `O` impose identical
+constraints on the symmetric exchange of any bond** — the asymmetry
+between the two groups appears only in the DMI sector.
+
+The 6-dimensional space of symmetric 3×3 matrices is spanned by
+
+```
+    e_1 = diag(1, 0, 0)            e_4 = (E_xy + E_yx) / √2
+    e_2 = diag(0, 1, 0)            e_5 = (E_xz + E_zx) / √2
+    e_3 = diag(0, 0, 1)            e_6 = (E_yz + E_zy) / √2
+```
+
+orthonormal under the Frobenius inner product
+`⟨A, B⟩ = trace(A^T B)`. The 6×6 representation matrix of the
+operator `J → R J R^T` in this basis is
+
+```
+    M_g[β, α]  =  trace( e_β^T · R(g) · e_α · R(g)^T ).
+```
+
+Averaging over the bond's site-symmetry stabiliser gives the 6×6
+projector `P_sym = (1/|S|) Σ_g M_g`. Its +1 eigenvectors, expressed
+back in the `e_α` basis, are the symmetry-allowed J^s matrices.
+
+### 13.4. Worked examples reproduced from group theory
+
+The analyzer reproduces standard textbook results from
+crystallographic input alone, with no material data:
+
+**B20 chiral magnet (MnSi-type, P2_1 3, magnetic site sym = T or C₃)**.
+For the Mn–Mn NN bond, the only relevant element of T preserving the
+bond is the C₂' along the bond direction (in the parent O analysis
+of the libirrep cubic group). By rule (e), `D ∥ bond` — the
+**Bak-Jensen pattern** (Bak & Jensen 1980). The analyzer returns
+`D · bond̂ = 1.000000` to six digits.
+
+**Pyrochlore NN bond (Fd-3m, magnetic site sym = D₃d via inversion
+at midpoint)**. The bond {(0,0,0), (¼,¼,0)} has inversion at
+midpoint within the parent O_h, so by rule (a), `D = 0` for
+NN DMI on bulk pyrochlores. The symmetric tensor J^s remains
+3-dimensional, parametrised by the **Curnoe-Ross-Kao** components
+(J_zz, J_±±, J_z±) that drive quantum-spin-ice phase diagrams in
+Tb₂Ti₂O₇ / Yb₂Ti₂O₇ / Er₂Ti₂O₇.
+
+**Kagome NN bond (D_6h with σ_h, layered metallic kagome magnets)**.
+The σ_h forbids in-plane DMI (mirror containing bond → D ⊥ that
+plane → D ∥ z). Stacking-broken bilayer kagome (Fe₃Sn₂ at room
+temperature) breaks σ_h and recovers in-plane DMI, driving the
+observed RT skyrmion-bubble texture.
+
+These derivations are reproduced by `examples/dmi_pyrochlore_pattern.c`
+and `examples/dmi_kagome_pattern.c` and verified by the per-rule
+test sequence in `tests/test_dmi.c`.
+
+### 13.5. Connection to crystallographic databases
+
+The bond-exchange-tensor decomposition is the irreducible
+group-theoretic step in a materials-design pipeline:
+
+1. Crystallographic database (ICSD, COD, MAGNDATA) returns a
+   candidate space group and Wyckoff positions for the magnetic
+   sublattice.
+2. libirrep's lattice + point-group infrastructure encodes the
+   relevant subgroup.
+3. The `dmi.h` analyzer returns the symmetry-allowed `(D, J^s)`
+   basis vectors / matrices for each bond class.
+4. DFT (VASP, Quantum Espresso, Wannier-projected hopping) provides
+   the magnitude on each allowed component.
+5. Micromagnetic codes (mumax, OOMMF) ingest the parameterised
+   exchange tensor field and simulate skyrmion / domain-wall
+   dynamics.
+6. Experimental validation closes the loop.
+
+Step 3 is the crystallographer's hand-derivation from International
+Tables for Crystallography vol. A (Hahn 2005) plus Moriya 1960. The
+analyzer automates it, which is the prerequisite for high-throughput
+candidate-space-group **enumeration** rather than one-material-at-a-
+time analysis.
+
+### References for §13
+
+- Dzyaloshinskii, I. E. *J. Phys. Chem. Solids* **4**, 241 (1958).
+- Moriya, T. *Phys. Rev.* **120**, 91 (1960).
+- Bak, P. & Jensen, M. H. *J. Phys. C* **13**, L881 (1980) — B20 DMI pattern.
+- Elhajal, M., Canals, B. & Lacroix, C. *Phys. Rev. B* **66**, 014422 (2002) — pyrochlore DMI.
+- Cépas, O. et al. *Phys. Rev. B* **77**, 172406 (2008) — kagome DMI.
+- Ross, K. A., Savary, L., Gaulin, B. D. & Balents, L. *Phys. Rev. X* **1**, 021002 (2011) — Curnoe-Ross-Kao parametrisation.
+- Hahn, T. (ed.) *International Tables for Crystallography vol. A: Space-group Symmetry* (2005).
+
+---
+
+## 14. Magnetic point groups (Shubnikov framework)
+
+The point groups in §11 and the bond exchange tensor analysis in §13
+treat only spatial (unitary) symmetry operations. Real magnetic crystals
+have an additional **antiunitary** symmetry — time reversal `T` —
+that combines with each spatial element `g` to give the full magnetic
+point group structure. There are 122 magnetic point groups in 3D
+(Heesch 1929, Shubnikov 1951) and 1651 magnetic space groups in
+3D (Belov 1957). libirrep's analyzers handle only the spatial subgroup
+as of 1.3.0-alpha; magnetic-point-group support is the natural next
+extension.
+
+### 14.1. Antiunitary operations
+
+Time reversal `T` acts as
+
+```
+    T |s⟩  =  |s*⟩    (complex conjugate the wave-function amplitude)
+    T S_i  =  −S_i    (flip the spin axial vector)
+    T r_i  =  +r_i    (positions are real, unchanged)
+```
+
+so `T²` = `+1` for integer spin and `T²` = `−1` for half-integer spin
+(Kramers — see §9.3). For the **spin-½ Heisenberg Hamiltonian**
+`H = J Σ S_i · S_j`, `T` is a manifest symmetry (each `S` flips,
+the dot product is invariant); the magnetic ground state may
+spontaneously break it, but the Hamiltonian itself does not.
+
+A **magnetic point-group element** is either `g` (proper or improper
+spatial) or `T · g` (antiunitary). The composition rules:
+
+```
+    (g₁) · (g₂)         = g₁ g₂              (unitary × unitary = unitary)
+    (g₁) · (T · g₂)     = T · (g₁ g₂)        (T commutes with spatial g)
+    (T · g₁) · (g₂)     = T · (g₁ g₂)
+    (T · g₁) · (T · g₂) = T² · (g₁ g₂) = ±(g₁ g₂)  (sign from Kramers)
+```
+
+For integer spin `T² = +I`, the magnetic point group has a structure
+`G + T·G` where `G` is the spatial subgroup (sometimes the
+"halving subgroup"). For half-integer spin `T² = −I`, the
+"double magnetic group" doubles the order again.
+
+### 14.2. The 4 types of magnetic point groups
+
+For each ordinary point group `G`, there are up to 4 distinct
+magnetic point groups:
+
+1. **Type I** (`G`): no `T`-augmented elements. Equivalent to the
+   ordinary point group. Describes purely-magnetic FM order
+   that breaks `T`.
+
+2. **Type II** (`G ⊕ T·G`, sometimes written `G 1'`): `T` is a
+   group element on its own. Describes paramagnetic / non-magnetic
+   crystals.
+
+3. **Type III** (`G ⊕ T·H`): `T` combines with a halving subgroup
+   `H ⊂ G` of index 2. The Shubnikov-grey type that drives the
+   topological Hall effect in compensated AFMs (Mn₃Sn family).
+
+4. **Type IV** (`G ⊕ T·t`): non-symmorphic — `T` combines with a
+   half-translation, present only in magnetic *space* groups.
+   Drives commensurate AFM ordering with a doubled magnetic unit cell.
+
+Crystallographic databases (MAGNDATA at the Bilbao Crystallographic
+Server) list materials by magnetic space group (BNS / OG notation).
+The libirrep substrate at 1.3.0-alpha covers spatial subgroups only
+— working out which magnetic point group augmentation a candidate
+material has is left to the user; the predicted symmetry-allowed
+exchange tensors then specialise (some couplings are killed by the
+magnetic structure beyond what the spatial group predicts).
+
+### 14.3. DMI under antiunitary symmetry
+
+Time reversal flips the spin and complex-conjugates the
+wave-function. The DMI Hamiltonian `H_DMI = D · (S_i × S_j)`
+under `T`:
+
+```
+    T H_DMI T⁻¹  =  D · ((−S_i) × (−S_j))  =  +D · (S_i × S_j)  =  H_DMI
+```
+
+so DMI is `T`-symmetric (the two sign flips cancel). Pure time
+reversal alone imposes no constraint on `D`.
+
+For a combined operation `T · g`:
+
+- If `g` preserves the bond: `T·g` does too. The constraint on `D`
+  is `D = M_g D` for the spatial part; the `T` factor adds a sign
+  flip from the antiunitarity, so the effective constraint is
+
+  ```
+      D  =  −M_g · D     (T·g preserving)
+  ```
+
+  the **opposite sign** from the unitary case.
+
+- If `g` reverses the bond: `T·g` reverses the bond too. Sign flip
+  from antiunitarity vs. sign flip from bond reversal cancel:
+
+  ```
+      D  =  +M_g · D     (T·g reversing)
+  ```
+
+For the symmetric exchange tensor, both signs cancel pairwise and
+the constraint is identical to the unitary case (the analyzer's
+output for `J^s` does not change when antiunitary elements are
+added — consistent with the result that the same `J^s` subspace
+emerges under O_h and O even though their unitary structures
+differ in inversion).
+
+### 14.4. Implementation pathway
+
+Adding magnetic-point-group support to `dmi.h` is a small extension:
+
+1. Augment the `irrep_dmi_sym_op_t` struct with an `antiunitary`
+   flag (one extra bool per element).
+2. In the analyzer's projector accumulator, flip the sign rule:
+
+   ```
+       M_g  =  +R   (preserving, unitary)     OR  +R · sign_T   (preserving, antiunitary)
+              −R   (reversing, unitary)        OR  −R · sign_T   (reversing, antiunitary)
+   ```
+   where `sign_T = −1` for the `T` axial-vector flip.
+3. Add a magnetic-point-group enum sweep (122 groups) populating
+   the standard halving-subgroup augmentations.
+
+The first two steps are ~30 lines of code; the third is data entry
+from Bradley-Cracknell vol. 2. For the materials-search pipeline,
+this would let the analyzer return DMI subspaces specialised to a
+specific candidate magnetic ordering — not just "what spatial
+symmetry allows" but "what magnetic structure permits given the
+ordering vector and antiunitary symmetry of the candidate phase".
+
+References for §14: Bradley-Cracknell vol. 2 (1972); Wills, Lavrov &
+Ouladdiaf review *Phys. Reports* (2010); MAGNDATA / Bilbao
+Crystallographic Server (Gallego, Perez-Mato et al., 2016).
+
+---
+
+## 15. Bibliography anchor
 
 A per-topic primary-source list, with DOIs and edition specificity where
 available, is in [`docs/REFERENCES.md`](REFERENCES.md). Every non-trivial

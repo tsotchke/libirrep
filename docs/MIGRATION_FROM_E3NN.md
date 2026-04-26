@@ -208,6 +208,81 @@ Internally, labels store `two_j = 2·j`, so spin-½ has `two_j = 1` —
 consistent with the `_2j`-suffixed function family throughout the
 library (`irrep_cg_2j`, `irrep_wigner_d_small_2j`, etc.).
 
+## What's new in 1.3 (no e3nn equivalent)
+
+The 1.3.0-alpha cycle added entire categories of functionality that
+have no analog in `e3nn`. e3nn is fundamentally an equivariant-neural-
+network library; libirrep's 1.3 substrate adds **physics primitives**
+(condensed matter, exact diagonalisation) and **materials-search
+analyzers** (symmetry-allowed exchange tensor decomposition) that
+sit alongside the e3nn-style core.
+
+### Spin Hamiltonians, ED, and entanglement
+
+| capability | libirrep entry point | e3nn equivalent |
+|---|---|---|
+| Spin-½ Heisenberg apply operator | `irrep_heisenberg_new` + `_apply` | none |
+| J₁-J₂ Heisenberg apply | `irrep_heisenberg_j1j2_new` | none |
+| Sparse Lanczos eigensolver (3-vector / reorth / +eigvecs) | `irrep_lanczos_eigvals(_reorth)(_eigvecs_reorth)` in `rdm.h` | none — would call out to scipy |
+| Reduced density matrix of a sub-system | `irrep_partial_trace` | none |
+| Von Neumann / Rényi entropies | `irrep_entropy_vonneumann`, `_renyi` | none |
+| Kitaev–Preskill γ topological diagnostic | `irrep_topological_entanglement_entropy` | none |
+| Total-J projection on spin-½ chains | `irrep_spin_project_spin_half` | none |
+
+The use case here is **substrate validation** for symmetric NQS and
+neural-quantum-state ansätze — verifying that a small-cluster ground
+state matches expected symmetry properties before trusting a 108-site
+NQS prediction.
+
+### 2D and 3D Bravais lattices
+
+| capability | libirrep | e3nn |
+|---|---|---|
+| 2D Bravais (square, triangular, honeycomb, kagome) | `irrep_lattice_build` | none — manual graph construction |
+| 3D Bravais (SC, BCC, FCC, Diamond, Pyrochlore) | `irrep_lattice3d_build` | none |
+| Periodic boundary conditions, NN/NNN bond enumeration | `_num_bonds_nn(_nnn)` + `_fill_*` | none |
+| Brillouin zone k-point grid | `irrep_lattice_k_grid`, `irrep_lattice3d_k_grid` | none |
+| 2D wallpaper-group site permutations | `irrep_space_group_build` | none |
+
+For molecule-style equivariant-NN consumers (no PBC, no extended
+crystal), this layer is irrelevant. For **crystal-property prediction**
+(magnetism, phonons, transport), it's the foundation.
+
+### Bond-exchange-tensor + chirality symmetry analyzer (`dmi.h`)
+
+The cleanest libirrep-unique 1.3 deliverable. Given a candidate
+crystal symmetry (with optional time-reversal augmentation for
+magnetic point groups), return the complete symmetry-allowed
+exchange-tensor structure of the bilinear and trilinear spin
+couplings:
+
+| capability | libirrep | e3nn / equivalent |
+|---|---|---|
+| Moriya's five DMI rules in one projector | `irrep_dmi_allowed_basis(_from_pg)` | none — historically hand-derived from International Tables vol. A |
+| Symmetric exchange (Heisenberg + Kitaev-Γ-type anisotropy) | `irrep_exchange_symmetric_basis(_from_pg)` | none |
+| Three-spin scalar chirality `S_i · (S_j × S_k)` symmetry verdict | `irrep_chirality_allowed(_from_pg)` | none |
+| Magnetic-point-group antiunitary `T·g` operations | `irrep_dmi_sym_op_t.antiunitary` flag | none |
+
+Materials-search workflow: propose a candidate space group + magnetic
+ordering → run the analyzer → get the parameter scaffolding for a
+downstream DFT or micromagnetic simulation. The pyrochlore "up
+tetrahedron" catalog example (`pyrochlore_tetra_complete_catalog.c`)
+produces 72 group-theoretic verdicts in a single program — the
+parameter scaffold for Yb₂Ti₂O₇-style quantum-spin-ice modelling.
+See `docs/tutorials/08_materials_search.md`.
+
+### Cubic point groups (T_d, O_h, O)
+
+The 1.2 point-group support was 2D-lattice-oriented (C₄ᵥ, D₆,
+C₃ᵥ, D₃). 1.3 adds the three cubic groups needed for diamond /
+zincblende / SC / BCC / FCC / perovskite / chiral-cubic site
+symmetry. e3nn handles point-group projection via its tensor-product
++ representation-theory machinery, so the closest equivalent is
+"compose the projector as a sum of representation matrices weighted
+by characters" — but the cubic character tables and conjugacy-class
+structure aren't pre-tabulated in e3nn. libirrep ships them as
+data plus the `irrep_pg_project` / `_reduce` API.
+
 ## ABI stability
 
 `libirrep` tracks a stable C ABI within a major version. Every release

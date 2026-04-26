@@ -6,7 +6,298 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Pre-publication polish
+
+- **Doxygen warnings: 0**. Filled in the missing `@param` documentation
+ on `irrep_lanczos_eigvecs_reorth` (rdm.h) and
+ `irrep_sg_heisenberg_sector_build_at_k` (hamiltonian.h), and replaced
+ unsupported LaTeX commands (`\mathrm`, `\text`, `\frac`, `\begin{cases}`)
+ in dmi.h with plain ASCII formulas. `make docs` now produces zero
+ warnings and zero LaTeX errors on a clean build.
+- **README status block** — explicit "what's validated, what's
+ experimental" matrix at the top, called out per-feature maturity:
+ production (rotations / SH / CG / Wigner-D / multisets / TP / NequIP /
+ 2D substrate), validated (3D Bravais / cubic point groups / DMI-J^s-
+ chirality analyzer / magnetic-PG framework), deferred (3D space groups,
+ pyrochlore N≥32 sector ED, downstream consumer linking).
+- **Build verification**: clean-state `make all && make test && make asan
+ && make ubsan && make docs && make release` all pass at this commit.
+ `liblibirrep-1.3.0-alpha-macos-arm64.tar.gz` builds successfully.
+- **Downstream consumer linkage confirmed live**:
+ `spin_based_neural_network` (SbNN) is an active downstream consumer.
+ SbNN's `VERSION_PINS` records `LIBIRREP_MIN=1.3.0-alpha`; SbNN's
+ `src/libirrep_bridge.c` consumes the multiset, NequIP layer, real
+ spherical harmonics, CG, and Wigner-d kernels through libirrep's
+ stable C ABI; SbNN's `tests/test_libirrep_bridge.c` exercises the
+ bridge under that ABI. The "no downstream consumer linked" audit
+ item documented earlier in the cycle is closed.
+
 ### Added
+
+- **End-to-end materials-search demonstrations**:
+  - `examples/kagome_triangle_chirality.c` — kagome triangle's
+    chirality verdict under D_6 / C_3v / D_3h / T·σ_h / etc.
+    Each row maps to a real RT magnet (Mn₃Sn / Mn₃Ge → T·σ_h
+    allowed; D_3h paramagnet → χ = 0; Co₃Sn₂S₂ → σ_h forbids
+    NN-triangle chirality, TH from Weyl bands instead).
+  - `examples/pyrochlore_tetra_complete_catalog.c` — the FULL
+    bilinear + trilinear exchange-tensor catalog for the
+    pyrochlore "up tetrahedron" (6 NN bonds + 4 triangle faces)
+    under each of three candidate cubic point groups. **72 group-
+    theoretic verdicts in one library call**; under O_h all 6
+    bonds give the Curnoe-Ross-Kao 3-parameter signature, under
+    O and T_d the DMI becomes 1-dim per bond. This is the parameter
+    scaffold a DFT or micromagnetic code consumes for downstream
+    spin-ice / U(1) QSL / Tb₂Ti₂O₇-class quantum-magnet modelling.
+
+- **Three-spin scalar chirality analyzer** (`irrep/dmi.h`).
+ `irrep_chirality_allowed(r_a, r_b, r_c, ops, n_ops, tol)` decides
+ whether the chiral pseudoscalar `χ_ijk = S_i · (S_j × S_k)` on a
+ triangle is permitted by symmetry. Algorithm: for each operation
+ preserving the triple as a SET, compute the induced 3-element
+ permutation, take its parity, multiply by `det(g) · σ_T(g)` (where
+ `σ_T = -1` for antiunitary, +1 for unitary), and require the product
+ to equal +1 for every preserving operation. If any element gives
+ −1, χ is forced to vanish.
+
+   Wrapped tests in `test_dmi.c` (65/65 assertions, +7 new):
+   - identity-only: allowed
+   - C₃ about triangle centroid: allowed (cyclic perm × proper)
+   - σ_h **in** the triangle plane: forbidden (perm = identity, det
+     = −1, product = −1) — drives the "topological-Hall-effect
+     extinction" in centrosymmetric kagome AFMs
+   - σ_v through one vertex (transposition + improper): allowed
+     (perms cancel det's sign)
+   - C_3v (C₃ + σ_v): allowed
+   - T·E pure time reversal: forbidden (T flips a pseudoscalar)
+   - T·σ_h "magnetic mirror": allowed — the structure that admits
+     scalar chirality in Mn₃Sn-family non-collinear AFMs even with
+     a residual σ_h, because the magnetic structure breaks σ_h
+     while preserving T·σ_h.
+
+   Public API: `irrep_chirality_allowed`, `_from_pg`. ABI baseline
+   refreshed to `8a8c5698…`. Connects to the topological Hall effect
+   in chiral kagome AFMs (Mn₃Sn, Mn₃Ge) and the chirality-induced
+   dynamics in skyrmion magnets.
+
+- **Magnetic-point-group framework in DMI analyzer** (`irrep/dmi.h`).
+ Extended `irrep_dmi_sym_op_t` with an `antiunitary` flag (default 0
+ — plain spatial; set to 1 for time-reversal-augmented operations
+ `T · g`). The `irrep_dmi_allowed_basis` analyzer now applies the
+ sign rule from §14.3 of `docs/PHYSICS_APPENDIX.md`:
+
+   - unitary preserving:    `+R · D` constraint
+   - unitary reversing:     `−R · D` (Moriya rule)
+   - antiunitary preserving: `−R · D` (T flips axial vector)
+   - antiunitary reversing:  `+R · D` (T flip + bond reversal cancel)
+
+   The symmetric-exchange-tensor analyzer is invariant to the flag —
+   both pre- and post-`T` signs cancel for rank-2 axial-axial → polar
+   tensors. Wrapped tests in `test_dmi.c` (58/58 assertions) cover
+   T·E (D = 0), T·i (D unconstrained — T cancels inversion's reversal),
+   T·C₂ alone (D ⊥ bond — sign-flipped vs. plain C₂'s D ∥ bond), and
+   contradictory combinations forcing D = 0.
+
+   Struct layout change: 80 bytes total (unchanged — was previously
+   72 bytes payload + 4 padding aligned to 8; now 72 + 4 + 4 with no
+   padding required). Old callers that don't initialise the new field
+   read `0` (= unitary), so the analyzer is backward-compatible at
+   the source level. `irrep_dmi_allowed_basis_from_pg` now uses
+   `calloc` + explicit `antiunitary = 0` to guarantee the field is
+   defined for callers using a libirrep point-group table.
+
+   This implements the framework documented in
+   `docs/PHYSICS_APPENDIX.md` §14.4. Future iterations can add
+   pre-tabulated magnetic point groups (122 in 3D, Bradley-Cracknell
+   vol. 2) on top of this primitive without further analyzer changes.
+
+- **Symmetric exchange tensor analyzer** (`irrep/dmi.h`, extending the
+ same module). Sibling of the DMI analyzer for the *symmetric* part
+ of the bond exchange tensor, `J^s_ij = (J_ij + J_ji)/2` — Heisenberg,
+ dipolar / pseudo-dipolar anisotropy, and Kitaev-Γ couplings. Returns
+ up to 6 orthonormal 3×3 symmetric basis matrices spanning the
+ symmetry-allowed J^s subspace.
+
+   Implementation: project the 6-dim symmetric basis (xx, yy, zz,
+   xy+yx, xz+zx, yz+zy) under `J → R · J · R^T` averaged over the
+   bond's site symmetry. Diagonalise the 6×6 projector with a generic
+   N×N Jacobi solver; eigenvalue-1 eigenvectors form the basis,
+   reconstructed as 3×3 matrices in the output buffer.
+
+   Tested: 8 new assertions in `test_dmi.c` covering trivial-sym
+   (n=6), C₂-along-bond (n=4), three-mirror diagonal-only (n=3),
+   tetragonal C₄+C₂'s (n=2 = isotropic + uniaxial), and C₃-along-
+   body-diagonal (n=2 = Heisenberg + Γ-coupling). 51/51 total in
+   `test_dmi`.
+
+   The pyrochlore example (`dmi_pyrochlore_pattern.c`) extended to
+   tabulate the complete bond exchange tensor — 0/3, 1/3, 1/3
+   `(DMI dim, J^s dim)` under O_h / O / T_d. The 3-dim J^s spans the
+   Curnoe-Ross-Kao parametrisation of pyrochlore (J_±± / J_z± / J_zz),
+   derived from group theory alone with no material data input.
+
+   Public API:
+   ```c
+   int irrep_exchange_symmetric_basis(...);
+   int irrep_exchange_symmetric_basis_from_pg(...);
+   ```
+
+   ABI baseline refreshed to `113b9663…`.
+
+- **DMI symmetry analyzer** (`irrep/dmi.h`, `src/dmi.c`). Given a bond
+ (two cartesian endpoints) and a list of candidate symmetry operations,
+ returns the symmetry-allowed Dzyaloshinskii–Moriya vector subspace as
+ an orthonormal basis of `R³`. Implements all five Moriya-1960 rules
+ by direct projector construction —
+
+   `P = (1/|S|) Σ_g M_g`, where `M_g = ±R_proper(g)` (sign = +1 if g
+   preserves the bond, −1 if g reverses it; det collapses out of the
+   axial-vector representation).
+
+   Eigenvectors of P with eigenvalue 1 form the allowed D-basis;
+   `n_basis = trace(P)` reads out the dimension (0, 1, 2, 3).
+
+   Public API:
+   ```c
+   typedef struct { double R_proper[9]; int det; } irrep_dmi_sym_op_t;
+   int irrep_dmi_allowed_basis(...);
+   int irrep_dmi_allowed_basis_from_pg(...);   /* convenience: take ops from irrep_pg_table_t */
+   ```
+
+   Plus `irrep_pg_element` exposed in `point_group.h` so the convenience
+   wrapper can iterate the table.
+
+   Tested: 21 assertions in `tests/test_dmi.c` covering all 5 Moriya
+   rules independently (inversion-at-midpoint → D=0, mirror-perp-to-bond
+   → D⊥bond, mirror-containing-bond → D⊥mirror, C₂-perp-to-bond → D⊥C₂,
+   C_n-along-bond → D∥bond) plus multi-symmetry intersection cases.
+   Demo `examples/dmi_pyrochlore_pattern.c` derives the textbook
+   B20 / pyrochlore DMI pattern from group theory alone (no material
+   input): O_h forces D=0 on the NN bond (centrosymmetric pyrochlores
+   have no NN DMI by symmetry), O gives D ∥ bond (the Bak-Jensen
+   pattern of MnSi-type chiral magnets), T_d gives D ⊥ bond (diamond
+   / zincblende site symmetry). `D · bond̂` cross-check passes to
+   six digits.
+
+   This is the first piece of libirrep's materials-search pipeline:
+   given a candidate space group, return the symmetry-allowed exchange
+   tensor structure that downstream micromagnetic simulators (mumax,
+   OOMMF) need as input. Crystallographers do this by hand from
+   International Tables; libirrep automates the irreducible group-
+   theory step.
+
+- **3D Bravais-lattice module** (`irrep/lattice3d.h`, `src/lattice3d.c`).
+ Sibling of `lattice.h`. Five families in the conventional cubic cell:
+ simple cubic (1 site/cell, 6-coord, NN=1), body-centred cubic
+ (2 sites, 8-coord, NN=√3/2), face-centred cubic (4 sites, 12-coord,
+ NN=√2/2), diamond (8 sites, 4-coord, NN=√3/4 — Si / Ge / C
+ tetrahedral), and pyrochlore (16 sites, 6-coord, NN=√2/4 — corner-
+ sharing tetrahedra, the 3D analog of kagome's corner-sharing triangles
+ for spin-ice / U(1) QSL hosts Tb₂Ti₂O₇, Yb₂Ti₂O₇, Dy₂Ti₂O₇).
+
+   Bond-direction tables are *auto-discovered* per family: scan each
+   sublattice pair × cell-offset triple in `[-1,+1]³`, retain those at
+   the family's NN (or NNN) distance with a single canonical orientation
+   per undirected bond. Same canonicalise / sort / dedup pipeline as the
+   2D variant.
+
+   Public API mirrors `lattice.h`: `irrep_lattice3d_build`, `_free`,
+   `_num_sites`, `_num_cells`, `_sites_per_cell`, `_Lx` / `_Ly` / `_Lz`,
+   `_kind`, `_nn_distance` / `_nnn_distance`, `_primitive_vectors`,
+   `_reciprocal_vectors`, `_site_position`, `_sublattice_of`,
+   `_cell_of`, `_site_index`, `_translate`, `_num_bonds_nn` / `_nnn`,
+   `_fill_bonds_nn` / `_nnn`, `_k_grid`. The L≥1 constraint (relaxed
+   from L≥2) lets pyrochlore 1×1×1 = 16 sites build cleanly — self-
+   bonds from PBC wrap dedup automatically and the non-trivial
+   sublattice basis preserves NN coordination.
+
+   Tested: 8418 assertions in `tests/test_lattice3d.c` covering
+   coordination uniformity, bond canonicality, PBC closure, site-index
+   round-trips, reciprocal orthogonality `a_i · b_j = 2π δ_ij`, and
+   minimum-image bond-length verification.
+
+- **Cubic point groups** in `irrep/point_group.h`:
+
+   - **T_d** (`IRREP_PG_TD`, 24 elements, 5 irreps A₁ / A₂ / E / T₁ /
+     T₂) — site symmetry of diamond / zincblende; subgroup of O_h.
+     Element layout E + 8C₃ + 3C₂ + 6S₄ + 6σ_d.
+
+   - **O_h** (`IRREP_PG_OH`, 48 elements, 10 irreps A₁g / A₂g / Eg /
+     T₁g / T₂g / A₁u / A₂u / Eu / T₁u / T₂u) — full cubic, site
+     symmetry of SC, BCC, FCC, perovskite, rocksalt. Element layout
+     exploits O_h = O × {E, i}: 24 proper rotations of O followed by
+     24 improper elements with the same R_proper but det=−1.
+
+   - **O** (`IRREP_PG_O`, 24 proper-only elements, 5 irreps A₁ / A₂ /
+     E / T₁ / T₂) — chiral cubic, site symmetry of MnSi, Cu₂OSeO₃ and
+     other skyrmion-host magnets. Cannot distinguish polar from axial
+     vectors — the diagnostic that separates O from O_h.
+
+   Tested: 1142 assertions in `test_point_group.c` (up from 372),
+   including all standard hand-reducible decompositions:
+   1x1o → T₁u (polar) and 1x1e → T₁g (axial) under O_h with the g/u
+   distinction; 1x2e → Eg + T₂g (textbook crystal-field splitting);
+   1x3o → A₂u + T₁u + T₂u; 1x1o ↔ 1x1e indistinguishability under O
+   (no improper element to flip parity).
+
+- **3D Heisenberg ED examples** built on the lattice3d / cubic point
+ group stack:
+
+   - `examples/lattice3d_demo.c` — geometry walkthrough for all five
+     families.
+   - `examples/lattice3d_heisenberg_ed.c` — full-Hilbert-space Lanczos
+     on SC 2³ (8 sites) and BCC 2³ (16 sites). The BCC result matches
+     the K_{8,8} closed form `−n(n+2)/4` = `−20 J` **exactly**,
+     validating the bond list, PBC site indexing, Heisenberg apply, and
+     Lanczos solver end-to-end.
+   - `examples/lattice3d_sector_ed.c` — Γ-momentum sector ED via
+     translation orbit canonicalisation. BCC 2³ Sz=0+Γ sector is
+     dim 1670, a 39× shrink from full 65536, recovering E₀ =
+     −20.000000 J. Pattern works on every 3D family without
+     3D-space-group infrastructure (uses `lattice3d_translate`
+     directly).
+   - `examples/lattice3d_kspace_ed.c` — momentum-resolved ED. SC 2³
+     8 k-sectors enumerated, dimensions sum to C(8,4)=70, minimum
+     E₀(k) recovers the full-ED ground state to 4×10⁻⁷. Tower-of-
+     states diagnostic for 3D clusters. Off-diagonal matrix element
+     generalised to `½J · e^{−i k·t_R} · √(σ_v/σ_u)`.
+   - `examples/pyrochlore16_heisenberg.c` — first frustrated 3D
+     physics result through libirrep. 16-site pyrochlore Heisenberg
+     AFM: E₀ = −8.809 J (per site −0.551, per bond −0.184), 4-fold
+     degenerate first excited state at E₁ = −8.441 J (Δ_01 = 0.368 J),
+     73% of the independent-tetrahedron lower bound.
+   - `examples/cubic_crystal_field.c` — textbook crystal-field
+     decomposition under O_h and T_d. Verifies l-orbital ↦ standard
+     irrep splittings (eg + t₂g for d-orbitals, T₁u for p-orbitals,
+     etc.) on the canonical real-spherical-harmonic basis.
+   - `examples/pyrochlore16_j1j2.c` — J₁-J₂ phase sweep on the
+     16-site pyrochlore cluster. Reports E₀, E_1, E_2, E_3, Δ_01 at
+     J₂/J₁ ∈ {−0.5, −0.2, −0.1, 0, 0.1, 0.2, 0.5, 1}. Notable
+     features: gap collapse to 0.039 J at J₂/J₁ = 0.5 (near a
+     level-crossing phase transition); exact 4-fold degeneracy
+     E₀ = E_1 = E_2 = E_3 = −12 J at J₂/J₁ = 1 (hidden-symmetry
+     point where NN and NNN couple identically and the Hamiltonian
+     gains an enhanced cluster invariance).
+   - `examples/pyrochlore16_correlations.c` — equal-time spin-spin
+     correlation function ⟨S₀ · S_r⟩ on the GS (via Lanczos with
+     eigenvectors). All 6 NN partners give the same correlation
+     value −0.183523 to 13-digit precision, confirming the GS
+     preserves the full O_h site symmetry; all 9 non-NN sites
+     uniformly give +0.039015 (no long-range structure on the
+     small cluster). Sum-rule cross-check 48 · ⟨C_NN⟩ = E₀ = −8.809 J
+     to 10⁻¹³ precision validates the Lanczos eigenvector quality.
+
+### Fixed
+
+- **Sector-ED off-diagonal coefficient docstring**
+ (`irrep/hamiltonian.h`). Previously stated as `√(N_v / N_u)`. The
+ implementation in `src/hamiltonian.c:234` uses
+ `√(N_u / N_v)` — source-orbit-size in numerator. Caught while
+ implementing `examples/lattice3d_sector_ed.c`; following the
+ docstring gave a wildly wrong result, fixing to match the source
+ reproduced the K_{8,8} closed form exactly.
+
+### Added (earlier in [Unreleased] — pre-3D / pre-DMI work)
 
 - **Little-group machinery at Bloch momentum k** (`irrep/config_project.h`).
  Stabiliser identification + composite projector + element-matrix
@@ -333,7 +624,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
  P_{n−1}^{(α+1,β+1)}`. No public-API changes. Test suite pins the new
  stability regime across `j ∈ {20, 30, 50, 80}` at 1e-12 / 1e-11.
 
-### Added
+### Added (further [Unreleased] additions)
 
 - **Non-Γ Bloch-momentum projection** (`irrep/config_project.h`,
  `src/config_project.c`). `irrep_sg_bloch_amplitude` and

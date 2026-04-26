@@ -28,6 +28,16 @@
 
 /* File-scope context for the Lanczos callback test (nested functions are a
  * GCC extension). */
+struct rdm_lanczos_test_ctx { int n; const double _Complex *H; };
+static void rdm_lanczos_test_apply(const double _Complex *x, double _Complex *y, void *ptr) {
+    struct rdm_lanczos_test_ctx *c = (struct rdm_lanczos_test_ctx *)ptr;
+    for (int i = 0; i < c->n; ++i) {
+        double _Complex acc = 0.0;
+        for (int j = 0; j < c->n; ++j)
+            acc += c->H[(size_t)i * c->n + j] * x[j];
+        y[i] = acc;
+    }
+}
 static const double _Complex *g_H_lan = NULL;
 static int                    g_n_lan = 0;
 static void apply_dense_(const double _Complex *x, double _Complex *y, void *ctx) {
@@ -295,10 +305,125 @@ int main(void) {
     free(ev_ref);
 
     /* ------------------------------------------------------------------ */
+    /* irrep_hermitian_eigendecomp: eigenvectors test                      */
+    /* ------------------------------------------------------------------ */
+    {
+        /* 3×3 real symmetric with known eigenstructure.
+         * A = [[2, -1, 0], [-1, 2, -1], [0, -1, 2]] has eigenvalues
+         * {2 - √2, 2, 2 + √2} with eigenvectors (1, √2, 1)/2,
+         * (1, 0, -1)/√2, (1, -√2, 1)/2. */
+        double _Complex A[9];
+        double _Complex Acopy[9];
+        double _Complex V[9];
+        double          ev[3];
+
+        for (int i = 0; i < 9; ++i) A[i] = 0.0;
+        A[0*3+0] = 2.0; A[0*3+1] = -1.0;
+        A[1*3+0] = -1.0; A[1*3+1] = 2.0; A[1*3+2] = -1.0;
+        A[2*3+1] = -1.0; A[2*3+2] = 2.0;
+        memcpy(Acopy, A, sizeof(A));
+
+        IRREP_ASSERT(irrep_hermitian_eigendecomp(3, A, ev, V) == IRREP_OK);
+
+        /* Eigenvalues: sorted descending. */
+        IRREP_ASSERT(fabs(ev[0] - (2.0 + sqrt(2.0))) < 1e-12);
+        IRREP_ASSERT(fabs(ev[1] - 2.0) < 1e-12);
+        IRREP_ASSERT(fabs(ev[2] - (2.0 - sqrt(2.0))) < 1e-12);
+
+        /* Verify A · V[:,k] = ev[k] · V[:,k] for each eigenvector. */
+        for (int k = 0; k < 3; ++k) {
+            double _Complex Av[3] = {0, 0, 0};
+            for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j)
+                    Av[i] += Acopy[i*3 + j] * V[j*3 + k];
+            for (int i = 0; i < 3; ++i) {
+                double err = cabs(Av[i] - ev[k] * V[i*3 + k]);
+                IRREP_ASSERT(err < 1e-12);
+            }
+        }
+
+        /* V is unitary: V†·V = I. */
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j) {
+                double _Complex sum = 0.0;
+                for (int k = 0; k < 3; ++k)
+                    sum += conj(V[k*3 + i]) * V[k*3 + j];
+                double target = (i == j) ? 1.0 : 0.0;
+                IRREP_ASSERT(cabs(sum - target) < 1e-12);
+            }
+    }
+
+    /* ------------------------------------------------------------------ */
     /* Error paths                                                         */
     /* ------------------------------------------------------------------ */
     IRREP_ASSERT(irrep_partial_trace(0, 2, NULL, NULL, 0, NULL) == IRREP_ERR_INVALID_ARG);
     IRREP_ASSERT(irrep_hermitian_eigvals(-1, NULL, NULL) == IRREP_ERR_INVALID_ARG);
+    IRREP_ASSERT(irrep_hermitian_eigendecomp(-1, NULL, NULL, NULL) == IRREP_ERR_INVALID_ARG);
+
+    /* ------------------------------------------------------------------ */
+    /* irrep_lanczos_eigvecs_reorth: sparse eigenvector recovery          */
+    /* ------------------------------------------------------------------ */
+    {
+        /* Build a small hand-crafted 8×8 Hermitian matrix as the "apply"
+         * context. Compare eigvec output from Lanczos against the direct
+         * Jacobi eigendecomp on the same matrix. */
+        const int n = 8;
+        double _Complex *M = malloc((size_t)n * n * sizeof(double _Complex));
+        uint64_t rng = 0x13579bdfULL;
+        for (int i = 0; i < n; ++i) {
+            rng = rng * 6364136223846793005ULL + 1442695040888963407ULL;
+            M[(size_t)i * n + i] = (double)(rng >> 32) / 2.14e9;
+            for (int j = i + 1; j < n; ++j) {
+                rng = rng * 6364136223846793005ULL + 1442695040888963407ULL;
+                double re = (double)(rng >> 32) / 2.14e9 - 1.0;
+                rng = rng * 6364136223846793005ULL + 1442695040888963407ULL;
+                double im = (double)(rng >> 32) / 2.14e9 - 1.0;
+                M[(size_t)i * n + j] = re + I * im;
+                M[(size_t)j * n + i] = re - I * im;
+            }
+        }
+        double _Complex *Mcopy = malloc((size_t)n * n * sizeof(double _Complex));
+        memcpy(Mcopy, M, (size_t)n * n * sizeof(double _Complex));
+
+        struct rdm_lanczos_test_ctx ctx = {n, M};
+
+        double evs_lanc[2];
+        double _Complex *eigvecs_lanc = malloc((size_t)2 * n * sizeof(double _Complex));
+        irrep_status_t rc = irrep_lanczos_eigvecs_reorth(
+            rdm_lanczos_test_apply, &ctx, n, 2, n, NULL, evs_lanc, eigvecs_lanc);
+        IRREP_ASSERT(rc == IRREP_OK);
+
+        /* Reference via direct Jacobi. */
+        double ev_ref[8];
+        double _Complex *V_ref = malloc((size_t)n * n * sizeof(double _Complex));
+        irrep_hermitian_eigendecomp(n, Mcopy, ev_ref, V_ref);
+
+        /* Lowest eigenvalue: ev_ref[n-1] == evs_lanc[0]. */
+        IRREP_ASSERT(fabs(evs_lanc[0] - ev_ref[n-1]) < 1e-10);
+
+        /* Eigenvector check: M · v = λ · v for the recovered eigenvector. */
+        double _Complex *Mv = malloc((size_t)n * sizeof(double _Complex));
+        for (int i = 0; i < n; ++i) {
+            double _Complex acc = 0.0;
+            for (int j = 0; j < n; ++j)
+                acc += M[(size_t)i * n + j] * eigvecs_lanc[j]; /* row 0 = GS */
+            Mv[i] = acc;
+        }
+        double max_res = 0.0;
+        for (int i = 0; i < n; ++i) {
+            double r = cabs(Mv[i] - evs_lanc[0] * eigvecs_lanc[i]);
+            if (r > max_res) max_res = r;
+        }
+        IRREP_ASSERT(max_res < 1e-10);
+
+        /* Normalisation. */
+        double nn = 0.0;
+        for (int i = 0; i < n; ++i)
+            nn += creal(eigvecs_lanc[i] * conj(eigvecs_lanc[i]));
+        IRREP_ASSERT(fabs(nn - 1.0) < 1e-14);
+
+        free(Mv); free(V_ref); free(eigvecs_lanc); free(Mcopy); free(M);
+    }
 
     return IRREP_TEST_END();
 }

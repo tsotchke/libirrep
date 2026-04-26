@@ -639,3 +639,19 @@ void irrep_space_group_apply_config(const irrep_space_group_t *G, int g, const d
     for (int s = 0; s < G->num_sites; ++s)
         out[s] = in[inv[s]];
 }
+
+uint64_t irrep_space_group_apply_bits(const irrep_space_group_t *G, int g,
+                                      uint64_t config_in) {
+    if (!G || g < 0 || g >= G->order)
+        return config_in;
+    int N = G->num_sites;
+    if (N > 64)
+        return config_in;
+    const int *perm = G->perm + (size_t)g * N;
+    uint64_t   out  = 0;
+    for (int i = 0; i < N; ++i) {
+        if ((config_in >> i) & 1ULL)
+            out |= (uint64_t)1 << perm[i];
+    }
+    return out;
+}

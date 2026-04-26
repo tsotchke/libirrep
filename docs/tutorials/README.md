@@ -1,7 +1,7 @@
 # Tutorials
 
-Seven walkthroughs of libirrep's surface, ordered for a reader who has
-already cloned, built, and passed `make test`:
+Eight numbered walkthroughs of libirrep's surface, ordered for a reader
+who has already cloned, built, and passed `make test`:
 
 | # | Tutorial                              | Core primitive                               |
 |--:|---------------------------------------|----------------------------------------------|
@@ -12,6 +12,24 @@ already cloned, built, and passed `make test`:
 | 5 | [Tensor products](05_tensor_products.md) | `irrep_tp_build`, `irrep_tp_apply`        |
 | 6 | [Equivariant NNs](06_equivariant_nn.md) | `irrep_linear_t`, `irrep_nequip_layer_t`   |
 | 7 | [Kagome NQS substrate](07_kagome_nqs_substrate.md) | lattice + space-group + RDM pipeline |
+| 8 | [Materials-search pipeline](08_materials_search.md) | `lattice3d.h` + cubic point groups + `dmi.h` (DMI / J^s symmetry analyzer) |
+
+## 1.3 additions — also covered by ready-to-run examples
+
+The 1.3.0-alpha cycle landed three new modules (3D Bravais lattices,
+cubic point groups, bond-exchange-tensor symmetry analyzer). These are
+not yet in the numbered tutorial sequence but each ships with a
+ready-to-run example that doubles as a tutorial:
+
+| Module | Example | What it shows |
+|---|---|---|
+| `lattice3d.h` (5 Bravais families) | `examples/lattice3d_demo.c` | Geometry walkthrough — SC/BCC/FCC/Diamond/Pyrochlore |
+| `lattice3d.h` + `hamiltonian.h` | `examples/lattice3d_heisenberg_ed.c` | 3D Heisenberg ED with K₈,₈ closed-form cross-check |
+| `lattice3d.h` (Γ-momentum sector) | `examples/lattice3d_sector_ed.c` | Translation orbit canonicalisation |
+| `lattice3d.h` (full BZ) | `examples/lattice3d_kspace_ed.c` | k-resolved tower-of-states diagnostic |
+| Pyrochlore physics | `examples/pyrochlore16_heisenberg.c`, `_j1j2.c`, `_correlations.c` | 16-site frustrated 3D Heisenberg + sweep + correlations |
+| Cubic point groups (T_d / O_h / O) | `examples/cubic_crystal_field.c` | Crystal-field d-orbital splitting eg + t_2g |
+| `dmi.h` — DMI + symmetric exchange | `examples/dmi_pyrochlore_pattern.c`, `dmi_kagome_pattern.c` | Bond-exchange-tensor decomposition; B20 / kagome RT-magnet candidates |
 
 ## Running the code blocks
 

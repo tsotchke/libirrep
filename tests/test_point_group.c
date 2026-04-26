@@ -131,11 +131,14 @@ static void test_scalar_projection_(irrep_point_group_t g, int trivial_mu) {
 int main(void) {
     IRREP_TEST_START("point_group");
 
-    /* (1) Metadata for all four groups. */
+    /* (1) Metadata for all six groups. */
     test_metadata_(IRREP_PG_C4V, 5, 8);
     test_metadata_(IRREP_PG_D6, 6, 12);
     test_metadata_(IRREP_PG_C3V, 3, 6);
     test_metadata_(IRREP_PG_D3, 3, 6);
+    test_metadata_(IRREP_PG_TD, 5, 24);
+    test_metadata_(IRREP_PG_OH, 10, 48);
+    test_metadata_(IRREP_PG_O, 5, 24);
 
     /* (3) Idempotence across small and larger feature specs. */
     test_idempotence_(IRREP_PG_C4V, "1x0e + 1x1o");
@@ -144,18 +147,30 @@ int main(void) {
     test_idempotence_(IRREP_PG_D6, "2x0e + 1x1o + 1x2e");
     test_idempotence_(IRREP_PG_C3V, "1x0e + 1x1o + 1x2e");
     test_idempotence_(IRREP_PG_D3, "1x0e + 1x1o + 1x2e");
+    test_idempotence_(IRREP_PG_TD, "1x0e + 1x1o + 1x2e");
+    test_idempotence_(IRREP_PG_TD, "2x0e + 1x1o + 1x2e + 1x3o");
+    test_idempotence_(IRREP_PG_OH, "1x0e + 1x1o + 1x2e");
+    test_idempotence_(IRREP_PG_OH, "2x0e + 1x1o + 1x2e + 1x3o");
+    test_idempotence_(IRREP_PG_O, "1x0e + 1x1o + 1x2e");
+    test_idempotence_(IRREP_PG_O, "2x0e + 1x1o + 1x2e + 1x3o");
 
     /* (4) Projector sum reproduces the input vector. */
     test_projector_sum_(IRREP_PG_C4V, "1x0e + 1x1o + 1x2e");
     test_projector_sum_(IRREP_PG_D6, "1x0e + 1x1o + 1x2e");
     test_projector_sum_(IRREP_PG_C3V, "1x0e + 1x1o + 1x2e");
     test_projector_sum_(IRREP_PG_D3, "1x0e + 1x1o + 1x2e");
+    test_projector_sum_(IRREP_PG_TD, "1x0e + 1x1o + 1x2e + 1x3o");
+    test_projector_sum_(IRREP_PG_OH, "1x0e + 1x1o + 1x2e + 1x3o");
+    test_projector_sum_(IRREP_PG_O, "1x0e + 1x1o + 1x2e + 1x3o");
 
     /* (2) Scalar-projection trace equality (orthogonality fingerprint). */
     test_scalar_projection_(IRREP_PG_C4V, /*trivial=*/0);
     test_scalar_projection_(IRREP_PG_D6, /*trivial=*/0);
     test_scalar_projection_(IRREP_PG_C3V, /*trivial=*/0);
     test_scalar_projection_(IRREP_PG_D3, /*trivial=*/0);
+    test_scalar_projection_(IRREP_PG_TD, /*trivial=*/0);
+    test_scalar_projection_(IRREP_PG_OH, /*trivial=*/0);
+    test_scalar_projection_(IRREP_PG_O, /*trivial=*/0);
 
     /* (5) Hand-reducible decomposition spot checks (Bradley-Cracknell). */
 
@@ -315,6 +330,214 @@ int main(void) {
             IRREP_ASSERT(mult[3] == 0);
             IRREP_ASSERT(mult[4] == 1); /* E1 (x, y) */
             IRREP_ASSERT(mult[5] == 0);
+            irrep_multiset_free(m);
+        }
+        irrep_pg_table_free(t);
+    }
+
+    /* T_d:  (labels {A1, A2, E, T1, T2} at indices {0..4})
+     *   1x0e → A₁
+     *   1x1o → T₂        (polar vector x,y,z transforms as T₂ — the standard
+     *                       choice in chemistry, +1 char on σ_d planes)
+     *   1x1e → T₁        (axial vector — same rotation content but opposite
+     *                       parity flips T₂ ↔ T₁)
+     *   1x2e → E + T₂    (l=2 spherical harmonics under T_d)
+     *   1x3o → A₁ + T₁ + T₂   (l=3 odd) */
+    {
+        irrep_pg_table_t *t = irrep_pg_table_build(IRREP_PG_TD);
+
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x0e");
+            int               mult[5];
+            irrep_pg_reduce(t, m, mult);
+            IRREP_ASSERT(mult[0] == 1); /* A1 */
+            for (int i = 1; i < 5; ++i)
+                IRREP_ASSERT(mult[i] == 0);
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x1o");
+            int               mult[5];
+            irrep_pg_reduce(t, m, mult);
+            IRREP_ASSERT(mult[0] == 0);
+            IRREP_ASSERT(mult[1] == 0);
+            IRREP_ASSERT(mult[2] == 0);
+            IRREP_ASSERT(mult[3] == 0);
+            IRREP_ASSERT(mult[4] == 1); /* T2 */
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x1e");
+            int               mult[5];
+            irrep_pg_reduce(t, m, mult);
+            IRREP_ASSERT(mult[0] == 0);
+            IRREP_ASSERT(mult[1] == 0);
+            IRREP_ASSERT(mult[2] == 0);
+            IRREP_ASSERT(mult[3] == 1); /* T1 */
+            IRREP_ASSERT(mult[4] == 0);
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x2e");
+            int               mult[5];
+            irrep_pg_reduce(t, m, mult);
+            IRREP_ASSERT(mult[0] == 0);
+            IRREP_ASSERT(mult[1] == 0);
+            IRREP_ASSERT(mult[2] == 1); /* E  */
+            IRREP_ASSERT(mult[3] == 0);
+            IRREP_ASSERT(mult[4] == 1); /* T2 */
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x3o");
+            int               mult[5];
+            irrep_pg_reduce(t, m, mult);
+            IRREP_ASSERT(mult[0] == 1); /* A1 */
+            IRREP_ASSERT(mult[1] == 0);
+            IRREP_ASSERT(mult[2] == 0);
+            IRREP_ASSERT(mult[3] == 1); /* T1 */
+            IRREP_ASSERT(mult[4] == 1); /* T2 */
+            irrep_multiset_free(m);
+        }
+        irrep_pg_table_free(t);
+    }
+
+    /* O_h:  (labels {A1g, A2g, Eg, T1g, T2g, A1u, A2u, Eu, T1u, T2u} at
+     *        indices {0..9}.)  Standard reductions:
+     *   1x0e → A₁g
+     *   1x1o → T₁u   (polar vector — odd parity, transforms as T₁ under O)
+     *   1x1e → T₁g   (axial vector — same rotation content but g/u swap)
+     *   1x2e → Eg + T₂g
+     *   1x2o → Eu + T₂u
+     *   1x3o → A₂u + T₁u + T₂u
+     *   1x3e → A₂g + T₁g + T₂g */
+    {
+        irrep_pg_table_t *t = irrep_pg_table_build(IRREP_PG_OH);
+
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x0e");
+            int               mult[10];
+            irrep_pg_reduce(t, m, mult);
+            IRREP_ASSERT(mult[0] == 1); /* A1g */
+            for (int i = 1; i < 10; ++i)
+                IRREP_ASSERT(mult[i] == 0);
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x1o");
+            int               mult[10];
+            irrep_pg_reduce(t, m, mult);
+            for (int i = 0; i < 10; ++i)
+                IRREP_ASSERT(mult[i] == (i == 8 ? 1 : 0)); /* T1u only */
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x1e");
+            int               mult[10];
+            irrep_pg_reduce(t, m, mult);
+            for (int i = 0; i < 10; ++i)
+                IRREP_ASSERT(mult[i] == (i == 3 ? 1 : 0)); /* T1g only */
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x2e");
+            int               mult[10];
+            irrep_pg_reduce(t, m, mult);
+            /* Eg + T2g. */
+            IRREP_ASSERT(mult[2] == 1); /* Eg */
+            IRREP_ASSERT(mult[4] == 1); /* T2g */
+            for (int i = 0; i < 10; ++i)
+                if (i != 2 && i != 4)
+                    IRREP_ASSERT(mult[i] == 0);
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x2o");
+            int               mult[10];
+            irrep_pg_reduce(t, m, mult);
+            /* Eu + T2u. */
+            IRREP_ASSERT(mult[7] == 1); /* Eu */
+            IRREP_ASSERT(mult[9] == 1); /* T2u */
+            for (int i = 0; i < 10; ++i)
+                if (i != 7 && i != 9)
+                    IRREP_ASSERT(mult[i] == 0);
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x3o");
+            int               mult[10];
+            irrep_pg_reduce(t, m, mult);
+            /* A2u + T1u + T2u. */
+            IRREP_ASSERT(mult[6] == 1); /* A2u */
+            IRREP_ASSERT(mult[8] == 1); /* T1u */
+            IRREP_ASSERT(mult[9] == 1); /* T2u */
+            for (int i = 0; i < 10; ++i)
+                if (i != 6 && i != 8 && i != 9)
+                    IRREP_ASSERT(mult[i] == 0);
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x3e");
+            int               mult[10];
+            irrep_pg_reduce(t, m, mult);
+            /* A2g + T1g + T2g. */
+            IRREP_ASSERT(mult[1] == 1); /* A2g */
+            IRREP_ASSERT(mult[3] == 1); /* T1g */
+            IRREP_ASSERT(mult[4] == 1); /* T2g */
+            for (int i = 0; i < 10; ++i)
+                if (i != 1 && i != 3 && i != 4)
+                    IRREP_ASSERT(mult[i] == 0);
+            irrep_multiset_free(m);
+        }
+        irrep_pg_table_free(t);
+    }
+
+    /* O (chiral cubic, 5 irreps {A1, A2, E, T1, T2} at indices {0..4}):
+     *   1x0e → A₁
+     *   1x1o → T₁    — same as 1x1e (no improper element to flip parity,
+     *                   so O can't distinguish polar vs axial vectors)
+     *   1x1e → T₁
+     *   1x2e → E + T₂
+     *
+     * Note: under T_d, 1x1o gives T₂ (different label), because T_d's
+     * improper σ_d elements flip parity-odd inputs and that re-routes
+     * which abstract irrep the polar vector lands in. */
+    {
+        irrep_pg_table_t *t = irrep_pg_table_build(IRREP_PG_O);
+
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x0e");
+            int               mult[5];
+            irrep_pg_reduce(t, m, mult);
+            IRREP_ASSERT(mult[0] == 1);
+            for (int i = 1; i < 5; ++i)
+                IRREP_ASSERT(mult[i] == 0);
+            irrep_multiset_free(m);
+        }
+        {
+            irrep_multiset_t *m1 = irrep_multiset_parse("1x1o");
+            irrep_multiset_t *m2 = irrep_multiset_parse("1x1e");
+            int               mult1[5], mult2[5];
+            irrep_pg_reduce(t, m1, mult1);
+            irrep_pg_reduce(t, m2, mult2);
+            for (int i = 0; i < 5; ++i)
+                IRREP_ASSERT(mult1[i] == mult2[i]); /* O can't tell parity apart */
+            IRREP_ASSERT(mult1[3] == 1); /* T1 */
+            for (int i = 0; i < 5; ++i)
+                if (i != 3)
+                    IRREP_ASSERT(mult1[i] == 0);
+            irrep_multiset_free(m1);
+            irrep_multiset_free(m2);
+        }
+        {
+            irrep_multiset_t *m = irrep_multiset_parse("1x2e");
+            int               mult[5];
+            irrep_pg_reduce(t, m, mult);
+            IRREP_ASSERT(mult[2] == 1); /* E  */
+            IRREP_ASSERT(mult[4] == 1); /* T2 */
+            for (int i = 0; i < 5; ++i)
+                if (i != 2 && i != 4)
+                    IRREP_ASSERT(mult[i] == 0);
             irrep_multiset_free(m);
         }
         irrep_pg_table_free(t);

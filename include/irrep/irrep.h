@@ -35,7 +35,9 @@
 #include <irrep/nequip.h>
 #include <irrep/point_group.h>
 #include <irrep/lattice.h>
+#include <irrep/lattice3d.h>
 #include <irrep/space_group.h>
+#include <irrep/dmi.h>
 #include <irrep/config_project.h>
 #include <irrep/rdm.h>
 #include <irrep/hamiltonian.h>

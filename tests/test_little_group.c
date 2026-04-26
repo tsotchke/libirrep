@@ -208,7 +208,7 @@ int main(void) {
     {
         irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 2, 2);
         irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P6MM);
-        int                  order = irrep_space_group_order(G); /* 12 · 4 = 48 */
+        IRREP_ASSERT(irrep_space_group_order(G) == 48); /* 12 · 4 */
 
         irrep_sg_little_group_t *lg = irrep_sg_little_group_build(G, 0, 0);
         IRREP_ASSERT(irrep_sg_little_group_point_order(lg) == 12);
@@ -466,19 +466,405 @@ int main(void) {
         irrep_sg_little_group_irrep_free(K_E);
         irrep_sg_little_group_free(lg_K);
 
-        /* M on 2×2 kagome: C_2v (order 4) — not yet in the builtin menu,
-         * must return NULL with a clean diagnostic (not crash). */
         irrep_space_group_free(G);
         irrep_lattice_free(L);
 
+        /* M on 2×2 kagome: C_2v (order 4) — four 1D irreps A_1/A_2/B_1/B_2.
+         * Builtin must agree with manually-constructed all-ones A_1. */
         irrep_lattice_t     *L2 = irrep_lattice_build(IRREP_LATTICE_KAGOME, 2, 2);
         irrep_space_group_t *G2 = irrep_space_group_build(L2, IRREP_WALLPAPER_P6MM);
         irrep_sg_little_group_t *lg_M = irrep_sg_little_group_build(G2, 1, 0);
         IRREP_ASSERT(irrep_sg_little_group_point_order(lg_M) == 4);
-        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_M, IRREP_LG_IRREP_A1) == NULL);
+
+        irrep_sg_little_group_irrep_t *M_A1 =
+            irrep_sg_little_group_irrep_named(lg_M, IRREP_LG_IRREP_A1);
+        irrep_sg_little_group_irrep_t *M_A2 =
+            irrep_sg_little_group_irrep_named(lg_M, IRREP_LG_IRREP_A2);
+        irrep_sg_little_group_irrep_t *M_B1 =
+            irrep_sg_little_group_irrep_named(lg_M, IRREP_LG_IRREP_B1);
+        irrep_sg_little_group_irrep_t *M_B2 =
+            irrep_sg_little_group_irrep_named(lg_M, IRREP_LG_IRREP_B2);
+        IRREP_ASSERT(M_A1 && M_A2 && M_B1 && M_B2);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(M_A1) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(M_A2) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(M_B1) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(M_B2) == 1);
+
+        /* C_2v has no E irrep — must return NULL. */
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_M, IRREP_LG_IRREP_E) == NULL);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_M, IRREP_LG_IRREP_E1) == NULL);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_M, IRREP_LG_IRREP_E_C4V) == NULL);
+
+        /* A_1 builtin == manually-constructed all-ones. */
+        double _Complex ones4[4] = {1, 1, 1, 1};
+        irrep_sg_little_group_irrep_t *M_A1_manual =
+            irrep_sg_little_group_irrep_new(lg_M, ones4, 1);
+        double _Complex psi48[48];
+        for (int g = 0; g < 48; ++g)
+            psi48[g] = (0.13 * g - 0.4) + I * (0.09 * g + 0.2);
+        double _Complex pb = irrep_sg_project_at_k(lg_M, M_A1, psi48);
+        double _Complex pm = irrep_sg_project_at_k(lg_M, M_A1_manual, psi48);
+        IRREP_ASSERT(cabs(pb - pm) < 1e-13);
+
+        /* A_1 ⊥ B_1: project a totally-symmetric input through B_1 → 0.
+         * Build psi = group-average so it lives in A_1. */
+        double _Complex mean_M = 0;
+        for (int g = 0; g < 48; ++g)
+            mean_M += psi48[g];
+        mean_M /= 48.0;
+        double _Complex psi_sym_M[48];
+        for (int g = 0; g < 48; ++g)
+            psi_sym_M[g] = mean_M;
+        double _Complex p_B1 = irrep_sg_project_at_k(lg_M, M_B1, psi_sym_M);
+        IRREP_ASSERT(cabs(p_B1) < 1e-12);
+
+        irrep_sg_little_group_irrep_free(M_A1);
+        irrep_sg_little_group_irrep_free(M_A2);
+        irrep_sg_little_group_irrep_free(M_B1);
+        irrep_sg_little_group_irrep_free(M_B2);
+        irrep_sg_little_group_irrep_free(M_A1_manual);
         irrep_sg_little_group_free(lg_M);
         irrep_space_group_free(G2);
         irrep_lattice_free(L2);
+    }
+
+    /* ---- C_4v at Γ and C_2v at X on p4mm 4×4 square -------------------- */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_SQUARE, 4, 4);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P4MM);
+        IRREP_ASSERT(G != NULL);
+        int total_dim = irrep_space_group_order(G); /* 8 · 16 */
+
+        /* Γ: C_4v (order 8). All five irreps must build. */
+        irrep_sg_little_group_t *lg_G = irrep_sg_little_group_build(G, 0, 0);
+        IRREP_ASSERT(irrep_sg_little_group_point_order(lg_G) == 8);
+
+        irrep_sg_little_group_irrep_t *G_A1 =
+            irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_A1);
+        irrep_sg_little_group_irrep_t *G_A2 =
+            irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_A2);
+        irrep_sg_little_group_irrep_t *G_B1 =
+            irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_B1);
+        irrep_sg_little_group_irrep_t *G_B2 =
+            irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_B2);
+        irrep_sg_little_group_irrep_t *G_E =
+            irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_E_C4V);
+        IRREP_ASSERT(G_A1 && G_A2 && G_B1 && G_B2 && G_E);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(G_A1) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(G_A2) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(G_B1) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(G_B2) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(G_E) == 2);
+
+        /* C_6v-only names must be rejected on C_4v. */
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_E1) == NULL);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_E2) == NULL);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_E) == NULL);
+
+        /* A_1 via builtin == classical irrep_sg_project_A1. */
+        double _Complex psi_p4[128]; /* 8 · 16 */
+        for (int g = 0; g < total_dim; ++g)
+            psi_p4[g] = (0.07 * g - 0.3) + I * (0.11 * g + 0.2);
+        double _Complex p_classic = irrep_sg_project_A1(G, psi_p4);
+        double _Complex p_builtin = irrep_sg_project_at_k(lg_G, G_A1, psi_p4);
+        IRREP_ASSERT(cabs(p_classic - p_builtin) < 1e-12);
+
+        /* A_1-symmetric input through non-trivial irrep → 0. */
+        double _Complex mean_p = 0;
+        for (int g = 0; g < total_dim; ++g)
+            mean_p += psi_p4[g];
+        mean_p /= total_dim;
+        double _Complex psi_sym[128];
+        for (int g = 0; g < total_dim; ++g)
+            psi_sym[g] = mean_p;
+        IRREP_ASSERT(cabs(irrep_sg_project_at_k(lg_G, G_A2, psi_sym)) < 1e-12);
+        IRREP_ASSERT(cabs(irrep_sg_project_at_k(lg_G, G_B1, psi_sym)) < 1e-12);
+        IRREP_ASSERT(cabs(irrep_sg_project_at_k(lg_G, G_B2, psi_sym)) < 1e-12);
+        IRREP_ASSERT(cabs(irrep_sg_project_at_k(lg_G, G_E,  psi_sym)) < 1e-12);
+
+        irrep_sg_little_group_irrep_free(G_A1);
+        irrep_sg_little_group_irrep_free(G_A2);
+        irrep_sg_little_group_irrep_free(G_B1);
+        irrep_sg_little_group_irrep_free(G_B2);
+        irrep_sg_little_group_irrep_free(G_E);
+        irrep_sg_little_group_free(lg_G);
+
+        /* X-point (2, 0) on 4×4 = ½·b₁: self-conjugate under C_2 and σ_v,
+         * giving C_2v (order 4). (1, 0) is a generic low-symmetry point. */
+        irrep_sg_little_group_t *lg_X = irrep_sg_little_group_build(G, 2, 0);
+        IRREP_ASSERT(irrep_sg_little_group_point_order(lg_X) == 4);
+        irrep_sg_little_group_irrep_t *X_A1 =
+            irrep_sg_little_group_irrep_named(lg_X, IRREP_LG_IRREP_A1);
+        irrep_sg_little_group_irrep_t *X_A2 =
+            irrep_sg_little_group_irrep_named(lg_X, IRREP_LG_IRREP_A2);
+        irrep_sg_little_group_irrep_t *X_B1 =
+            irrep_sg_little_group_irrep_named(lg_X, IRREP_LG_IRREP_B1);
+        irrep_sg_little_group_irrep_t *X_B2 =
+            irrep_sg_little_group_irrep_named(lg_X, IRREP_LG_IRREP_B2);
+        IRREP_ASSERT(X_A1 && X_A2 && X_B1 && X_B2);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(X_A1) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(X_A2) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(X_B1) == 1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(X_B2) == 1);
+        /* C_2v has no 2D irrep. */
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_X, IRREP_LG_IRREP_E) == NULL);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_named(lg_X, IRREP_LG_IRREP_E_C4V) == NULL);
+
+        irrep_sg_little_group_irrep_free(X_A1);
+        irrep_sg_little_group_irrep_free(X_A2);
+        irrep_sg_little_group_irrep_free(X_B1);
+        irrep_sg_little_group_irrep_free(X_B2);
+        irrep_sg_little_group_free(lg_X);
+
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+    }
+
+    /* ---- Projector-weights export: bit-exact vs irrep_sg_project_at_k -----
+     * The handshake primitive for downstream MPO builders. Vend weights
+     * w_g over the FULL space group (most zero outside the little group);
+     * assert Σ_g w_g · ψ(g) == irrep_sg_project_at_k(lg, μ, ψ) across
+     * multiple (k, μ_k) pairs on kagome and square lattices. */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 3, 3);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P6MM);
+        int                  order_G = irrep_space_group_order(G); /* 12 · 9 = 108 */
+
+        /* Probe vector ψ(g), g ∈ [0, |G|). */
+        double _Complex psi[108];
+        for (int g = 0; g < order_G; ++g)
+            psi[g] = (0.17 * g - 0.4) + I * (0.09 * g + 0.3);
+
+        struct {
+            int                    kx, ky;
+            irrep_lg_named_irrep_t name;
+        } probes[] = {
+            {0, 0, IRREP_LG_IRREP_A1}, /* Γ, C_6v: all ones */
+            {0, 0, IRREP_LG_IRREP_A2}, /* Γ, C_6v: sign rep */
+            {0, 0, IRREP_LG_IRREP_E1}, /* Γ, C_6v: 2D irrep */
+            {1, 2, IRREP_LG_IRREP_A1}, /* K, C_3v */
+            {1, 2, IRREP_LG_IRREP_E},  /* K, C_3v: 2D */
+        };
+
+        for (unsigned p = 0; p < sizeof(probes) / sizeof(probes[0]); ++p) {
+            irrep_sg_little_group_t *lg =
+                irrep_sg_little_group_build(G, probes[p].kx, probes[p].ky);
+            irrep_sg_little_group_irrep_t *mu =
+                irrep_sg_little_group_irrep_named(lg, probes[p].name);
+            IRREP_ASSERT(lg && mu);
+
+            double _Complex weights[108];
+            int rc = irrep_sg_projector_weights(lg, mu, weights);
+            IRREP_ASSERT(rc == 0);
+
+            double _Complex via_weights = 0.0 + 0.0 * I;
+            for (int g = 0; g < order_G; ++g)
+                via_weights += weights[g] * psi[g];
+
+            double _Complex via_project = irrep_sg_project_at_k(lg, mu, psi);
+            IRREP_ASSERT(cabs(via_weights - via_project) < 1e-13);
+
+            /* Structural invariant: every g whose point part is NOT in
+             * the little group has weight exactly 0 (not just ≈ 0). For
+             * 2D irreps the little-group weights can also be zero on
+             * classes where χ = 0, so we only test the "outside → 0"
+             * half of the claim. */
+            int n_lg_point = irrep_sg_little_group_point_order(lg);
+            int ops[12];
+            irrep_sg_little_group_point_ops(lg, ops);
+            int pt_order = irrep_space_group_point_order(G);
+            int in_lg[12] = {0};
+            for (int j = 0; j < n_lg_point; ++j)
+                in_lg[ops[j]] = 1;
+            for (int g = 0; g < order_G; ++g) {
+                int p = g % pt_order;
+                if (!in_lg[p])
+                    IRREP_ASSERT(creal(weights[g]) == 0.0 && cimag(weights[g]) == 0.0);
+            }
+
+            irrep_sg_little_group_irrep_free(mu);
+            irrep_sg_little_group_free(lg);
+        }
+
+        /* A_1 normalisation: for the trivial irrep at Γ, weights sum to 1.
+         * (d_μ/|G|) · Σ_g 1 · 1 = (1/|G|) · |G| = 1. */
+        irrep_sg_little_group_t *lg_G = irrep_sg_little_group_build(G, 0, 0);
+        irrep_sg_little_group_irrep_t *A1 =
+            irrep_sg_little_group_irrep_named(lg_G, IRREP_LG_IRREP_A1);
+        double _Complex weights_A1[108];
+        irrep_sg_projector_weights(lg_G, A1, weights_A1);
+        double _Complex sum_A1 = 0.0 + 0.0 * I;
+        for (int g = 0; g < order_G; ++g)
+            sum_A1 += weights_A1[g];
+        IRREP_ASSERT(cabs(sum_A1 - 1.0) < 1e-13);
+        irrep_sg_little_group_irrep_free(A1);
+        irrep_sg_little_group_free(lg_G);
+
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+
+        /* Square lattice p4mm probe: C_4v at Γ including 2D E. */
+        irrep_lattice_t     *Ls = irrep_lattice_build(IRREP_LATTICE_SQUARE, 4, 4);
+        irrep_space_group_t *Gs = irrep_space_group_build(Ls, IRREP_WALLPAPER_P4MM);
+        int                  order_Gs = irrep_space_group_order(Gs); /* 8 · 16 = 128 */
+
+        double _Complex psi_s[128];
+        for (int g = 0; g < order_Gs; ++g)
+            psi_s[g] = sin(0.11 * g) + I * cos(0.07 * g);
+
+        irrep_sg_little_group_t *lg_sG = irrep_sg_little_group_build(Gs, 0, 0);
+        irrep_sg_little_group_irrep_t *E_c4v =
+            irrep_sg_little_group_irrep_named(lg_sG, IRREP_LG_IRREP_E_C4V);
+        double _Complex weights_s[128];
+        IRREP_ASSERT(irrep_sg_projector_weights(lg_sG, E_c4v, weights_s) == 0);
+        double _Complex s_w = 0.0 + 0.0 * I;
+        for (int g = 0; g < order_Gs; ++g)
+            s_w += weights_s[g] * psi_s[g];
+        double _Complex s_p = irrep_sg_project_at_k(lg_sG, E_c4v, psi_s);
+        IRREP_ASSERT(cabs(s_w - s_p) < 1e-13);
+
+        irrep_sg_little_group_irrep_free(E_c4v);
+        irrep_sg_little_group_free(lg_sG);
+        irrep_space_group_free(Gs);
+        irrep_lattice_free(Ls);
+
+        /* Error paths: NULL inputs return -1. */
+        IRREP_ASSERT(irrep_sg_projector_weights(NULL, NULL, NULL) == -1);
+    }
+
+    /* ---- 2D-irrep D-matrix storage + properties ------------------------
+     * Verify:
+     *   (1) D(E) == I
+     *   (2) D(g) is orthogonal: D(g)^T · D(g) = I
+     *   (3) trace(D(g_i)) matches the irrep's character at slot i
+     *   (4) 1D irreps return their character as a 1×1 matrix via the
+     *       same accessor. */
+    {
+        irrep_lattice_t     *L = irrep_lattice_build(IRREP_LATTICE_KAGOME, 3, 3);
+        irrep_space_group_t *G = irrep_space_group_build(L, IRREP_WALLPAPER_P6MM);
+
+        /* Γ on 3×3 kagome: full C_6v. Test E_1 (2D). */
+        irrep_sg_little_group_t *lg = irrep_sg_little_group_build(G, 0, 0);
+        irrep_sg_little_group_irrep_t *E1 =
+            irrep_sg_little_group_irrep_named(lg, IRREP_LG_IRREP_E1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(E1) == 2);
+        int n = irrep_sg_little_group_point_order(lg);
+
+        /* (1) D(E) = I; the identity is always slot 0. */
+        double _Complex DE[4];
+        IRREP_ASSERT(irrep_sg_little_group_irrep_matrix(E1, 0, DE) == 0);
+        IRREP_ASSERT(cabs(DE[0] - 1.0) < 1e-15);
+        IRREP_ASSERT(cabs(DE[1]) < 1e-15);
+        IRREP_ASSERT(cabs(DE[2]) < 1e-15);
+        IRREP_ASSERT(cabs(DE[3] - 1.0) < 1e-15);
+
+        for (int i = 0; i < n; ++i) {
+            double _Complex D[4];
+            IRREP_ASSERT(irrep_sg_little_group_irrep_matrix(E1, i, D) == 0);
+
+            /* (2) orthogonality: D^T · D = I. */
+            double _Complex g00 = conj(D[0])*D[0] + conj(D[2])*D[2];
+            double _Complex g01 = conj(D[0])*D[1] + conj(D[2])*D[3];
+            double _Complex g11 = conj(D[1])*D[1] + conj(D[3])*D[3];
+            IRREP_ASSERT(cabs(g00 - 1.0) < 1e-14);
+            IRREP_ASSERT(cabs(g01) < 1e-14);
+            IRREP_ASSERT(cabs(g11 - 1.0) < 1e-14);
+
+            /* (3) tr(D) matches character row built into the irrep. */
+            double _Complex chi = D[0] + D[3];
+            /* C_6v E_1 character row: χ(E)=2, χ(C_6)=1, χ(C_3)=-1,
+             * χ(C_2)=-2, χ(σ_v)=0, χ(σ_d)=0. Deduce class from parent op. */
+            int parent = 0;
+            {
+                int ops[12];
+                irrep_sg_little_group_point_ops(lg, ops);
+                parent = ops[i];
+            }
+            double chi_expected;
+            if (parent == 0) chi_expected = 2.0;
+            else if (parent == 1 || parent == 5) chi_expected = 1.0;
+            else if (parent == 2 || parent == 4) chi_expected = -1.0;
+            else if (parent == 3)                chi_expected = -2.0;
+            else                                 chi_expected = 0.0; /* mirrors */
+            IRREP_ASSERT(cabs(chi - chi_expected) < 1e-14);
+        }
+
+        /* (4) 1D irrep matrix via the same accessor returns 1×1. */
+        irrep_sg_little_group_irrep_t *A1 =
+            irrep_sg_little_group_irrep_named(lg, IRREP_LG_IRREP_A1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(A1) == 1);
+        double _Complex d1[1];
+        IRREP_ASSERT(irrep_sg_little_group_irrep_matrix(A1, 0, d1) == 0);
+        IRREP_ASSERT(cabs(d1[0] - 1.0) < 1e-15);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_matrix(A1, 3, d1) == 0);
+        IRREP_ASSERT(cabs(d1[0] - 1.0) < 1e-15); /* trivial rep, all +1 */
+
+        /* Error paths: out-of-range slot, NULL outputs. */
+        double _Complex tmp[4];
+        IRREP_ASSERT(irrep_sg_little_group_irrep_matrix(NULL, 0, tmp) == -1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_matrix(E1, -1, tmp) == -1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_matrix(E1, n, tmp) == -1);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_matrix(E1, 0, NULL) == -1);
+
+        irrep_sg_little_group_irrep_free(E1);
+        irrep_sg_little_group_irrep_free(A1);
+        irrep_sg_little_group_free(lg);
+
+        /* C_3v E at K-point (1, 2): 2D irrep, verify D(E)=I, trace=chi. */
+        irrep_sg_little_group_t *lg_K = irrep_sg_little_group_build(G, 1, 2);
+        IRREP_ASSERT(irrep_sg_little_group_point_order(lg_K) == 6);
+        irrep_sg_little_group_irrep_t *E_c3v =
+            irrep_sg_little_group_irrep_named(lg_K, IRREP_LG_IRREP_E);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(E_c3v) == 2);
+
+        for (int i = 0; i < 6; ++i) {
+            double _Complex D[4];
+            IRREP_ASSERT(irrep_sg_little_group_irrep_matrix(E_c3v, i, D) == 0);
+            double _Complex chi = D[0] + D[3];
+            /* C_3v E: χ(E)=2, χ(C_3)=χ(C_3²)=-1, χ(σ)=0. */
+            int ops[6];
+            irrep_sg_little_group_point_ops(lg_K, ops);
+            int p = ops[i];
+            double chi_expected;
+            if (p == 0) chi_expected = 2.0;
+            else if (p == 2 || p == 4) chi_expected = -1.0;
+            else chi_expected = 0.0;
+            IRREP_ASSERT(cabs(chi - chi_expected) < 1e-14);
+        }
+
+        irrep_sg_little_group_irrep_free(E_c3v);
+        irrep_sg_little_group_free(lg_K);
+
+        irrep_space_group_free(G);
+        irrep_lattice_free(L);
+
+        /* C_4v E on p4mm 4×4 square: 2D at Γ. */
+        irrep_lattice_t     *Ls = irrep_lattice_build(IRREP_LATTICE_SQUARE, 4, 4);
+        irrep_space_group_t *Gs = irrep_space_group_build(Ls, IRREP_WALLPAPER_P4MM);
+        irrep_sg_little_group_t *lg_s = irrep_sg_little_group_build(Gs, 0, 0);
+        irrep_sg_little_group_irrep_t *E_c4v =
+            irrep_sg_little_group_irrep_named(lg_s, IRREP_LG_IRREP_E_C4V);
+        IRREP_ASSERT(irrep_sg_little_group_irrep_dim(E_c4v) == 2);
+
+        for (int i = 0; i < 8; ++i) {
+            double _Complex D[4];
+            IRREP_ASSERT(irrep_sg_little_group_irrep_matrix(E_c4v, i, D) == 0);
+            double _Complex chi = D[0] + D[3];
+            /* C_4v E: χ(E)=2, χ(2C_4)=0, χ(C_2)=-2, χ(2σ_v)=0, χ(2σ_d)=0. */
+            int ops[8];
+            irrep_sg_little_group_point_ops(lg_s, ops);
+            int p = ops[i];
+            double chi_expected;
+            if (p == 0) chi_expected = 2.0;
+            else if (p == 2) chi_expected = -2.0;
+            else chi_expected = 0.0;
+            IRREP_ASSERT(cabs(chi - chi_expected) < 1e-14);
+        }
+
+        irrep_sg_little_group_irrep_free(E_c4v);
+        irrep_sg_little_group_free(lg_s);
+        irrep_space_group_free(Gs);
+        irrep_lattice_free(Ls);
     }
 
     /* ---- Canonicalisation: negative or out-of-range k maps correctly ---- */

@@ -165,6 +165,148 @@ equivariant_mlp         : norm equivariance at 1e-12
 torque_net_tp_paths     : 2 paths enumerated for l=1⊗l=1→l=1+2
 ```
 
+## 3D Bravais lattice + cubic-point-group + DMI examples (1.3.0-alpha)
+
+### `lattice3d_demo`
+
+Geometry walkthrough for SC, BCC, FCC, Diamond, Pyrochlore. Verified
+expected coordination numbers and NN distances:
+
+```
+SC          1 site/cell, 6 NN/site,  NN=1
+BCC         2 sites/cell, 8 NN/site, NN=√3/2 ≈ 0.866
+FCC         4 sites/cell, 12 NN/site, NN=√2/2 ≈ 0.707
+Diamond     8 sites/cell, 4 NN/site, NN=√3/4 ≈ 0.433
+Pyrochlore  16 sites/cell, 6 NN/site, NN=√2/4 ≈ 0.354
+```
+
+### `lattice3d_heisenberg_ed`
+
+Three full-space Heisenberg AFM ED runs:
+
+```
+SC  2³ (N=8,  dim=256)   E_0 = -4.820089 J  (cube graph)
+BCC 2³ (N=16, dim=65536) E_0 = -20.000000 J (K_{8,8} closed form, exact)
+SC  4×2×2 (N=16, dim=65536) E_0 = -11.228 J
+```
+
+The BCC 2³ result hits the K_{8,8} closed form `−n(n+2)/4 = −8·10/4
+= −20 J` to all printed digits — validates that the geometry / bond
+list / Heisenberg apply / Lanczos pipeline are mutually consistent.
+
+### `lattice3d_sector_ed`
+
+Γ-momentum sector ED on BCC 2³. Sector dimension 1670 vs. full
+65536 (39× reduction); recovers `E_0 = −20.000000 J` to all
+printed digits.
+
+### `lattice3d_kspace_ed`
+
+k-resolved ED on SC 2³, scanning all 8 BZ corners; sum of dims = 70
+= C(8,4); minimum E_0(k) = −4.820089, matches full-space ED to
+4×10⁻⁷ (Lanczos precision).
+
+### `pyrochlore16_heisenberg`
+
+16-site pyrochlore Heisenberg AFM:
+
+```
+E_0 = -8.809084 J    (per site -0.551, per bond -0.184)
+E_1 = E_2 = E_3 = E_4 = -8.440672 J   ← 4-fold cubic-multiplet
+Δ_01 = 0.368412 J
+```
+
+### `pyrochlore16_j1j2`
+
+J₁-J₂ phase sweep. Notable points:
+
+```
+J₂/J₁ = 0.0   E_0 = -8.809084   3-fold degenerate E_1=E_2=E_3
+J₂/J₁ = 0.5   E_0 = -9.450      Δ_01 = 0.039 (near phase boundary)
+J₂/J₁ = 1.0   E_0 = -12.000000  4-fold degenerate (hidden symmetry)
+```
+
+### `pyrochlore16_correlations`
+
+Spin-spin correlation function on the GS:
+
+```
+⟨S_0 · S_NN⟩ = -0.183523   (all 6 NN equivalent to 13-digit precision)
+⟨S_0 · S_r⟩  = +0.039015   (all 9 non-NN sites uniformly identical)
+sum-rule:  48 × ⟨C_NN⟩ = -8.809084 = E_0  ✓ to 10⁻¹³
+```
+
+### `cubic_crystal_field`
+
+Crystal-field decomposition of l-orbitals under O_h and T_d:
+
+```
+1x0e (s)   → A1g           1x1e   → T1g (axial vector under O_h)
+1x1o (p)   → T1u (polar)   1x2e   → Eg + T2g (textbook eg / t_2g)
+1x3o (l=3) → A2u + T1u + T2u    1x3e → A2g + T1g + T2g
+```
+
+### `dmi_pyrochlore_pattern`
+
+Bond-exchange-tensor decomposition for pyrochlore NN bond
+{(0,0,0), (¼,¼,0)}:
+
+```
+Site sym  DMI   D direction          J^s     |D · bond̂|
+O_h       0-dim D = 0                3-dim   (no DMI)
+O         1-dim D ∥ bond (1,1,0)/√2  3-dim   1.000000  ← Moriya rule e
+T_d       1-dim D ⊥ bond             3-dim   0.000000
+```
+
+### `dmi_kagome_pattern`
+
+Kagome NN bond under in-plane symmetries (relevant to RT magnets
+Fe₃Sn₂ / Mn₃Sn / Co₃Sn₂S₂):
+
+```
+D_6  (chiral hex):   DMI 1-dim, D ∥ bond
+C_3v (with σ_v):     DMI 1-dim, D ⊥ bond (in-plane, perp to σ_v)
+D_3  (chiral, 6 el): DMI 1-dim, D ∥ bond
+```
+
+### `test_dmi`
+
+All five Moriya-1960 rules independently verified, plus multi-symmetry
+intersection cases, the symmetric-tensor analyzer, the magnetic-point-
+group antiunitary sign rules, and the three-spin scalar chirality
+selection rule. **65/65 assertions pass**.
+
+### `kagome_triangle_chirality`
+
+Scalar chirality verdict on the kagome triangle under candidate site
+symmetries, mapping each verdict onto a real RT kagome magnet:
+
+```
+Identity-only:                χ ALLOWED
+C₃ about centroid:            χ ALLOWED  (cyclic perm × proper)
+σ_h IN triangle plane:        χ FORBIDDEN  (centrosymmetric kagome stacking)
+T·σ_h "magnetic mirror":      χ ALLOWED  (Mn₃Sn-type 120° AFM route to TH)
+C_3v (C₃ + 3 σ_v):            χ ALLOWED  (each σ_v transposes + improper = +1)
+D_3h (C_3v + σ_h):            χ FORBIDDEN  (σ_h alone forbids)
+```
+
+### `pyrochlore_tetra_complete_catalog`
+
+Full bilinear + trilinear exchange-tensor catalog for the pyrochlore
+"up tetrahedron": 6 NN bonds × {DMI, J^s} × 3 site syms + 4 triangle
+faces × χ × 3 site syms = **72 group-theoretic verdicts in one program**:
+
+```
+O_h:  6 × (DMI 0-dim, J^s 3-dim)   χ allowed × 4
+O:    6 × (DMI 1-dim, J^s 3-dim)   χ allowed × 4
+T_d:  6 × (DMI 1-dim, J^s 3-dim)   χ allowed × 4
+```
+
+Under O_h the 3-dim J^s is exactly the Curnoe-Ross-Kao parametrisation
+(Ross 2011 PRX 1, 021002) for pyrochlore quantum-spin-ice. Under O / T_d
+the DMI becomes 1-dim per bond. The catalog is the parameter scaffold
+a downstream DFT or micromagnetic simulator consumes.
+
 ## Reproducibility bound
 
 Across macOS arm64 (Apple clang) and Linux x86_64 / aarch64 (gcc + clang),

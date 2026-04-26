@@ -30,6 +30,29 @@ CFLAGS_OPT     = -O2 -fno-math-errno -ffp-contract=on
 CFLAGS         = $(CFLAGS_COMMON) $(CFLAGS_WARN) $(CFLAGS_OPT)
 LDFLAGS        = -lm
 
+# ---------------------------------------------------------------------------
+# OpenMP (opt-in). Set USE_OPENMP=1 to parallelise the sector-build hot loops
+# in src/hamiltonian.c. On Apple clang, libomp must be installed separately
+# (e.g. `brew install libomp`) and `-Xpreprocessor -fopenmp -I$(brew --prefix
+# libomp)/include -L$(brew --prefix libomp)/lib -lomp` is the standard flag
+# set. GCC and Linux clang support -fopenmp natively. The pragmas in the
+# source are unconditional (unknown-pragma under non-OpenMP builds), so the
+# code compiles and runs correctly without this flag — just serially.
+# ---------------------------------------------------------------------------
+USE_OPENMP ?= 0
+ifeq ($(USE_OPENMP),1)
+  ifeq ($(UNAME_S),Darwin)
+    LIBOMP_PREFIX ?= $(shell brew --prefix libomp 2>/dev/null)
+    ifneq ($(LIBOMP_PREFIX),)
+      CFLAGS  += -Xpreprocessor -fopenmp -I$(LIBOMP_PREFIX)/include
+      LDFLAGS += -L$(LIBOMP_PREFIX)/lib -lomp
+    endif
+  else
+    CFLAGS  += -fopenmp
+    LDFLAGS += -fopenmp
+  endif
+endif
+
 # Position-independent code for the shared library.
 PIC            = -fPIC
 

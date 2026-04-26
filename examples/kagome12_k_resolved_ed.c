@@ -41,47 +41,16 @@
 #define N   12
 #define DIM (1LL << N) /* 4096 */
 
-/* ---- p6mm point-element classification ----------------------------------
- * The space_group builder's 12 point-group indices map to conjugacy classes
- * {E, C_6, C_3, C_2, σ_v, σ_d} as follows. Pre-computed once by probing a
- * 6×6 kagome (where the lattice-matrix extraction is unambiguous) and
- * hard-coded here — the indexing is a property of the builder, not the
- * cluster, so the same table applies on any kagome size. */
-
-typedef enum { CLS_E, CLS_C6, CLS_C3, CLS_C2, CLS_SIGMA_V, CLS_SIGMA_D } p6mm_class_t;
-
-static const p6mm_class_t p6mm_class[12] = {
-    CLS_E,                                                /* 0 */
-    CLS_C6,       CLS_C3,       CLS_C2,       CLS_C3,     /* 1-4 */
-    CLS_C6,                                               /* 5 */
-    /* Mirrors: conjugacy is {6, 8, 10} (σ_v — axes at 0°/60°/120°) vs
-     * {7, 9, 11} (σ_d — axes at 30°/90°/150°), verified by explicit
-     * C_3-conjugation `C_3 · M_6 · C_3⁻¹ = M_8`. */
-    CLS_SIGMA_V,  CLS_SIGMA_D,  CLS_SIGMA_V,  CLS_SIGMA_D,/* 6-9 */
-    CLS_SIGMA_V,  CLS_SIGMA_D                             /* 10-11 */
+/* Irrep menus at each k-type, built via the library's named-irrep API.
+ * Γ carries the full C_6v (6 irreps); each M-point carries C_2v (4). */
+static const irrep_lg_named_irrep_t c6v_menu[6] = {
+    IRREP_LG_IRREP_A1, IRREP_LG_IRREP_A2, IRREP_LG_IRREP_B1,
+    IRREP_LG_IRREP_B2, IRREP_LG_IRREP_E1, IRREP_LG_IRREP_E2,
 };
-
-/* C_6v character table indexed by (irrep, class). */
-static const double c6v_chi[6][6] = {
-    /*            E    C_6    C_3    C_2   σ_v   σ_d  */
-    /* A_1 */  { +1,  +1,  +1,  +1,  +1,  +1 },
-    /* A_2 */  { +1,  +1,  +1,  +1,  -1,  -1 },
-    /* B_1 */  { +1,  -1,  +1,  -1,  +1,  -1 },
-    /* B_2 */  { +1,  -1,  +1,  -1,  -1,  +1 },
-    /* E_1 */  { +2,  +1,  -1,  -2,   0,   0 },
-    /* E_2 */  { +2,  -1,  -1,  +2,   0,   0 },
-};
-static const int         c6v_dim[6]  = { 1, 1, 1, 1, 2, 2 };
 static const char *const c6v_name[6] = { "A_1", "A_2", "B_1", "B_2", "E_1", "E_2" };
 
-/* C_2v at M on kagome. The four parent-op indices {0, 3, σ_a, σ_b} for
- * each M-point always enumerate in ascending order as (E, C_2, σ, σ'). */
-static const double c2v_chi[4][4] = {
-    /*            E    C_2   σ    σ'  */
-    /* A_1 */  { +1,  +1,  +1,  +1 },
-    /* A_2 */  { +1,  +1,  -1,  -1 },
-    /* B_1 */  { +1,  -1,  +1,  -1 },
-    /* B_2 */  { +1,  -1,  -1,  +1 },
+static const irrep_lg_named_irrep_t c2v_menu[4] = {
+    IRREP_LG_IRREP_A1, IRREP_LG_IRREP_A2, IRREP_LG_IRREP_B1, IRREP_LG_IRREP_B2,
 };
 static const char *const c2v_name[4] = { "A_1", "A_2", "B_1", "B_2" };
 
@@ -125,31 +94,6 @@ static void build_block_H(const double _Complex *basis, int n_basis, const int *
     free(Hbk);
 }
 
-/* Build a character row for the little group at this (k, irrep) pair, using
- * the hard-coded p6mm classification table. */
-static void build_chi(const irrep_sg_little_group_t *lg, int is_gamma, int mu,
-                      double _Complex *chi_out) {
-    int n = irrep_sg_little_group_point_order(lg);
-    int ops[12];
-    irrep_sg_little_group_point_ops(lg, ops);
-    if (is_gamma) {
-        /* Γ: C_6v. Index chi by parent-op class. */
-        for (int i = 0; i < n; ++i)
-            chi_out[i] = c6v_chi[mu][p6mm_class[ops[i]]] + 0.0 * I;
-    } else {
-        /* M: C_2v. parent ops sort as {0=E, 3=C_2, mirror_a, mirror_b}. The
-         * element-matrix classification can't cleanly separate σ_a from σ_b
-         * because they're the same mirror class in the parent C_6v; but the
-         * C_2v B_1 / B_2 distinction depends on which of the two is called
-         * σ vs σ'. Assigning the 3rd parent index to C_2v class 2 and the
-         * 4th to class 3 is the natural choice (matches ascending-parent
-         * convention used throughout the library's tests). */
-        const int class_of_slot[4] = {0, 1, 2, 3};
-        for (int i = 0; i < n; ++i)
-            chi_out[i] = c2v_chi[mu][class_of_slot[i]] + 0.0 * I;
-    }
-}
-
 int main(void) {
     printf("=== (k, μ_k)-resolved block ED on 12-site kagome (p6mm) ===\n\n");
 
@@ -186,12 +130,10 @@ int main(void) {
         int                      n_point = irrep_sg_little_group_point_order(lg);
 
         for (int mu = 0; mu < k_pts[k].n_irreps; ++mu) {
-            double _Complex chi[12];
-            build_chi(lg, k_pts[k].is_gamma, mu, chi);
-
-            int dim_mu = k_pts[k].is_gamma ? c6v_dim[mu] : 1;
+            irrep_lg_named_irrep_t name =
+                k_pts[k].is_gamma ? c6v_menu[mu] : c2v_menu[mu];
             irrep_sg_little_group_irrep_t *mu_h =
-                irrep_sg_little_group_irrep_new(lg, chi, dim_mu);
+                irrep_sg_little_group_irrep_named(lg, name);
 
             int             n_max = (int)DIM;
             double _Complex *basis =

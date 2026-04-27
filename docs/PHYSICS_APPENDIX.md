@@ -1239,7 +1239,41 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Dynamic spin structure factor S_⊥(q, ω)
+### 15.7. Magnon density of states D(ω)
+
+Integrating ω_b(k) over the BZ gives the *density of states*
+
+```
+D(ω) = (1/V_BZ) Σ_b ∫_BZ δ(ω − ω_b(k)) d²k
+```
+
+normalised so that ∫ D(ω) dω = n_sub (total bands per unit cell).
+The library implements a uniform Nx × Ny grid histogram via
+`irrep_magnon_dos(L, Nx, Ny, ω_min, ω_max, n_bins, D_out)`.
+
+Key thermodynamic predictions follow from D(ω):
+
+- **Magnetic specific heat**:
+  C_mag(T) = ∫ ω · D(ω) · ∂_T n_B(ω/T) dω
+- **Bloch-T^{3/2} law for FM** (low-T limit, quadratic Goldstone):
+  M(T) − M(0) ∝ T^{3/2} on a 3D cubic FM
+- **AFM gapless mode Bloch-T² law**: distinct exponent reflects the
+  *linear* AFM dispersion (Goldstone slope vs FM quadratic).
+- **Van-Hove singularities**: in 2D, log-divergent peaks at saddle-
+  point energies (square FM has saddle at (π, 0), (0, π), ω = 2 in
+  our units). In 3D, square-root cusps at saddles.
+
+The library's histogram approach captures van-Hove peaks within the
+bin resolution (verified: square FM DOS peak lands in the bin
+containing ω = 2 to ±2 bins on 40-bin × 128² grid). Higher accuracy
+on van-Hove cusps would benefit from the tetrahedron method
+(Lehmann-Taut 1972, Blöchl 1994); deferred to v1.5.
+
+Sum rule verification: integrating D(ω) over the energy window for
+the 1-sublattice square FM gives 1.0 to 10⁻⁶, matching n_sub
+exactly.
+
+### 15.8. Dynamic spin structure factor S_⊥(q, ω)
 
 The direct observable of inelastic neutron scattering is the
 *dynamic spin structure factor* — the Fourier transform of the
@@ -1357,9 +1391,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.10. Verification protocol
+### 15.11. Verification protocol
 
-`tests/test_magnon.c` covers nineteen independent checks (64 assertions):
+`tests/test_magnon.c` covers twenty-one independent checks (66 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1421,6 +1455,11 @@ Lu₂V₂O₇).
     carries S_⊥ = 6 (= 2S·n_sub with S=1, n_sub=3) and the upper
     two bands have S_⊥ ≈ 0 (dark at Γ). The sum rule
     Σ_b S_⊥_b(q) = 2S·n_sub holds at three off-Γ q-points to ≤ 10⁻⁹.
+20. **DOS sum rule**: ∫ D(ω) dω = n_sub on the 1-sublattice square
+    FM (50 bins × 64² grid), to 10⁻⁶.
+21. **DOS van-Hove singularity**: 1-sublattice square FM has its
+    DOS peak in the bin containing ω = 2 (the saddle-point energy
+    at (π, 0) and (0, π)) to ±2 bins on a 40-bin × 128² grid.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

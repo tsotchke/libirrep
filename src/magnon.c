@@ -383,6 +383,48 @@ irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, int Ny, double omega_min,
+                                 double omega_max, int n_bins, double *dos_out) {
+    if (!L || Nx <= 0 || Ny <= 0 || n_bins <= 0 || omega_max <= omega_min || !dos_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    memset(dos_out, 0, (size_t)n_bins * sizeof *dos_out);
+
+    double          bin_w = (omega_max - omega_min) / n_bins;
+    double         *omega = malloc((size_t)n * sizeof *omega);
+    double _Complex *u = malloc((size_t)n * n * sizeof *u);
+    if (!omega || !u) {
+        free(omega);
+        free(u);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    long long total_evals = 0;
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = (double)ix / Nx;
+            double fy = (double)iy / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            irrep_magnon_dispersion(L, kx, ky, omega, u);
+            for (int b = 0; b < n; ++b) {
+                int idx = (int)((omega[b] - omega_min) / bin_w);
+                if (idx >= 0 && idx < n_bins)
+                    dos_out[idx] += 1.0;
+                ++total_evals;
+            }
+        }
+    /* Normalise so ∫ D(ω) dω = n_sub.
+     * total_evals = Nx · Ny · n_sub. Bin sum currently = total_evals.
+     * Want sum · bin_w = n_sub, so divide by (Nx · Ny · bin_w). */
+    double norm = 1.0 / ((double)Nx * (double)Ny * bin_w);
+    for (int i = 0; i < n_bins; ++i)
+        dos_out[i] *= norm;
+    (void)total_evals;
+    free(omega);
+    free(u);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_structure_factor(const irrep_magnon_lsw_t *L, double qx, double qy,
                                               double *omega_out, double *S_perp_out) {
     if (!L || !omega_out || !S_perp_out)

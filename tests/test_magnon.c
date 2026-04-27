@@ -674,6 +674,63 @@ static void test_structure_factor_kagome_gamma(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (20) Magnon DOS sum rule: ∫ D(ω) dω = n_sub for any LSW model.
+ * Histogram on a Nx × Ny grid, sum bins · bin_width, must equal n_sub. */
+static void test_dos_sum_rule(void) {
+    /* 1-sublattice square FM: dispersion ω ∈ [0, 4]. */
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+
+    int     n_bins = 50;
+    double *dos = malloc((size_t)n_bins * sizeof *dos);
+    irrep_magnon_dos(L, 64, 64, 0.0, 4.001, n_bins, dos);
+    double bin_w = 4.001 / n_bins;
+    double sum = 0;
+    for (int i = 0; i < n_bins; ++i)
+        sum += dos[i] * bin_w;
+    ASSERT_NEAR(sum, 1.0, 1e-6, "1-sublattice DOS sum rule = n_sub = 1");
+
+    free(dos);
+    irrep_magnon_lsw_free(L);
+}
+
+/* (21) DOS van-Hove singularity: square FM has saddle points at
+ * (π, 0) and (0, π) where ω = 2 (mid-band). The DOS has a logarithmic
+ * peak there. With our histogram resolution, the bin containing ω=2
+ * should be the largest. */
+static void test_dos_van_hove(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    int     n_bins = 40;
+    double *dos = malloc((size_t)n_bins * sizeof *dos);
+    irrep_magnon_dos(L, 128, 128, 0.0, 4.0001, n_bins, dos);
+    /* The peak should be in the bin containing ω=2 — that's bin (2/4)·40 = 20. */
+    int peak_bin = 0;
+    for (int i = 1; i < n_bins; ++i)
+        if (dos[i] > dos[peak_bin])
+            peak_bin = i;
+    /* Allow ±2 bins of tolerance. */
+    ASSERT(abs(peak_bin - 20) <= 2,
+           "square-FM DOS peak (van-Hove) at ω=2 (bin 20)");
+
+    free(dos);
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -694,6 +751,8 @@ int main(void) {
     test_3d_reduces_to_2d();
     test_structure_factor_single();
     test_structure_factor_kagome_gamma();
+    test_dos_sum_rule();
+    test_dos_van_hove();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

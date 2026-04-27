@@ -167,6 +167,33 @@ IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx,
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);
 
+/** @brief Magnon density of states D(ω) via BZ histogram.
+ *
+ *  Samples ω_b(k) on an Nx × Ny grid in reduced momentum coordinates,
+ *  bins the eigenvalues into n_bins between ω_min and ω_max, and
+ *  normalises so that
+ *
+ *      ∫ D(ω) dω = n_sub                     (per unit cell)
+ *
+ *  i.e., the integrated DOS equals the number of bands per unit cell.
+ *  Useful for comparison with magnetic specific heat (C_V(T) = ∫ ω
+ *  D(ω) ∂_T n_B(ω/T) dω) and magnon-band van-Hove singularities. The
+ *  DOS of a 2D FM with a quadratic Goldstone has a step edge at ω
+ *  → 0⁺; saddle-point van-Hove peaks appear at zone-boundary
+ *  energies; ω_max is the dispersion peak.
+ *
+ *  @param L           LSW handle
+ *  @param Nx, Ny      BZ integration grid (typical 50–200)
+ *  @param omega_min   lower edge of histogram window
+ *  @param omega_max   upper edge of histogram window
+ *  @param n_bins      number of bins; bin width = (ω_max−ω_min)/n_bins
+ *  @param dos_out     caller buffer of size n_bins; D(ω) = states per
+ *                     unit cell per (energy unit). Bin i is centred at
+ *                     ω_min + (i + ½) · bin_width. */
+IRREP_API irrep_status_t irrep_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, int Ny,
+                                           double omega_min, double omega_max, int n_bins,
+                                           double *dos_out);
+
 /** @brief Compute the band-resolved transverse dynamic spin structure
  *         factor S⊥_b(q) of a collinear-FM-along-z LSW magnet.
  *

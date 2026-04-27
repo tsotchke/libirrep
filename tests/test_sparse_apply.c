@@ -21,6 +21,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* Portable temp-file path; works regardless of test-runner CWD.
+ * Make runs from project root; ctest runs from build/. Uses TMPDIR /
+ * TMP / TEMP environment vars and falls back to "." otherwise. */
+static const char *tmp_path_(const char *suffix) {
+    static char buf[256];
+    const char *tmp = getenv("TMPDIR");
+    if (!tmp) tmp = getenv("TMP");
+    if (!tmp) tmp = getenv("TEMP");
+    if (!tmp) tmp = ".";
+    snprintf(buf, sizeof buf, "%s/libirrep_%s.bin", tmp, suffix);
+    return buf;
+}
+
 /* Materialise |ũ_k⟩ into a dense 2^N complex vector. */
 static void build_dense_basis_vec(const irrep_space_group_t *G, uint64_t rep,
                                   int orbit_size, int num_sites,
@@ -365,7 +378,7 @@ int main(void) {
         irrep_sg_heisenberg_sector_t *S  = irrep_sg_heisenberg_sector_build(H, T);
         long long n_reps = irrep_sg_heisenberg_sector_dim(S);
 
-        const char *path_triv = "build/test_sector_triv.bin";
+        const char *path_triv = tmp_path_("sector_triv");
         IRREP_ASSERT(irrep_sg_heisenberg_sector_save(S, path_triv) == 0);
 
         irrep_sg_heisenberg_sector_t *S2 = irrep_sg_heisenberg_sector_load(path_triv, n_reps);
@@ -406,7 +419,7 @@ int main(void) {
 
         /* Truncated (empty) file. */
         {
-            const char *tp = "build/test_sector_trunc.bin";
+            const char *tp = tmp_path_("sector_trunc");
             FILE *fp = fopen(tp, "wb");
             IRREP_ASSERT(fp != NULL);
             fclose(fp);
@@ -425,7 +438,7 @@ int main(void) {
             irrep_sg_heisenberg_sector_build_at_k(H, T, lg, B1);
         long long dim_B1 = irrep_sg_heisenberg_sector_dim(S_B1);
 
-        const char *path_cplx = "build/test_sector_cplx.bin";
+        const char *path_cplx = tmp_path_("sector_cplx");
         IRREP_ASSERT(irrep_sg_heisenberg_sector_save(S_B1, path_cplx) == 0);
         irrep_sg_heisenberg_sector_t *S_B1_2 =
             irrep_sg_heisenberg_sector_load(path_cplx, dim_B1);

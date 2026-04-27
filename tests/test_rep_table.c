@@ -12,6 +12,21 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
+/* Portable temp-file path. Works regardless of CWD (make runs from
+ * project root; ctest runs from build/). Uses TMPDIR / TMP / TEMP
+ * environment vars and falls back to "." on toolchains that expose
+ * none of them. */
+static const char *tmp_path_(const char *suffix) {
+    static char buf[256];
+    const char *tmp = getenv("TMPDIR");
+    if (!tmp) tmp = getenv("TMP");
+    if (!tmp) tmp = getenv("TEMP");
+    if (!tmp) tmp = ".";
+    snprintf(buf, sizeof buf, "%s/libirrep_%s.bin", tmp, suffix);
+    return buf;
+}
 
 static int popcount_u64(uint64_t x) {
     int c = 0;
@@ -206,7 +221,7 @@ int main(void) {
         long long cnt = irrep_sg_rep_table_count(T);
 
         /* Save to /tmp. */
-        const char *path = "build/test_rep_table_test.bin";
+        const char *path = tmp_path_("rep_table_test");
         int rc = irrep_sg_rep_table_save(T, path);
         IRREP_ASSERT(rc == 0);
 
@@ -255,7 +270,7 @@ int main(void) {
         /* Wrong-version rejection: write a valid-magic file with an
          * unknown version field — load must reject. */
         {
-            const char *vp = "build/test_rep_table_badver.bin";
+            const char *vp = tmp_path_("rep_table_badver");
             FILE *fp = fopen(vp, "wb");
             IRREP_ASSERT(fp != NULL);
             char magic[8] = {'I','R','R','E','P','_','R','T'};
@@ -275,7 +290,7 @@ int main(void) {
 
         /* Truncated file: zero-length → rejection. */
         {
-            const char *tp = "build/test_rep_table_trunc.bin";
+            const char *tp = tmp_path_("rep_table_trunc");
             FILE *fp = fopen(tp, "wb");
             IRREP_ASSERT(fp != NULL);
             fclose(fp);

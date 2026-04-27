@@ -28,6 +28,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 static const int orders[] = {9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 35, 41};
 #define N_ORDERS (sizeof(orders) / sizeof(orders[0]))
 

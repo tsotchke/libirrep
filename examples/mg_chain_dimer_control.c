@@ -35,6 +35,10 @@
 #include <string.h>
 #include <time.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #define N_SITES 16
 #define D_FULL  (1LL << N_SITES)
 #define POPCOUNT 8   /* S_z = 0 sector */

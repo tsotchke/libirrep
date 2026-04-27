@@ -32,6 +32,10 @@
 #include <string.h>
 #include <time.h>
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 #define LX 3
 #define LY 4
 #define N_SITES (2 * LX * LY)

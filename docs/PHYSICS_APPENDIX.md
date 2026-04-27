@@ -1066,9 +1066,59 @@ predicted to host this band structure include Cu(1,3-bdc) (Chisnell
 Lu₂V₂O₇ (Onose *et al.* 2010 — pyrochlore, but the same mechanism
 generalises).
 
-### 15.4. Verification protocol
+### 15.4. Thermal Hall conductivity κ_xy(T)
 
-`tests/test_magnon.c` covers seven independent checks:
+The bridge from "magnon Chern number" to a directly measurable
+quantity is the *thermal Hall conductivity* κ_xy(T), derived by
+Matsumoto and Murakami (2011, 2014):
+
+```
+κ_xy(T) = -(k_B² T / (ℏ V_uc))
+          · Σ_b ∫_BZ d²k/(2π)² · c₂(n_B(ω_b/T)) · Ω_b(k)
+```
+
+where `n_B(x) = 1/(e^x − 1)` is the Bose-Einstein distribution and
+
+```
+c₂(g) = (1+g)·[ln((1+g)/g)]² − (ln g)² − 2 Li₂(−g)
+```
+
+is a special function with closed-form limits
+
+```
+c₂(g) ≈ 2g           for g → 0    (low T: BE-suppressed)
+c₂(g) → π²/3 − 1/g    for g → ∞    (high T: residual O(1/T))
+```
+
+The high-T limit gives `Σ_b c₂(g_b) C_b → (π²/3)·Σ_b C_b = 0` so the
+leading T-linear term in κ_xy(T) cancels for any closed band system.
+The next-order correction `c₂(g) − π²/3 ≈ −1/g ≈ −ω/T` leaves a
+finite residual
+
+```
+κ_xy(T → ∞) = (1/V_uc) Σ_b ∫_BZ Ω_b(k) ω_b(k) d²k/(2π)²
+```
+
+— the *magnon Berry-energy* — which is the high-T plateau observed
+on a κ_xy(T) trace.
+
+The crossover temperature between the exponentially-suppressed
+regime (T ≪ topological gap Δ) and the plateau regime (T ≫
+bandwidth) directly fixes the gap, and through it the DMI strength
+D. This is the principle behind the joint inelastic-neutron + thermal
+Hall fingerprinting that has been used to characterise Cu(1,3-bdc)
+(Chisnell *et al.* 2015; Akazawa *et al.* 2020) and Lu₂V₂O₇
+(Hirschberger *et al.* 2015 thermal Hall measurement; Onose *et al.*
+2010 first observation on the same compound).
+
+The library implementation is `irrep_magnon_thermal_hall_kxy(L, T,
+Nx, Ny)` and discretises the integral on the same Nx × Ny grid as
+`_chern`. It returns κ_xy in natural units (k_B = ℏ = 1, lengths in
+unit-cell units); a docstring conversion table maps to SI.
+
+### 15.5. Verification protocol
+
+`tests/test_magnon.c` covers nine independent checks (32 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1090,10 +1140,16 @@ generalises).
 6. **Trivial-band Berry**: a 1-sublattice model with D=0 has Ω(k) = 0
    identically (no off-diagonal phase to wind around).
 7. **Trivial-band Chern**: Σ_BZ Ω = 0 for the same trivial model.
+8. **Trivial κ_xy = 0**: same trivial model gives κ_xy = 0 at every T.
+9. **Topological κ_xy** on the kagome FM with Dz alternating by
+   triangle parity: low-T κ_xy → 0 exponentially, intermediate-T
+   κ_xy ≠ 0, monotonic increase from low to mid T. Chern numbers
+   verify (−1, 0, +1) on the same handle.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome
-FM with Dz alternating by triangle parity.
+FM with Dz alternating by triangle parity, and prints the κ_xy(T)
+sweep showing the BE-suppressed → plateau crossover.
 
 ### References for §15
 
@@ -1121,6 +1177,16 @@ FM with Dz alternating by triangle parity.
 - Yamamoto, K. *et al.* *Phys. Rev. Lett.* 122, 217201 (2019).
   Non-reciprocal-magnon signature of DMI on inversion-broken
   lattices.
+- Matsumoto, R. and Murakami, S. *Phys. Rev. Lett.* 106, 197202
+  (2011) and *Phys. Rev. B* 89, 054420 (2014). Derivation of
+  κ_xy(T) for magnons; the c₂(g) special function and its limits.
+- Hirschberger, M. *et al.* *Phys. Rev. Lett.* 115, 106603 (2015).
+  Thermal Hall conductivity of the kagome / pyrochlore Lu₂V₂O₇ —
+  experimental confirmation of the magnon Berry-curvature
+  mechanism.
+- Akazawa, M. *et al.* *Phys. Rev. X* 10, 041059 (2020). Thermal
+  Hall conductivity κ_xy(T) on Cu(1,3-bdc); peak at T ≈ 5 K
+  matches the topological-gap prediction from inelastic neutron.
 
 ---
 

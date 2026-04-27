@@ -51,7 +51,7 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | `<irrep/tensor_product.h>` (half-int path, 1.3) | spinor tensor products | `tp_2j_descriptor_t` | `irrep_tp_2j_enumerate_paths`, `_build`, `_free`, `_apply`, `_apply_weighted`, `_apply_backward`, `_output_dim`, `_num_paths` |
 | `<irrep/dmi.h>` (1.3) | Bond + triangle exchange-tensor symmetry analyzers (DMI + symmetric exchange + scalar chirality + magnetic-point-group antiunitary) | `irrep_dmi_sym_op_t` | `irrep_dmi_allowed_basis`, `_from_pg`, `irrep_exchange_symmetric_basis`, `_from_pg`, `irrep_chirality_allowed`, `_from_pg`, `irrep_pg_element` |
 | `<irrep/dmi_hamiltonian.h>` (1.3) | spin-½ DMI apply operator (`H = Σ D · (S_i × S_j)`) | `irrep_dmi_hamiltonian_t` | `irrep_dmi_hamiltonian_new`, `_free`, `irrep_dmi_apply`, `irrep_dmi_hamiltonian_num_sites`, `_dim` |
-| `<irrep/magnon.h>` (1.4-α) | Linearised spin-wave theory: dispersion ω(k), Berry curvature, Chern numbers for FM ground state with Heisenberg + DMI(z) + uniaxial anisotropy | `irrep_magnon_lsw_t`, `irrep_magnon_bond_t` | `irrep_magnon_lsw_new`, `_free`, `irrep_magnon_dispersion`, `irrep_magnon_berry`, `irrep_magnon_chern`, `irrep_magnon_lsw_num_bands` |
+| `<irrep/magnon.h>` (1.4-α) | Linearised spin-wave theory: dispersion ω(k), Berry curvature, Chern numbers, thermal Hall κ_xy(T) for FM ground state with Heisenberg + DMI(z) + uniaxial anisotropy | `irrep_magnon_lsw_t`, `irrep_magnon_bond_t` | `irrep_magnon_lsw_new`, `_free`, `irrep_magnon_dispersion`, `irrep_magnon_berry`, `irrep_magnon_chern`, `irrep_magnon_thermal_hall_kxy`, `irrep_magnon_lsw_num_bands` |
 | `<irrep/irrep.h>` | umbrella | — | all of the above |
 
 ---
@@ -506,6 +506,14 @@ from a 2D bond list and exposes three observables:
 3. **Chern numbers**: `irrep_magnon_chern(L, Nx, Ny, C)` integrates
    Ω_b over the BZ on an Nx × Ny grid. Returns near-integer values
    for gapped bands.
+4. **Thermal Hall κ_xy(T)**: `irrep_magnon_thermal_hall_kxy(L, T, Nx,
+   Ny)` computes the Matsumoto-Murakami thermal Hall conductivity
+   `−(T/V_uc)·Σ_b ∫ Ω_b·c₂(n_B(ω_b/T))·d²k/(2π)²`. The c₂ special
+   function is evaluated via a small Li₂(−g) implementation
+   (Taylor + Landen). Low-T behavior is exponentially-suppressed,
+   high-T asymptotes to a finite plateau set by the magnon
+   Berry-energy `(1/V_uc)·Σ_b ∫ Ω_b·ω_b`. Returned in natural units;
+   the docstring lists the SI conversion factor.
 
 Inputs: `n_sub` magnetic sublattices, spin S, primitive vectors a₁, a₂,
 bond list with per-bond `(J, D[3])`, uniaxial anisotropy K_z. The bond

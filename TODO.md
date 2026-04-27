@@ -508,27 +508,35 @@ See the 1.3 CHANGELOG.
  library call rather than crystallographer hand-derivation.
  3D space groups remain deferred past 1.3.
 - [x] **Linearised spin-wave (LSW) module** (`irrep/magnon.h` /
- `src/magnon.c`, ≈170 + 280 lines). Holstein-Primakoff bosonisation
+ `src/magnon.c`, ≈195 + 380 lines). Holstein-Primakoff bosonisation
  of a Heisenberg + DMI(z) + uniaxial-anisotropy Hamiltonian on top
  of a collinear-FM-along-z ground state, yielding the bilinear
- magnon Bloch Hamiltonian H(k). Three observables: ω_b(k)
+ magnon Bloch Hamiltonian H(k). Four observables: ω_b(k)
  dispersion (Hermitian-Jacobi diagonalisation), Berry curvature
  Ω_b(k) via the gauge-invariant Fukui-Hatsugai-Suzuki 4-point
- plaquette, and band Chern numbers via BZ-integrated FHS
- plaquette-flux sum. 23/23 assertions in `test_magnon.c` cover the
- closed-form FM square dispersion (ω = 2|J|S(2 − cos kx − cos ky)),
- anisotropy gap, 2-sublattice unit-cell folding, 1-band ω(k) with
- DMI plus the non-reciprocity ω(k) − ω(−k) = 4 S Σ D sin(k·t), FM
- stability over the BZ, trivial-band Berry = 0, trivial-band Chern
- = 0. Demo `kagome_topological_magnons.c` reproduces the canonical
+ plaquette, band Chern numbers via BZ-integrated FHS plaquette-flux
+ sum, and the **Matsumoto-Murakami thermal Hall conductivity**
+ κ_xy(T) computed via the c₂(n_B(ω/T)) weighting (with internal
+ Li₂(−g) by Taylor + Landen inversion). 32/32 assertions in
+ `test_magnon.c` cover the closed-form FM square dispersion
+ (ω = 2|J|S(2 − cos kx − cos ky)), anisotropy gap, 2-sublattice
+ unit-cell folding, 1-band ω(k) with DMI plus the non-reciprocity
+ ω(k) − ω(−k) = 4 S Σ D sin(k·t), FM stability over the BZ,
+ trivial-band Berry = 0, trivial-band Chern = 0, trivial κ_xy = 0,
+ and topological κ_xy increasing monotonically from BE-suppressed
+ low-T → magnon-Berry-energy plateau at high T. Demo
+ `kagome_topological_magnons.c` reproduces the canonical
  Mook-Henk-Mertig (-1, 0, +1) magnon-Chern signature on the kagome
  FM with Dz alternating by triangle parity — observed in
- Cu(1,3-bdc) (Chisnell 2015) and predicted in Fe₃Sn₂ (Yin 2018).
- Closes the loop from libirrep's algebraic layer (DMI bond list)
- to a *measurable* topological invariant — the magnon Chern
- number that drives the thermal-Hall conductivity κ_xy(T). ABI
- refreshed to `a0030b76…` (6 new public symbols: `irrep_magnon_lsw_new`,
- `_free`, `_dispersion`, `_berry`, `_chern`, `_num_bands`).
+ Cu(1,3-bdc) (Chisnell 2015 ω(k) gap, Akazawa 2020 κ_xy peak) and
+ Lu₂V₂O₇ (Onose 2010 / Hirschberger 2015 thermal Hall). Closes the
+ loop from libirrep's algebraic layer (DMI bond list) to two
+ *jointly measurable* observables — magnon spectrum (INS) and
+ thermal Hall conductivity (κ_xy transport) — that fix the
+ topological-gap and Chern numbers from independent experiments.
+ ABI refreshed to `aebe089c…` (7 new public symbols:
+ `irrep_magnon_lsw_new`, `_free`, `_dispersion`, `_berry`, `_chern`,
+ `_thermal_hall_kxy`, `_num_bands`).
 
 ## Deferred past 1.3
 

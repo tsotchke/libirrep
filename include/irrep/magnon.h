@@ -161,6 +161,38 @@ IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx,
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);
 
+/** @brief Magnon thermal Hall conductivity κ_xy(T) in the
+ *         Matsumoto-Murakami formulation (PRL 106, 197202, 2011 /
+ *         PRB 89, 054420, 2014).
+ *
+ *  For magnons with Berry curvature Ω_b(k), the thermal Hall response is
+ *
+ *      κ_xy(T) = -(k_B² T / (ℏ V_uc · (2π)²))
+ *                · Σ_b ∫_BZ d²k · c₂(n_B(ω_b/T)) · Ω_b(k)
+ *
+ *  where n_B(x) = 1/(e^x − 1) is the Bose-Einstein distribution and
+ *
+ *      c₂(g) = (1+g) [ln((1+g)/g)]² − (ln g)² − 2 Li₂(−g)
+ *
+ *  is a special function with the limits c₂(g) ≈ 2g for g → 0 and
+ *  c₂(g) → π²/3 for g → ∞. The high-T limit makes κ_xy proportional
+ *  to Σ_b C_b which vanishes for any closed band system; the low-T
+ *  limit makes κ_xy → 0 exponentially because no magnons are
+ *  populated. The peak temperature is set by the lowest-band gap or
+ *  Dirac mass — typically O(D·sin(2π/3)) for kagome FM with DMI.
+ *
+ *  Returned value is in dimensionless natural units of (k_B² / ℏ)·T·A_uc⁻¹
+ *  where T is also in natural units (k_B = ℏ = 1). For a real material
+ *  with |J| = J_meV meV and unit-cell area A_uc_Å² in Å², multiply by
+ *  J_meV² · 1.6e-22 / A_uc_Å² to get SI units of W/(K·m).
+ *
+ *  @param L            LSW handle
+ *  @param T            temperature (in same energy units as ω)
+ *  @param Nx, Ny       BZ integration grid (typical 50–200)
+ *  @return κ_xy / (k_B² / ℏ) in natural units, or NaN on error. */
+IRREP_API double irrep_magnon_thermal_hall_kxy(const irrep_magnon_lsw_t *L, double T, int Nx,
+                                                int Ny);
+
 #ifdef __cplusplus
 }
 #endif

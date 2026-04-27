@@ -259,6 +259,67 @@ static void test_chern_trivial(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (8) Trivial 1-band model has zero thermal Hall conductivity:
+ * Berry curvature is identically zero ⇒ Σ_b c₂(g_b) Ω_b = 0. */
+static void test_thermal_hall_trivial(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0, 0, 0}},
+    };
+    double              S = 0.5;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, S, a1, a2, 2, bonds, 0);
+    /* Sweep three temperatures: low, mid, high. All should give κ_xy = 0. */
+    double T_set[3] = {0.1, 1.0, 10.0};
+    for (int i = 0; i < 3; ++i) {
+        double k = irrep_magnon_thermal_hall_kxy(L, T_set[i], 24, 24);
+        ASSERT_NEAR(k, 0.0, 1e-9, "trivial κ_xy = 0");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
+/* (9) Topological kagome model: κ_xy → 0 as T → 0 (BE statistics decay)
+ * and κ_xy is non-zero at intermediate T. The peak T scales with the
+ * lowest-band gap O(D · sin(2π/3)) ≈ O(D). */
+static void test_thermal_hall_kagome(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * 1.7320508075688772};
+    double D = 0.15;
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0, .delta_y = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 2, .delta_x = 0, .delta_y = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 2, .bj = 0, .delta_x = 0, .delta_y = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1, .J = -1.0, .D = {0, 0, -D}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, /*S=*/1.0, a1, a2, 6, bonds, 0);
+
+    /* Verify the Chern numbers first (smoke test). */
+    double chern[3];
+    irrep_magnon_chern(L, 32, 32, chern);
+    ASSERT_NEAR(chern[0], -1.0, 0.05, "kagome lower-band Chern = -1");
+    ASSERT_NEAR(chern[1], 0.0, 0.05, "kagome middle-band Chern = 0");
+    ASSERT_NEAR(chern[2], +1.0, 0.05, "kagome upper-band Chern = +1");
+
+    /* T → 0: BE factor on the lowest band ω₁(K) ≈ 2|J|S - O(D) is
+     * suppressed exponentially, so κ_xy → 0. */
+    double k_low = irrep_magnon_thermal_hall_kxy(L, /*T=*/0.05, 32, 32);
+    ASSERT(fabs(k_low) < 1e-3, "κ_xy(T=0.05) ≈ 0");
+
+    /* Intermediate T: κ_xy is non-zero. (Sign convention varies; we
+     * just check magnitude.) */
+    double k_mid = irrep_magnon_thermal_hall_kxy(L, /*T=*/1.0, 32, 32);
+    ASSERT(fabs(k_mid) > 1e-3, "κ_xy(T=1.0) ≠ 0 (topological response)");
+
+    /* The peak is around T ~ band-gap / k_B; check it's larger than at
+     * very low T. */
+    ASSERT(fabs(k_mid) > fabs(k_low), "κ_xy increases from T=0.05 to T=1.0");
+
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -267,6 +328,8 @@ int main(void) {
     test_fm_stability();
     test_berry_trivial();
     test_chern_trivial();
+    test_thermal_hall_trivial();
+    test_thermal_hall_kagome();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

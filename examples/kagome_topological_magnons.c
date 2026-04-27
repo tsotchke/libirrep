@@ -128,17 +128,39 @@ int main(void) {
     double sum = chern[0] + chern[1] + chern[2];
     printf("    Sum (should be 0 within rounding): %+8.4f\n", sum);
 
+    /* (4) Thermal Hall conductivity κ_xy(T) — Matsumoto-Murakami. The
+     * peak T scales with the topological gap O(D). */
+    printf("\n    Thermal Hall conductivity κ_xy(T) (natural units, Nx×Ny = 32×32):\n");
+    printf("    %-9s  %-14s\n", "T/J", "κ_xy");
+    printf("    ─────────────────────────\n");
+    double Ts[] = {0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0};
+    for (size_t i = 0; i < sizeof(Ts) / sizeof(*Ts); ++i) {
+        double k = irrep_magnon_thermal_hall_kxy(L, Ts[i], 32, 32);
+        printf("    %-9.3f  %+14.6e\n", Ts[i], k);
+    }
+
     printf("\n  ━ Interpretation ━\n");
     printf("    With Dz ≠ 0, the Dirac touchings at K, K' are gapped and each\n");
     printf("    band carries a non-zero integer Chern number. The sum is zero\n");
     printf("    (any closed Hilbert space has total Chern = 0); the (-1, 0, +1)\n");
     printf("    pattern is the canonical Mook-Henk-Mertig signature observed in\n");
     printf("    Cu(1,3-bdc) (Chisnell 2015) and predicted in Fe₃Sn₂ (Yin 2018).\n\n");
+    printf("    The thermal Hall κ_xy(T) decays exponentially as T → 0 (no\n");
+    printf("    magnons populated below the topological gap of O(D·sin(2π/3))\n");
+    printf("    ≈ 0.13 in J units), grows steeply through the gap-crossing\n");
+    printf("    regime, and asymptotes to a finite plateau at T >> bandwidth.\n");
+    printf("    The plateau value is the magnon-Berry-energy integral\n");
+    printf("    (1/V_uc) Σ_b ∫ Ω_b·ω_b — the leading O(T) term in κ_xy\n");
+    printf("    cancels because Σ_b C_b = 0, but the next-order term ~ ω/T\n");
+    printf("    leaves a finite residual.\n\n");
+    printf("    The crossover temperature is set by the topological gap, so\n");
+    printf("    a measurement of κ_xy(T) directly fixes the gap and thereby\n");
+    printf("    the DMI strength D. Inelastic-neutron + thermal-transport\n");
+    printf("    are the two halves of the experimental fingerprint.\n\n");
     printf("    Closes another loop: from a libirrep DMI bond list (J + Dz on\n");
     printf("    each NN bond, signs alternating by triangle parity) to a\n");
-    printf("    *measurable* topological invariant — the magnon Chern number\n");
-    printf("    that appears as the leading T-quadratic coefficient of the\n");
-    printf("    thermal Hall conductivity κ_xy(T).\n");
+    printf("    *measurable* observable — κ_xy(T) — whose entire shape is\n");
+    printf("    fixed by the magnon Chern numbers + dispersion + DMI gap.\n");
 
     irrep_magnon_lsw_free(L);
     return 0;

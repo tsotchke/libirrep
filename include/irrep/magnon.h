@@ -203,6 +203,45 @@ IRREP_API irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_
                                                           int n_omega, double eta,
                                                           double *intensity_out);
 
+/** @brief Magnon contribution to the Helmholtz free energy F(T) per
+ *         unit cell, in natural units (k_B = ℏ = 1). For a Bose gas
+ *         of non-interacting magnons,
+ *
+ *      F(T) = T · Σ_b ∫_BZ d²k/(2π)² · ln(1 − e^{−ω_b/T})
+ *
+ *  (negative for any T > 0). This is the *correction* to the
+ *  classical-ground-state energy from thermally-populated magnons;
+ *  the total Helmholtz free energy of a magnetic system is E_cl +
+ *  F(T) (caller-supplied E_cl, since LSW alone does not fix the
+ *  classical ground state).
+ *
+ *  Limits:
+ *
+ *    - **T → 0**: F → 0 like −T·Σ e^{−ω_b/T} (vanishes exponentially
+ *      for gapped systems; in 3D FM with quadratic Goldstone, F ∝
+ *      −T^{5/2} via the Bloch-law DOS).
+ *
+ *    - **T ≫ bandwidth**: F ∝ T · ln(T) — unphysical regime, like
+ *      χ(T) and M(T). HP bosonisation breaks down well before this.
+ *
+ *  Connections to other thermodynamic functions:
+ *
+ *      U(T) = F(T) + T·S_th(T)        (internal energy)
+ *      S_th(T) = −∂F/∂T               (entropy)
+ *      C_V(T) = T · ∂²F/∂T² · (−1)    (= ∂U/∂T; computed independently
+ *                                        by `_specific_heat`).
+ *
+ *  Free-energy *differences* between competing magnetic phases (FM
+ *  vs Néel vs canted, etc.) drop out the classical-ground-state E_cl
+ *  if both phases have the same total spin per cell, and F(T) alone
+ *  is enough to pick the energetically favoured phase at finite T.
+ *
+ *  @param L      LSW handle
+ *  @param T      temperature (same units as ω)
+ *  @param Nx, Ny BZ grid (typical 50-200)
+ *  @return       F(T) per unit cell, or NaN on error. */
+IRREP_API double irrep_magnon_free_energy(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny);
+
 /** @brief Magnon contribution to the longitudinal magnetic
  *         susceptibility χ(T) per unit cell, in natural units.
  *

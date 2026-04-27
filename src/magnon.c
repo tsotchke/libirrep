@@ -420,6 +420,47 @@ irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_t *L,
     return IRREP_OK;
 }
 
+double irrep_magnon_free_energy(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny) {
+    if (!L || T <= 0 || Nx <= 0 || Ny <= 0) {
+        irrep_set_error_("irrep_magnon_free_energy: invalid arguments");
+        return NAN;
+    }
+    int     n = L->n_sub;
+    double *omega = malloc((size_t)n * sizeof *omega);
+    double _Complex *u = malloc((size_t)n * n * sizeof *u);
+    if (!omega || !u) {
+        free(omega);
+        free(u);
+        return NAN;
+    }
+    double accum = 0;
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = (double)ix / Nx;
+            double fy = (double)iy / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            irrep_magnon_dispersion(L, kx, ky, omega, u);
+            for (int b = 0; b < n; ++b) {
+                double w = omega[b];
+                if (w < 1e-10)
+                    continue;
+                double x = w / T;
+                /* For very large x: ln(1 − e^{−x}) ≈ −e^{−x}, contribution
+                 * vanishes exponentially. */
+                if (x > 700.0)
+                    continue;
+                /* For very small x: ln(1 − e^{−x}) → ln(x − x²/2) ≈ ln x.
+                 * Use log1p(-exp(-x)) for numerical stability. */
+                accum += log1p(-exp(-x));
+            }
+        }
+    free(omega);
+    free(u);
+    /* F(T) = T · (1/N_BZ) · Σ_b Σ_k ln(1 - exp(-ω_b/T)) per cell. */
+    return T * accum / ((double)Nx * (double)Ny);
+}
+
 double irrep_magnon_susceptibility(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny) {
     if (!L || T <= 0 || Nx <= 0 || Ny <= 0) {
         irrep_set_error_("irrep_magnon_susceptibility: invalid arguments");

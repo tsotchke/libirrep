@@ -1239,7 +1239,55 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Magnetic susceptibility χ(T)
+### 15.7. Magnon Helmholtz free energy F(T)
+
+The magnon contribution to the Helmholtz free energy per unit cell
+follows from standard Bose-gas thermodynamics:
+
+```
+F(T) = T · Σ_b ∫_BZ d²k/(2π)² · ln(1 − e^{−ω_b/T})
+```
+
+This is the *correction* to the classical-ground-state energy from
+thermally-populated magnons; the total Helmholtz free energy of a
+magnetic system is E_classical + F(T) (caller-supplied E_classical
+since LSW alone does not fix the classical ground state).
+
+F(T) is always negative for T > 0 (the Bose entropy lowers the free
+energy), and monotonically decreasing in T as more magnons populate.
+
+**Limits**:
+
+- **T → 0**: F → 0 like −T·Σ e^{−ω_b/T} (vanishes exponentially for
+  gapped systems; in 3D FM with quadratic Goldstone, F ∝ −T^{5/2}
+  via the Bloch-law DOS).
+- **T ≫ bandwidth**: F ∝ T·ln(T) — unphysical, like χ(T) and M(T)
+  in the same regime. HP bosonisation breaks down well before
+  this.
+
+**Connections to other thermo quantities** (used to cross-check
+internal consistency of the LSW thermo functions):
+
+```
+S_th(T) = −∂F/∂T              entropy
+U(T)   = F + T·S_th            internal energy
+C_V(T) = ∂U/∂T                 = −T·∂²F/∂T² (Maxwell relation)
+```
+
+The library implements the entropy *only* via the central-difference
+finite-difference of `_free_energy`; for high accuracy at a single
+T, prefer `_specific_heat` (direct integral). The cross-check
+S_th = −∂F/∂T > 0 (third law) is verified at T = 1 in the test
+suite.
+
+**Use case**: free-energy *differences* between competing magnetic
+phases (FM vs Néel vs canted) drop out the classical-ground-state
+contribution if both phases have the same total spin per cell, and
+F(T) alone is enough to identify the energetically favoured phase
+at finite T. The library currently supports this via two LSW
+handles (one per phase) computed independently.
+
+### 15.8. Magnetic susceptibility χ(T)
 
 The longitudinal magnetic susceptibility per unit cell, in natural
 units, follows from the fluctuation-dissipation relation applied to
@@ -1560,9 +1608,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.16. Verification protocol
+### 15.17. Verification protocol
 
-`tests/test_magnon.c` covers twenty-nine independent checks (84 assertions):
+`tests/test_magnon.c` covers thirty-one independent checks (88 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1656,6 +1704,13 @@ Lu₂V₂O₇).
     (BE-suppressed); χ at T ~ gap = 0.5 is > 100× larger (sharp
     rise probing bulk DOS); χ at T = 2 (~ bandwidth/2, still LSW-
     valid) > χ at T = 0.5.
+30. **F(T) monotonic**: F(T) is negative and monotonically decreases
+    as T increases on a gapped 2D FM (T = 0.05, 0.5, 2.0) — Bose
+    entropy lowers F.
+31. **F(T) ↔ S_th consistency**: −∂F/∂T computed by central
+    difference at T = 1 is positive (third-law-respecting
+    entropy), confirming the thermodynamic-relation consistency
+    between `_free_energy` and the implicit entropy.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

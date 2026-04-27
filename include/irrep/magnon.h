@@ -599,6 +599,33 @@ IRREP_API irrep_status_t irrep_magnon_strip_dispersion(const irrep_magnon_lsw_t 
                                                         double ky, double *omega_out,
                                                         double *edge_weight_out);
 
+/** @brief Magnon spin-Nernst coefficient α^s_xy(T) — the spin-current
+ *         analog of the thermal Hall conductivity. For magnons of
+ *         spin σ_b along the magnetisation axis (σ_b = ±ℏ),
+ *
+ *      α^s_xy(T) = -(k_B / ℏ V_uc · (2π)²)
+ *                  · Σ_b ∫_BZ d²k · c_1(n_B(ω_b/T)) · Ω_b(k)
+ *
+ *  where c_1(g) = (1+g)·ln(1+g) − g·ln(g) is the Matsumoto-Murakami
+ *  spin-current weight function (distinct from the c_2 thermal-Hall
+ *  weight). c_1 limits: c_1(g → 0) → −g ln g → 0 (low T, BE-
+ *  suppressed), c_1(g → ∞) → ln g + 1 (high T, log growth).
+ *
+ *  α^s_xy is the response coefficient to a transverse temperature
+ *  gradient: ⟨j_s_x⟩ = −α^s_xy · ∂_y T. It captures the magnon-
+ *  Berry-curvature spin transport that, alongside κ_xy, is the
+ *  experimental signature of topological magnons. The two
+ *  coefficients differ by which weight function dresses Σ_b ∫ Ω_b.
+ *
+ *  Returned in natural units (k_B = ℏ = 1, A_uc in unit-cell
+ *  geometry units).
+ *
+ *  @param L      LSW handle
+ *  @param T      temperature (same units as ω)
+ *  @param Nx, Ny BZ grid (typical 50–200)
+ *  @return       α^s_xy(T) in natural units, or NaN on error. */
+IRREP_API double irrep_magnon_spin_nernst(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny);
+
 /** @brief Magnon thermal Hall conductivity κ_xy(T) in the
  *         Matsumoto-Murakami formulation (PRL 106, 197202, 2011 /
  *         PRB 89, 054420, 2014).

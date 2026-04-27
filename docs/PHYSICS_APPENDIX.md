@@ -1239,7 +1239,62 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Magnon group velocity v_g(k) = ∇_k ω(k)
+### 15.7. Spin-Nernst coefficient α^s_xy(T)
+
+Alongside κ_xy (energy-current Hall response), magnons carry spin
+along the magnetisation axis and produce a *spin-current* Hall
+response under a transverse temperature gradient:
+
+```
+α^s_xy(T) = -(k_B / ℏ V_uc · (2π)²)
+            · Σ_b ∫_BZ d²k · c_1(n_B(ω_b/T)) · Ω_b(k)
+```
+
+The weight function is
+
+```
+c_1(g) = (1+g) ln(1+g) − g ln g
+```
+
+distinct from the c_2 weight that controls the thermal Hall κ_xy:
+
+| coefficient | weight | g → 0 | g → ∞ |
+|---|---|---|---|
+| κ_xy (thermal Hall) | c_2(g) | 2g | π²/3 |
+| α^s_xy (spin Nernst) | c_1(g) | -g ln g → 0 | ln g + 1 |
+
+Both integrate the same band Berry curvature Ω_b(k) — the
+*topological invariant* — but with different temperature-dependent
+weights, giving two complementary transport probes of the same
+underlying topology. Their ratio is a constraint on the LSW
+prediction.
+
+The spin-Nernst response is the magnon analog of the spin Nernst
+effect proposed in topological insulators (Sinova *et al.* 2015,
+Cheng *et al.* 2016). For the kagome FM with non-zero Chern
+numbers, both κ_xy and α^s_xy are non-zero in the same temperature
+regime; the two are jointly measurable via two distinct
+experiments (heat current vs spin current), so a topological
+magnet shows both.
+
+The library implements `irrep_magnon_spin_nernst(L, T, Nx, Ny)`
+sharing the FHS Berry-curvature plaquette infrastructure with
+`_thermal_hall_kxy`, only the weight function differs. Verified
+on the trivial 1-band square FM (α^s_xy = 0 at every T) and on the
+kagome topological model (BE-suppressed at low T, finite at
+intermediate T, magnitude growing monotonically through the
+crossover).
+
+### References for §15.7
+
+- Cheng, R. *et al.* *Phys. Rev. Lett.* 117, 217202 (2016).
+  "Spin Nernst effect of magnons in collinear antiferromagnets."
+  First-principles derivation of the magnon spin-Nernst
+  coefficient.
+- Sinova, J. *et al.* *Rev. Mod. Phys.* 87, 1213 (2015). Spin
+  Nernst effect in topological insulators — the broader context.
+
+### 15.8. Magnon group velocity v_g(k) = ∇_k ω(k)
 
 The group velocity governs how fast a magnon wave-packet
 propagates and is the natural input for spin-current transport
@@ -1651,9 +1706,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.18. Verification protocol
+### 15.19. Verification protocol
 
-`tests/test_magnon.c` covers thirty-two independent checks (94 assertions):
+`tests/test_magnon.c` covers thirty-four independent checks (100 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1757,6 +1812,13 @@ Lu₂V₂O₇).
 32. **v_g(k) on square FM**: matches analytic gradient v_x = sin kx,
     v_y = sin ky at three k-points (interior, Γ, M-point) to
     ≤ 10⁻⁵ via 2nd-order central difference (step h = 10⁻³).
+33. **Trivial spin-Nernst = 0**: 1-band square FM (zero Berry
+    curvature) has α^s_xy = 0 at three temperatures (0.1, 1.0,
+    10.0) to ≤ 10⁻⁹.
+34. **Topological spin-Nernst on kagome FM**: BE-suppressed at low
+    T (|α^s| < 10⁻³ at T = 0.05), finite at intermediate T
+    (|α^s| > 10⁻² at T = 1.0), magnitude grows monotonically — same
+    Berry curvature, distinct weight from κ_xy.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

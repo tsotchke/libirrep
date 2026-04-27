@@ -1059,6 +1059,63 @@ static void test_group_velocity_square_fm(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (33) Spin-Nernst on the trivial 1-band square FM = 0 (no Berry
+ * curvature, no spin-Hall transport). */
+static void test_spin_nernst_trivial(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double Ts[3] = {0.1, 1.0, 10.0};
+    for (int i = 0; i < 3; ++i) {
+        double a = irrep_magnon_spin_nernst(L, Ts[i], 24, 24);
+        ASSERT_NEAR(a, 0.0, 1e-9, "trivial α^s_xy = 0 (no Berry curvature)");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
+/* (34) Spin-Nernst on the topological kagome FM:
+ *   - vanishes exponentially as T → 0 (no thermal magnons)
+ *   - non-zero at intermediate T (topological response)
+ *   - signed (sign matches the Chern signature; we just check magnitude). */
+static void test_spin_nernst_kagome(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * 1.7320508075688772};
+    double D = 0.15;
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 2, .delta_x = 0, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 2, .bj = 0, .delta_x = 0, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 0, .bj = 2, .delta_x = 0, .delta_y = -1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, -D}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, 1.0, a1, a2, 6, bonds, 0);
+
+    double a_low = irrep_magnon_spin_nernst(L, 0.05, 32, 32);
+    ASSERT(fabs(a_low) < 1e-3, "α^s_xy(T=0.05) ≈ 0 (BE-suppressed)");
+
+    double a_mid = irrep_magnon_spin_nernst(L, 1.0, 32, 32);
+    ASSERT(fabs(a_mid) > 1e-2, "α^s_xy(T=1.0) ≠ 0 (topological response)");
+
+    /* α^s_xy increases from low T to mid T as more magnons populate. */
+    ASSERT(fabs(a_mid) > fabs(a_low),
+           "|α^s_xy| increases from T=0.05 to T=1.0");
+
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -1092,6 +1149,8 @@ int main(void) {
     test_free_energy_monotonic();
     test_free_energy_entropy_consistency();
     test_group_velocity_square_fm();
+    test_spin_nernst_trivial();
+    test_spin_nernst_kagome();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

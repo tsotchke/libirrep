@@ -1239,7 +1239,44 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Inelastic-neutron Q-ω intensity map
+### 15.7. Magnetic susceptibility χ(T)
+
+The longitudinal magnetic susceptibility per unit cell, in natural
+units, follows from the fluctuation-dissipation relation applied to
+the magnon Bose gas:
+
+```
+χ(T) = (1/T) · Σ_b ∫_BZ d²k/(2π)² · n_B(ω_b/T) · (1 + n_B(ω_b/T))
+```
+
+**Physical regimes**:
+
+- **Gapped FM at T → 0**: thermal magnon population is BE-suppressed
+  by the gap; χ → 0 exponentially.
+- **Gapless FM at T → 0**: the integral over the Goldstone
+  Brillouin-zone neighbourhood diverges as Σ_k 1/(βω_k)² ∝
+  T^(d/z − 2) with z = 2 the magnon dynamical exponent; for d = 2
+  this is log-divergent (Mermin-Wagner reflection), for d = 3 it
+  scales as T^(−1/2).
+- **T ~ gap**: χ rises steeply once T crosses the spin-wave gap and
+  starts populating the bulk-magnon DOS.
+- **T ≫ bandwidth**: LSW gives χ ∝ T (Bose enhancement unbounded).
+  This is *unphysical*; HP bosonisation breaks down well before T
+  reaches the bandwidth, and the susceptibility peak that
+  identifies T_c (Curie or Néel) requires beyond-LSW treatment
+  (Schwinger-boson mean field, RPA, classical Monte-Carlo).
+
+**Library convention**: `irrep_magnon_susceptibility(L, T, Nx, Ny)`
+returns the dimensionless integral of `n_B(1+n_B) / T` per cell.
+Convert to SI with the (g·μ_B)²/k_B factor for direct comparison
+with SQUID-magnetometry data.
+
+The pair χ(T), C_V(T), M(T) closes the bulk-thermodynamic triple:
+all three are measurable on the same SQUID + heat-capacity
+cryostat setup, and for any candidate magnetic Hamiltonian the
+library now produces all three from a single LSW handle.
+
+### 15.8. Inelastic-neutron Q-ω intensity map
 
 The previous sections give ω_b(q) (band positions) and S_⊥_b(q)
 (band intensities) separately. The library bundles them into the
@@ -1523,9 +1560,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.15. Verification protocol
+### 15.16. Verification protocol
 
-`tests/test_magnon.c` covers twenty-eight independent checks (81 assertions):
+`tests/test_magnon.c` covers twenty-nine independent checks (84 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1615,6 +1652,10 @@ Lu₂V₂O₇).
 28. **Q-ω Lorentzian sum rule**: integrating I(q, ω) dω at three
     q-points reproduces 2S = 1 to 0.5% (Lorentzian unit-area
     × band-summed S_⊥ = 1).
+29. **χ(T) on gapped FM**: T = 0.05 (10× below gap) gives χ < 10⁻³
+    (BE-suppressed); χ at T ~ gap = 0.5 is > 100× larger (sharp
+    rise probing bulk DOS); χ at T = 2 (~ bandwidth/2, still LSW-
+    valid) > χ at T = 0.5.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

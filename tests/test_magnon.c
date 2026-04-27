@@ -933,6 +933,41 @@ static void test_qomega_lorentzian_sum_rule(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (29) Susceptibility on a gapped FM:
+ *   - χ(T → 0) → 0 exponentially (BE-suppressed below the gap)
+ *   - χ rises steeply once T ~ gap and probes the bulk magnon DOS.
+ *
+ * (LSW is only valid while M(T) ≪ S deviation; at very high T the
+ * Bose enhancement blows up unphysically — that regime is the
+ * Holstein-Primakoff breakdown, NOT a Curie limit. χ(T) is meaningful
+ * only at T ≲ bandwidth.) */
+static void test_susceptibility_gapped_fm(void) {
+    /* Gapped 2D FM: K_z = 0.5 → 2 K_z S = 0.5 gap. */
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, /*Kz=*/0.5);
+
+    /* T = 0.05 is 10× below the gap → exp(-10) ~ 5e-5 suppression. */
+    double chi_low = irrep_magnon_susceptibility(L, 0.05, 32, 32);
+    ASSERT(chi_low < 1e-3, "χ(T → 0) → 0 for gapped FM (BE-suppressed)");
+
+    /* T = 0.5 ~ gap energy → χ has risen substantially. */
+    double chi_gap = irrep_magnon_susceptibility(L, 0.5, 32, 32);
+    ASSERT(chi_gap > 100.0 * chi_low, "χ rises sharply once T ~ gap");
+
+    /* Within LSW-valid range (T ≲ bandwidth = 4): χ continues to grow. */
+    double chi_mid = irrep_magnon_susceptibility(L, 2.0, 32, 32);
+    ASSERT(chi_mid > chi_gap, "χ(T=2) > χ(T=0.5) within LSW regime");
+
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -962,6 +997,7 @@ int main(void) {
     test_magnetization_monotonic();
     test_qomega_map_peaks_track_dispersion();
     test_qomega_lorentzian_sum_rule();
+    test_susceptibility_gapped_fm();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

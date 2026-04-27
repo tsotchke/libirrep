@@ -203,6 +203,42 @@ IRREP_API irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_
                                                           int n_omega, double eta,
                                                           double *intensity_out);
 
+/** @brief Magnon contribution to the longitudinal magnetic
+ *         susceptibility χ(T) per unit cell, in natural units.
+ *
+ *  For a Bose gas of magnons in a Zeeman-coupled FM, the
+ *  fluctuation-dissipation relation gives
+ *
+ *      χ(T) = (1/T) · Σ_b ∫_BZ d²k/(2π)² · n_B(ω_b/T) · (1 + n_B(ω_b/T))
+ *
+ *  in units of (g·μ_B)²/k_B. Limits:
+ *
+ *    - **T → 0, gapped systems** (uniaxial K_z > 0 or DMI gap):
+ *      χ → 0 exponentially (no thermal magnons).
+ *    - **T → 0, gapless systems** (no anisotropy): χ diverges as
+ *      Σ_k 1/(βω_k)² ∝ T^(d/z − 2) for z = 2 quadratic Goldstone
+ *      (FM): 2D log-divergent (Mermin-Wagner echo); 3D: T^{−1/2}
+ *      finite divergence.
+ *    - **T ≫ bandwidth**: LSW formula gives χ ∝ T (Bose enhancement
+ *      unbounded). This is *unphysical*: HP bosonisation breaks down
+ *      well before T ~ bandwidth, and the result should not be
+ *      trusted at high T. Use χ only at T ≲ bandwidth.
+ *
+ *  Within the LSW regime, χ(T) rises steeply once T crosses the
+ *  spin-wave gap and continues to grow. The susceptibility peak
+ *  identifying T_c (Curie or Néel) requires beyond-LSW physics
+ *  (Schwinger-boson MF, RPA, classical Monte-Carlo).
+ *
+ *  Same Goldstone (ω < 10⁻¹⁰) and BE-overflow (x > 700) regularis-
+ *  ations as `_specific_heat`.
+ *
+ *  @param L      LSW handle
+ *  @param T      temperature (same units as ω)
+ *  @param Nx, Ny BZ grid (typical 50-200)
+ *  @return       χ(T) per unit cell, or NaN on error. */
+IRREP_API double irrep_magnon_susceptibility(const irrep_magnon_lsw_t *L, double T, int Nx,
+                                              int Ny);
+
 /** @brief Finite-temperature sublattice-averaged magnetisation M(T)
  *         per spin, in units of (g·μ_B). For a collinear-FM ground
  *         state with spin S per site, the LSW result at T > 0 is

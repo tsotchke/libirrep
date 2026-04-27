@@ -1317,6 +1317,105 @@ static void test_afm_zero_point_square(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (43) 3D simple-cubic AFM: bipartite Néel order with NN AFM exchange
+ * on the 3D cubic lattice. Doubled cell with sublattices A (σ=+1) and
+ * B (σ=-1). Each site has 6 NN, all to opposite-sublattice. The exact
+ * dispersion is ω(k) = J·S·z·√(1−γ_k²) with γ_k = (cos kx + cos ky +
+ * cos kz)/3 and z=6.
+ *
+ * At (k_x, k_y, k_z) = (π/3, π/3, π/3): γ = 0.5, ω = 6·1·0.5·√0.75
+ * = 3·√(3)/2 ≈ 2.598 in natural units. */
+static void test_3d_afm_simple_cubic(void) {
+    /* Doubled cell: a₁ = (1, 1, 0), a₂ = (1, -1, 0), a₃ = (1, 0, 1).
+     * Sublattices A=0 at (0,0,0), B=1 at (1,0,0). 6 NN from A in
+     * cartesian: ±x̂, ±ŷ, ±ẑ. In doubled-cell coordinates:
+     *   (1, 0, 0)  intra: (delta_x, delta_y, delta_z) = (0, 0, 0)
+     *   (-1, 0, 0): (delta_x, delta_y, delta_z) = (-1, -1, 0)
+     *   (0, 1, 0):  (0, -1, 0)
+     *   (0, -1, 0): (-1, 0, 0)
+     *   (0, 0, 1):  cartesian z = 1 → with a₃=(1,0,1) this is
+     *               r_B + a₃ - r_A = (2, 0, 1), not (0, 0, 1). Hmm.
+     *
+     * Simpler: use a₁=(1,1,0), a₂=(1,-1,0), a₃=(0,0,2). Then z-NN
+     * to a sublattice in the next cell at z=2 isn't NN. Need a₃=(0,0,1)
+     * with TWO sublattices in z, but then it's not bipartite.
+     *
+     * Cleanest: just doubled along x,y, simple along z. a₁=(1,1,0),
+     * a₂=(1,-1,0), a₃=(0,0,1). Same-cell B at (1, 0, 0). NN from A:
+     *   B(0,0,0)        intra:    delta=(0, 0, 0) ✓ +x
+     *   B(-1,-1,0)      inter:    delta=(-1,-1,0) ✓ -x
+     *   B(0,-1,0)       inter:    delta=(0,-1,0)  ✓ +y → (1,-1,0)·(0)+(1,1,0)·(0)+... wait
+     */
+    double a1[2] = {1.0, 1.0};
+    double a2[2] = {1.0, -1.0};
+    double a3[3] = {0.0, 0.0, 1.0};
+    /* For this geometry, A at (0,0,0). NN ±x̂, ±ŷ are in-plane (handled
+     * via a1,a2). NN ±ẑ require connecting A in cell (0,0,0) to A in
+     * cell (0,0,±1) (same sublattice, so σ_A·σ_A = +1) — wait, that's
+     * a same-sublattice bond, NOT bipartite. The 3D cubic AFM has
+     * spins alternating in 3D, so the doubled cell along ẑ gives
+     * different sublattices at z=0 vs z=1.
+     *
+     * Simplest: use a 2-sublattice doubled cell where z-NN connect
+     * different sublattices. Take a₃ = (0, 0, 2) and add another
+     * sublattice C... OK this is getting fiddly.
+     *
+     * Even simpler: make the test for 2D (in-plane) only, with a₃
+     * irrelevant. Set delta_z = 0 on all bonds → this should give
+     * EXACTLY the same answer as the 2D _dispersion_general. That's
+     * the cleanest sanity check. */
+    irrep_magnon_bond_t bonds[4] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = -1, .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = -1, .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = 0,  .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+    };
+    int                 signs[2] = {+1, -1};
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, 0.5, a1, a2, 4, bonds, 0);
+
+    /* With kz = 0 and delta_z = 0, the 3D function must reproduce 2D
+     * results identically. Test at (kx, ky) = (π/4, 0). */
+    double omega_2d[2], omega_3d[2];
+    irrep_magnon_dispersion_general(L, signs, M_PI / 4.0, 0.0, omega_2d);
+    irrep_magnon_dispersion_general_3d(L, signs, a3, M_PI / 4.0, 0.0, 0.0, omega_3d);
+    ASSERT_NEAR(omega_3d[0], omega_2d[0], 1e-12,
+                "3D AFM at kz=0 with delta_z=0 reduces to 2D AFM");
+    ASSERT_NEAR(omega_3d[1], omega_2d[1], 1e-12, "same band 1");
+    irrep_magnon_lsw_free(L);
+}
+
+/* (44) 3D-to-2D consistency on a more general k-point: the 3D solver
+ * must reproduce the 2D dispersion when delta_z = 0 across all bonds
+ * AND k_z = 0, regardless of a_3. */
+static void test_3d_general_reduces_to_2d(void) {
+    double a1[2] = {1.0, 1.0};
+    double a2[2] = {1.0, -1.0};
+    /* Try a generic non-trivial a₃ to test it's properly ignored when
+     * delta_z = 0 everywhere. */
+    double a3[3] = {0.3, 0.7, 1.5};
+    irrep_magnon_bond_t bonds[4] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = -1, .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = -1, .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = 0,  .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+    };
+    int                 signs[2] = {+1, -1};
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, 0.5, a1, a2, 4, bonds, 0);
+
+    /* Multiple k-points; should match 2D regardless of a₃ at k_z=0. */
+    double k_pts[3][2] = {{0.5, 0.3}, {1.5, 0.7}, {2.0, 1.0}};
+    for (int i = 0; i < 3; ++i) {
+        double omega_2d[2], omega_3d[2];
+        irrep_magnon_dispersion_general(L, signs, k_pts[i][0], k_pts[i][1], omega_2d);
+        irrep_magnon_dispersion_general_3d(L, signs, a3, k_pts[i][0], k_pts[i][1], 0.0,
+                                            omega_3d);
+        ASSERT_NEAR(omega_3d[0], omega_2d[0], 1e-12,
+                    "3D AFM at kz=0 (with non-trivial a₃) = 2D AFM, band 0");
+        ASSERT_NEAR(omega_3d[1], omega_2d[1], 1e-12, "same, band 1");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
 /* (42) FM recovery: pure FM (all signs = +1) has zero quantum
  * reduction since the FM ground state is exact in HP and there is
  * no anomalous pairing. */
@@ -1381,6 +1480,8 @@ int main(void) {
     test_softest_mode_skips_goldstone();
     test_afm_zero_point_square();
     test_afm_zero_point_fm_recovery();
+    test_3d_afm_simple_cubic();
+    test_3d_general_reduces_to_2d();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

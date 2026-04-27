@@ -610,6 +610,30 @@ IRREP_API irrep_status_t irrep_magnon_chern_3d_slice_kz(const irrep_magnon_lsw_t
                                                          const double a3[3], double kz, int Nx,
                                                          int Ny, double *chern_out);
 
+/** @brief 3D Bogoliubov-Colpa AFM dispersion. Same as
+ *         `irrep_magnon_dispersion_general` but consumes a third
+ *         primitive vector a₃ and per-bond `delta_z` to handle 3D
+ *         lattices: 3D-cubic AFM (NaCl-like Néel), 3D-AFM stacks of
+ *         2D layers, pyrochlore AFM with collinear ground state, etc.
+ *
+ *  Closes the (FM, AFM) × (2D, 3D) capability matrix:
+ *    - 2D FM:  irrep_magnon_dispersion          (Hermitian)
+ *    - 2D AFM: irrep_magnon_dispersion_general  (Bogoliubov-Colpa)
+ *    - 3D FM:  irrep_magnon_dispersion_3d       (Hermitian)
+ *    - 3D AFM: irrep_magnon_dispersion_general_3d (this function)
+ *
+ *  @param L                LSW handle
+ *  @param sublattice_signs σ_α ∈ {+1, -1} per sublattice
+ *  @param a3               third primitive vector (cartesian 3D)
+ *  @param kx, ky, kz       momentum (cartesian 3D)
+ *  @param omega_out        caller buffer of size n_sub doubles —
+ *                          magnon energies sorted ascending */
+IRREP_API irrep_status_t irrep_magnon_dispersion_general_3d(const irrep_magnon_lsw_t *L,
+                                                             const int *sublattice_signs,
+                                                             const double a3[3], double kx,
+                                                             double ky, double kz,
+                                                             double *omega_out);
+
 /** @brief Compute the magnon dispersion ω_b(k) on a *3D* lattice.
  *
  *  The 2D `irrep_magnon_dispersion` only consumes a₁, a₂ and the

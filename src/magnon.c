@@ -1107,6 +1107,111 @@ static void build_M_bdg_(const irrep_magnon_lsw_t *L, const int *sublattice_sign
     }
 }
 
+/* 3D BdG matrix builder. Same as build_M_bdg_ but uses 3D primitive
+ * vector a₃ and per-bond delta_z. */
+static void build_M_bdg_3d_(const irrep_magnon_lsw_t *L, const int *sublattice_signs,
+                             const double a3[3], double kx, double ky, double kz,
+                             double _Complex *M) {
+    int n = L->n_sub;
+    int N = 2 * n;
+    memset(M, 0, (size_t)N * N * sizeof(double _Complex));
+    double S = L->S;
+
+    for (int a = 0; a < n; ++a) {
+        M[a * N + a] += 2.0 * L->Kz * S;
+        M[(a + n) * N + (a + n)] += 2.0 * L->Kz * S;
+    }
+
+    for (int b = 0; b < L->n_bonds; ++b) {
+        const irrep_magnon_bond_t *bd = &L->bonds[b];
+        int    i = bd->bi, j = bd->bj;
+        int    sigma = sublattice_signs[i] * sublattice_signs[j];
+        double tx = bd->delta_x * L->a1[0] + bd->delta_y * L->a2[0] + bd->delta_z * a3[0];
+        double ty = bd->delta_x * L->a1[1] + bd->delta_y * L->a2[1] + bd->delta_z * a3[1];
+        double tz = bd->delta_z * a3[2];
+        double phase = kx * tx + ky * ty + kz * tz;
+        double _Complex eikt = cos(phase) + I * sin(phase);
+        double _Complex eikt_neg = cos(phase) - I * sin(phase);
+
+        if (sigma > 0) {
+            M[i * N + i] += -S * bd->J;
+            M[j * N + j] += -S * bd->J;
+            M[(i + n) * N + (i + n)] += -S * bd->J;
+            M[(j + n) * N + (j + n)] += -S * bd->J;
+            double _Complex hop_part = (S * bd->J - I * S * bd->D[2]) * eikt;
+            M[i * N + j] += hop_part;
+            M[j * N + i] += conj(hop_part);
+            double _Complex hop_hole = (S * bd->J + I * S * bd->D[2]) * eikt;
+            M[(i + n) * N + (j + n)] += hop_hole;
+            M[(j + n) * N + (i + n)] += conj(hop_hole);
+        } else {
+            M[i * N + i] += S * bd->J;
+            M[j * N + j] += S * bd->J;
+            M[(i + n) * N + (i + n)] += S * bd->J;
+            M[(j + n) * N + (j + n)] += S * bd->J;
+            double _Complex pair_fwd = (S * bd->J - I * S * bd->D[2]) * eikt;
+            double _Complex pair_bwd = (S * bd->J - I * S * bd->D[2]) * eikt_neg;
+            M[i * N + (j + n)] += pair_fwd;
+            M[j * N + (i + n)] += pair_bwd;
+            M[(j + n) * N + i] += conj(pair_fwd);
+            M[(i + n) * N + j] += conj(pair_bwd);
+        }
+    }
+}
+
+irrep_status_t irrep_magnon_dispersion_general_3d(const irrep_magnon_lsw_t *L,
+                                                   const int *sublattice_signs,
+                                                   const double a3[3], double kx, double ky,
+                                                   double kz, double *omega_out) {
+    if (!L || !sublattice_signs || !a3 || !omega_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    int N = 2 * n;
+    for (int a = 0; a < n; ++a)
+        if (sublattice_signs[a] != +1 && sublattice_signs[a] != -1)
+            return IRREP_ERR_INVALID_ARG;
+
+    double _Complex *M = malloc((size_t)N * N * sizeof *M);
+    double _Complex *K = malloc((size_t)N * N * sizeof *K);
+    double _Complex *W = malloc((size_t)N * N * sizeof *W);
+    double          *eigs = malloc((size_t)N * sizeof *eigs);
+    double _Complex *evecs = malloc((size_t)N * N * sizeof *evecs);
+    if (!M || !K || !W || !eigs || !evecs) {
+        free(M); free(K); free(W); free(eigs); free(evecs);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    static const double EPS_PSD = 1e-10;
+
+    build_M_bdg_3d_(L, sublattice_signs, a3, kx, ky, kz, M);
+    for (int a = 0; a < N; ++a)
+        M[a * N + a] += EPS_PSD;
+    if (cholesky_(N, M, K) != 0) {
+        free(M); free(K); free(W); free(eigs); free(evecs);
+        irrep_set_error_("irrep_magnon_dispersion_general_3d: M(k) is not positive-definite "
+                          "even with regularisation at k=(%g, %g, %g)", kx, ky, kz);
+        return IRREP_ERR_INVALID_ARG;
+    }
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j) {
+            double _Complex s = 0;
+            for (int l = 0; l < N; ++l) {
+                double sg = (l < n) ? +1.0 : -1.0;
+                s += sg * K[i * N + l] * conj(K[j * N + l]);
+            }
+            W[i * N + j] = s;
+        }
+    hermitian_eig_(N, W, eigs, evecs);
+    int count = 0;
+    for (int i = 0; i < N; ++i)
+        if (eigs[i] > 0)
+            omega_out[count++] = eigs[i];
+    while (count < n)
+        omega_out[count++] = 0.0;
+
+    free(M); free(K); free(W); free(eigs); free(evecs);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_afm_zero_point(const irrep_magnon_lsw_t *L,
                                             const int *sublattice_signs, int Nx, int Ny,
                                             double *delta_m_out) {

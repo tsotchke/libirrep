@@ -203,6 +203,43 @@ IRREP_API irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_
                                                           int n_omega, double eta,
                                                           double *intensity_out);
 
+/** @brief Locate the *softest mode* — the k-point + band where the
+ *         dispersion attains its global minimum across a sampled BZ.
+ *
+ *  Useful for identifying:
+ *
+ *    - **Ordering wavevectors**: an AFM-canting / helimagnet
+ *      instability soft-modes at a finite k* before condensing into
+ *      a new ordered phase. The softest-mode k tells you what
+ *      ground-state ansatz to switch to.
+ *
+ *    - **Dirac points**: when the gap between bands b and b+1
+ *      closes at some k*, the softest mode of the upper band is
+ *      degenerate with the highest of the lower — a Dirac touching.
+ *
+ *    - **Flat bands**: if the softest-mode value is reached on a
+ *      large region of the BZ rather than a single k-point, the
+ *      band is flat at that energy.
+ *
+ *  The `exclude_below` knob skips numerical-noise Goldstone modes:
+ *  set to a small ε ~ 10⁻⁶ to find the *next* softest above a true
+ *  Goldstone; set to -∞ for the global minimum.
+ *
+ *  Returns (kx, ky) at floating-point precision of the underlying
+ *  grid (Nx × Ny resolution).
+ *
+ *  @param L              LSW handle
+ *  @param Nx, Ny         BZ grid (typical 50-200)
+ *  @param exclude_below  modes with ω ≤ this are skipped
+ *  @param kx_out, ky_out caller buffers for the soft-mode momentum
+ *  @param omega_out      caller buffer for the soft-mode energy
+ *  @param band_out       caller buffer for the band index (0..n_sub-1)
+ *                        of the softest mode */
+IRREP_API irrep_status_t irrep_magnon_softest_mode(const irrep_magnon_lsw_t *L, int Nx, int Ny,
+                                                    double exclude_below, double *kx_out,
+                                                    double *ky_out, double *omega_out,
+                                                    int *band_out);
+
 /** @brief Scan the dispersion across the BZ and return the global
  *         minimum and maximum magnon energies.
  *

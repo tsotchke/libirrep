@@ -1231,6 +1231,59 @@ static void test_internal_energy_consistency(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (39) Softest-mode locator: square FM has its band minimum at Γ.
+ * Verify (kx*, ky*) ≈ (0, 0), ω* ≈ 0, band = 0. */
+static void test_softest_mode_square_fm(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+
+    double kx, ky, omega;
+    int    band;
+    irrep_magnon_softest_mode(L, 32, 32, /*exclude_below=*/-1.0, &kx, &ky, &omega, &band);
+    /* On a 32×32 grid sampled from [0, 2π)², the (0, 0) point is at
+     * fx = fy = 0 → cartesian (0, 0). ω there is exactly 0. */
+    ASSERT_NEAR(omega, 0.0, 1e-12, "square FM softest mode at Γ: ω = 0");
+    ASSERT_NEAR(kx, 0.0, 1e-12, "softest mode at kx = 0");
+    ASSERT_NEAR(ky, 0.0, 1e-12, "softest mode at ky = 0");
+    ASSERT(band == 0, "softest mode is band 0 (only band)");
+
+    irrep_magnon_lsw_free(L);
+}
+
+/* (40) Softest mode of layered/topological systems can be at finite
+ * k. For an *AFM*-canting model with FM J + finite competing AFM
+ * second-neighbour coupling, the softest-mode k* shifts away from
+ * Γ — but here we use a pure FM model where the soft-mode is
+ * trivially at Γ. We test instead that exclude_below skips Γ. */
+static void test_softest_mode_skips_goldstone(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double kx, ky, omega;
+    int    band;
+    /* Skip Γ by setting exclude_below = 1e-6: the next-lowest mode
+     * comes from k slightly off-Γ. ω there is ≪ bandwidth = 4. */
+    irrep_magnon_softest_mode(L, 32, 32, /*exclude_below=*/1e-6, &kx, &ky, &omega, &band);
+    ASSERT(omega > 0 && omega < 1.0, "next-softest mode is small but non-zero");
+    /* The (kx, ky) returned should NOT be exactly (0, 0). */
+    ASSERT(fabs(kx) + fabs(ky) > 1e-3,
+           "next-softest mode is at finite k (Γ excluded)");
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -1270,6 +1323,8 @@ int main(void) {
     test_band_extrema_gapless_fm();
     test_band_extrema_gapped_fm();
     test_internal_energy_consistency();
+    test_softest_mode_square_fm();
+    test_softest_mode_skips_goldstone();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

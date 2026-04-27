@@ -1239,7 +1239,42 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Spin gap and bandwidth
+### 15.7. Softest-mode locator
+
+Beyond just the spin-gap value, the *location* of the band minimum
+in the BZ is itself a useful observable. The library implements
+`irrep_magnon_softest_mode(L, Nx, Ny, exclude_below, kx*, ky*, ω*,
+band)` to find the (kx*, ky*, ω*, band-index) of the global minimum
+across the sampled BZ.
+
+**Use cases**:
+
+- **Ordering wavevector identification**: AFM-canting, helimagnet,
+  and skyrmion-lattice instabilities first soften at a finite k*.
+  The softest-mode wavevector tells you what new ground-state
+  ansatz to switch to (replace the LSW handle with one centred
+  on the new ground state).
+
+- **Dirac point detection**: when the upper-band softest-mode
+  energy approaches the lower-band's hardest-mode energy, the
+  bands touch at a Dirac point. Useful for Weyl point hunting in
+  3D.
+
+- **Flat-band screening**: a softest-mode value reached over a
+  large connected region (rather than a single k) flags a flat
+  band — a signature of moiré magnets and frustrated lattices.
+
+- **Goldstone post-processing**: with `exclude_below = 1e-6`, the
+  next-softest mode above a true Goldstone is identified. For an
+  isotropic FM that's a small kx,ky off Γ; for an anisotropy-gapped
+  FM the entire next-softest energy gap is reported.
+
+Verified on the canonical 2D NN-Heisenberg square FM:
+- Without exclude_below: softest mode at Γ exactly, ω = 0, band 0.
+- With exclude_below = 1e-6: next-softest at finite k off Γ with
+  ω > 0 and ω ≪ bandwidth.
+
+### 15.8. Spin gap and bandwidth
 
 The two universal dispersion-summary statistics quoted in nearly
 every inelastic-neutron paper are:
@@ -1819,9 +1854,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.22. Verification protocol
+### 15.23. Verification protocol
 
-`tests/test_magnon.c` covers thirty-eight independent checks (115 assertions):
+`tests/test_magnon.c` covers forty independent checks (121 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1945,6 +1980,12 @@ Lu₂V₂O₇).
     `dU/dT ≈ C_V` cross-check between two independent BZ integrals
     matches at T = 1 to ≤ 1% — non-trivial agreement of formulas
     *and* grids.
+39. **Softest mode at Γ on square FM**: 32 × 32 BZ scan returns
+    (kx*, ky*) = (0, 0), ω* = 0 exactly, band = 0 — confirms
+    Goldstone identification.
+40. **Softest mode skips Γ via exclude_below**: setting
+    exclude_below = 10⁻⁶ pushes the located mode to a finite k
+    off Γ with 0 < ω < 1, validating the threshold knob.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

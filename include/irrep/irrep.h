@@ -38,6 +38,7 @@
 #include <irrep/lattice3d.h>
 #include <irrep/space_group.h>
 #include <irrep/dmi.h>
+#include <irrep/dmi_hamiltonian.h>
 #include <irrep/config_project.h>
 #include <irrep/rdm.h>
 #include <irrep/hamiltonian.h>

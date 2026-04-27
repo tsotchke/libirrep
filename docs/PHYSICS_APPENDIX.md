@@ -977,7 +977,154 @@ Crystallographic Server (Gallego, Perez-Mato et al., 2016).
 
 ---
 
-## 15. Bibliography anchor
+## 15. Linearised spin-wave theory and topological magnons
+
+Once the symmetry analyzer fixes the structure of the bilinear bond
+Hamiltonian on a given lattice, the next falsifiable observable is the
+*magnon spectrum*. Linearised spin-wave theory (LSW) is the standard
+1/S expansion that turns a quantum spin Hamiltonian about a classical
+ordered ground state into a quadratic *bosonic* Hamiltonian whose
+eigenvalues give the dispersion ω_b(k) and whose eigenvectors carry a
+gauge-invariant Berry curvature with quantised total flux per band.
+
+### 15.1. Holstein-Primakoff bosonisation
+
+For a collinear FM ground state aligned with ẑ, the
+Holstein-Primakoff (1940) substitution is
+
+```
+S_i^z = S − a_i^† a_i
+S_i^+ = √(2S − a_i^† a_i) a_i ≈ √(2S) a_i
+S_i^- = a_i^† √(2S − a_i^† a_i) ≈ √(2S) a_i^†
+```
+
+with `[a_i, a_j^†] = δ_{ij}`. The √-radical is expanded in 1/S; LSW
+keeps only the leading term, which is exact for non-interacting
+magnons and corrections are O(1/S) per loop. The bilinear-in-bosons
+Hamiltonian for a Heisenberg + DMI(z) + uniaxial-anisotropy model is
+
+```
+H ≈ H_const + sum_<ij> [
+       −J·S (n_i + n_j)                             [diagonal "self-energy"]
+     + J·S (a_i^† a_j + a_j^† a_i)                  [Heisenberg hopping]
+     − i S D_z (a_i^† a_j − a_j^† a_i)              [DMI hopping, complex]
+     ]
+   + 2 K_z S sum_i n_i                              [anisotropy gap]
+```
+
+where `n_i = a_i^† a_i`. After Bloch transformation
+`a_i = (1/√N) Σ_k e^{ik·r_i} a_k`, the Hamiltonian decomposes into
+independent k-blocks `H(k)`, each an n_sub × n_sub Hermitian matrix
+whose eigenvalues are the magnon-band dispersions ω_b(k).
+
+### 15.2. Berry curvature via the Fukui-Hatsugai-Suzuki plaquette
+
+The eigenvectors |u_b(k)⟩ of H(k) span a complex line bundle over the
+2D Brillouin torus. The U(1) Berry connection
+`A_a^b(k) = i ⟨u_b(k)|∂_a|u_b(k)⟩` and curvature
+`Ω_b(k) = ∂_kx A_y^b − ∂_ky A_x^b` are gauge-dependent locally but
+their flux integral over the BZ is gauge-invariant and quantised:
+
+```
+C_b = (1 / 2π) ∫_BZ Ω_b(k) d²k   ∈ ℤ
+```
+
+is the band Chern number. Numerically computing A_a^b directly is
+fragile because eigenvectors at different k can wind through arbitrary
+phases. The standard fix is the Fukui-Hatsugai-Suzuki (2005)
+formulation: discretise the BZ and replace the connection with a
+*link variable*
+
+```
+U_a^b(k) = ⟨u_b(k)|u_b(k + Δk_a)⟩ / |⟨u_b(k)|u_b(k + Δk_a)⟩|
+```
+
+The plaquette flux
+
+```
+F_b(k) = arg [ U_x(k) · U_y(k+Δkx) · U_x*(k+Δky) · U_y*(k) ]
+```
+
+is a gauge-invariant quantity (the U(1) phases of the eigenvectors
+cancel around the closed loop) that converges quadratically in Δk to
+∫_plaquette Ω. Summing over all plaquettes gives 2π · C_b, exact to
+floating-point modulo a single 2π winding ambiguity that resolves
+once the lattice is fine enough to resolve every band gap.
+
+### 15.3. Topological magnons on the kagome ferromagnet
+
+The simplest 2D model with non-zero magnon Chern numbers is a kagome
+FM with NN Heisenberg J (J<0) and an out-of-plane DMI Dz on every NN
+bond, with Dz alternating sign on up- vs down-pointing triangles. This
+is the magnon analog of the Haldane (1988) model and was first
+analysed by Mook, Henk and Mertig (2014) and Owerre (2016). Its three
+bands carry Chern numbers (−1, 0, +1) and the gap at the K point is
+O(D · sin(2π/3)) per the linearised theory. Materials known or
+predicted to host this band structure include Cu(1,3-bdc) (Chisnell
+*et al.* 2015 — direct neutron observation of the gap), Fe₃Sn₂ (Yin
+*et al.* 2018 — predicted via DFT-derived bond parameters), and
+Lu₂V₂O₇ (Onose *et al.* 2010 — pyrochlore, but the same mechanism
+generalises).
+
+### 15.4. Verification protocol
+
+`tests/test_magnon.c` covers seven independent checks:
+
+1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
+   five k-points to 1e-12. Closed-form sanity check that the LSW
+   Hamiltonian builder reproduces the textbook 1-band Heisenberg
+   limit exactly.
+2. **Anisotropy gap**: ω(k=0) = 2 K_z S, confirms the K_z term enters
+   the diagonal with the correct sign.
+3. **2-sublattice cell folding**: doubling the unit cell along one
+   axis and re-running yields a 2-band structure that traces the
+   original 1-band dispersion at the two BZ images, both at the
+   X-point degeneracy and off-symmetry.
+4. **1-band closed form with DMI**: ω(k) = 2|J|S(2 − cos kx − cos ky)
+   + 2 S Σ Dz_a sin(k·t_a), and `ω(k) − ω(−k) = 4 S Σ Dz_a sin(k·t_a)`,
+   verifying the *non-reciprocal magnon* signature that DMI on
+   inversion-broken bonds produces (Yamamoto *et al.* 2019).
+5. **FM stability over BZ**: ω(k) ≥ 0 at every sampled k for J<0,
+   K_z ≥ 0 — the FM ansatz is energetically favoured iff the LSW
+   spectrum is positive.
+6. **Trivial-band Berry**: a 1-sublattice model with D=0 has Ω(k) = 0
+   identically (no off-diagonal phase to wind around).
+7. **Trivial-band Chern**: Σ_BZ Ω = 0 for the same trivial model.
+
+The end-to-end `examples/kagome_topological_magnons.c` demo
+reproduces the canonical (−1, 0, +1) Chern signature of the kagome
+FM with Dz alternating by triangle parity.
+
+### References for §15
+
+- Holstein, T. and Primakoff, H. *Phys. Rev.* 58, 1098 (1940). The
+  original 1/S bosonisation.
+- Fukui, T., Hatsugai, Y. and Suzuki, H. *J. Phys. Soc. Japan* 74,
+  1674 (2005). Gauge-invariant link-variable formulation of band
+  Chern numbers.
+- Haldane, F. D. M. *Phys. Rev. Lett.* 61, 2015 (1988). The original
+  topological-band model on the honeycomb lattice with imaginary NN
+  hopping — the magnon kagome model is its bosonic analog.
+- Onose, Y. *et al.* *Science* 329, 297 (2010). First experimental
+  observation of magnon thermal Hall effect (Lu₂V₂O₇ pyrochlore).
+- Mook, A., Henk, J. and Mertig, I. *Phys. Rev. B* 89, 134409
+  (2014). LSW on the kagome FM with DMI — predicts (−1, 0, +1)
+  Chern.
+- Chisnell, R. *et al.* *Phys. Rev. Lett.* 115, 147201 (2015).
+  Direct inelastic-neutron observation of the topological magnon
+  gap at the K point in Cu(1,3-bdc).
+- Owerre, S. A. *J. Phys. Condens. Matter* 28, 386001 (2016).
+  Magnon Berry curvature on kagome / honeycomb / triangular FM
+  systematics.
+- Yin, J.-X. *et al.* *Nature* 562, 91 (2018). Fe₃Sn₂ massive Dirac
+  fermions / topological magnon prediction.
+- Yamamoto, K. *et al.* *Phys. Rev. Lett.* 122, 217201 (2019).
+  Non-reciprocal-magnon signature of DMI on inversion-broken
+  lattices.
+
+---
+
+## 16. Bibliography anchor
 
 A per-topic primary-source list, with DOIs and edition specificity where
 available, is in [`docs/REFERENCES.md`](REFERENCES.md). Every non-trivial

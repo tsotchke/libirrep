@@ -50,6 +50,8 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | `<irrep/spin_project.h>` (1.3) | total-J projection on spin-½ chains | — | `irrep_spin_half_apply_rotation`, `irrep_spin_project_spin_half` |
 | `<irrep/tensor_product.h>` (half-int path, 1.3) | spinor tensor products | `tp_2j_descriptor_t` | `irrep_tp_2j_enumerate_paths`, `_build`, `_free`, `_apply`, `_apply_weighted`, `_apply_backward`, `_output_dim`, `_num_paths` |
 | `<irrep/dmi.h>` (1.3) | Bond + triangle exchange-tensor symmetry analyzers (DMI + symmetric exchange + scalar chirality + magnetic-point-group antiunitary) | `irrep_dmi_sym_op_t` | `irrep_dmi_allowed_basis`, `_from_pg`, `irrep_exchange_symmetric_basis`, `_from_pg`, `irrep_chirality_allowed`, `_from_pg`, `irrep_pg_element` |
+| `<irrep/dmi_hamiltonian.h>` (1.3) | spin-½ DMI apply operator (`H = Σ D · (S_i × S_j)`) | `irrep_dmi_hamiltonian_t` | `irrep_dmi_hamiltonian_new`, `_free`, `irrep_dmi_apply`, `irrep_dmi_hamiltonian_num_sites`, `_dim` |
+| `<irrep/magnon.h>` (1.4-α) | Linearised spin-wave theory: dispersion ω(k), Berry curvature, Chern numbers for FM ground state with Heisenberg + DMI(z) + uniaxial anisotropy | `irrep_magnon_lsw_t`, `irrep_magnon_bond_t` | `irrep_magnon_lsw_new`, `_free`, `irrep_magnon_dispersion`, `irrep_magnon_berry`, `irrep_magnon_chern`, `irrep_magnon_lsw_num_bands` |
 | `<irrep/irrep.h>` | umbrella | — | all of the above |
 
 ---
@@ -469,6 +471,60 @@ analyzers return the complete symmetry-allowed exchange-tensor
 structure (DMI, J^s, χ) that downstream codes (DFT, mumax, OOMMF)
 need as parameter scaffolding. It automates the crystallographer's
 hand-derivation from International Tables vol. A.
+
+### `dmi_hamiltonian.h` — spin-½ DMI apply operator
+
+`irrep_dmi_hamiltonian_t` is the apply-only operator for
+`H_DMI = sum_<ij> D_ij · (S_i × S_j)` in the spin-½ computational
+basis. Caller passes a bond list `(bi, bj)` plus per-bond DMI
+components `(D_x[b], D_y[b], D_z[b])`. `irrep_dmi_apply` is the
+matrix-free apply suitable for Lanczos / power-iteration ED. Pairs
+naturally with `irrep_heisenberg_apply` via a small combined-apply
+callback so a single Lanczos pass diagonalises J + DMI.
+
+Used in `examples/b20_chiral_4site_ed.c` to trace the spin-canting
+transition under increasing D/J on a 4-site closed ring with all-bond
+D ∥ bond (Bak-Jensen B20 pattern derived from `dmi.h`). Demonstrates
+DMI-driven energy lowering — the same mechanism that produces the
+helimagnetic phase + skyrmion lattice on the 3D B20 lattice.
+
+### `magnon.h` — linearised spin-wave theory and topological magnons
+
+Holstein-Primakoff bosonisation of a Heisenberg + DMI(z) +
+uniaxial-anisotropy Hamiltonian on top of a collinear-FM-along-z
+ground state. Constructs the bilinear magnon Bloch Hamiltonian H(k)
+from a 2D bond list and exposes three observables:
+
+1. **Dispersion**: `irrep_magnon_dispersion(L, kx, ky, ω, u)` returns
+   the n_sub band energies ω_b(k) (sorted ascending) and complex
+   eigenvectors |u_b(k)⟩ via internal Hermitian-Jacobi diagonalisation.
+2. **Berry curvature**: `irrep_magnon_berry(L, kx, ky, Δk, Ω)`
+   returns Ω_b(k) for every band via the gauge-invariant
+   Fukui-Hatsugai-Suzuki 4-point plaquette of half-side Δk —
+   converges quadratically in Δk and is robust against the U(1)
+   phase ambiguity of individual eigenvectors.
+3. **Chern numbers**: `irrep_magnon_chern(L, Nx, Ny, C)` integrates
+   Ω_b over the BZ on an Nx × Ny grid. Returns near-integer values
+   for gapped bands.
+
+Inputs: `n_sub` magnetic sublattices, spin S, primitive vectors a₁, a₂,
+bond list with per-bond `(J, D[3])`, uniaxial anisotropy K_z. The bond
+list convention is each undirected bond passed once — the LSW
+construction internally adds both orientations and the DMI sign-flip
+under bond reversal.
+
+End-to-end demo `examples/kagome_topological_magnons.c` reproduces
+the canonical Mook-Henk-Mertig (−1, 0, +1) magnon-Chern signature on
+a kagome FM with Dz alternating by triangle parity (Cu(1,3-bdc),
+Fe₃Sn₂). Closes the loop from libirrep's algebraic layer to a
+*measurable* topological invariant — the magnon Chern number that
+appears as the leading T-quadratic coefficient of the thermal-Hall
+conductivity κ_xy(T). Derivation in `docs/PHYSICS_APPENDIX.md` §15.
+
+The module is geometry-agnostic 2D for v1.4-α; 3D extension to
+hexagonal / rhombohedral primitive cells (e.g., Cu₂OSeO₃ B20 or
+honeycomb stacks) is a straightforward extension once the caller
+supplies a third primitive vector — deferred to v1.5.
 
 ### `sym_group.h` — symmetric group, Young tableaux
 

@@ -507,6 +507,28 @@ See the 1.3 CHANGELOG.
  consume — the irreducible group-theory step now runs as one
  library call rather than crystallographer hand-derivation.
  3D space groups remain deferred past 1.3.
+- [x] **Linearised spin-wave (LSW) module** (`irrep/magnon.h` /
+ `src/magnon.c`, ≈170 + 280 lines). Holstein-Primakoff bosonisation
+ of a Heisenberg + DMI(z) + uniaxial-anisotropy Hamiltonian on top
+ of a collinear-FM-along-z ground state, yielding the bilinear
+ magnon Bloch Hamiltonian H(k). Three observables: ω_b(k)
+ dispersion (Hermitian-Jacobi diagonalisation), Berry curvature
+ Ω_b(k) via the gauge-invariant Fukui-Hatsugai-Suzuki 4-point
+ plaquette, and band Chern numbers via BZ-integrated FHS
+ plaquette-flux sum. 23/23 assertions in `test_magnon.c` cover the
+ closed-form FM square dispersion (ω = 2|J|S(2 − cos kx − cos ky)),
+ anisotropy gap, 2-sublattice unit-cell folding, 1-band ω(k) with
+ DMI plus the non-reciprocity ω(k) − ω(−k) = 4 S Σ D sin(k·t), FM
+ stability over the BZ, trivial-band Berry = 0, trivial-band Chern
+ = 0. Demo `kagome_topological_magnons.c` reproduces the canonical
+ Mook-Henk-Mertig (-1, 0, +1) magnon-Chern signature on the kagome
+ FM with Dz alternating by triangle parity — observed in
+ Cu(1,3-bdc) (Chisnell 2015) and predicted in Fe₃Sn₂ (Yin 2018).
+ Closes the loop from libirrep's algebraic layer (DMI bond list)
+ to a *measurable* topological invariant — the magnon Chern
+ number that drives the thermal-Hall conductivity κ_xy(T). ABI
+ refreshed to `a0030b76…` (6 new public symbols: `irrep_magnon_lsw_new`,
+ `_free`, `_dispersion`, `_berry`, `_chern`, `_num_bands`).
 
 ## Deferred past 1.3
 

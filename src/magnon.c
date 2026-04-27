@@ -420,6 +420,38 @@ irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_t *L,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_group_velocity(const irrep_magnon_lsw_t *L, double kx, double ky,
+                                            double h, double *vx_out, double *vy_out) {
+    if (!L || !vx_out || !vy_out || h <= 0)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    double *omega_pp = malloc((size_t)n * sizeof *omega_pp);
+    double *omega_mm = malloc((size_t)n * sizeof *omega_mm);
+    double _Complex *u_dummy = malloc((size_t)n * n * sizeof *u_dummy);
+    if (!omega_pp || !omega_mm || !u_dummy) {
+        free(omega_pp);
+        free(omega_mm);
+        free(u_dummy);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    /* x-direction */
+    irrep_magnon_dispersion(L, kx + h, ky, omega_pp, u_dummy);
+    irrep_magnon_dispersion(L, kx - h, ky, omega_mm, u_dummy);
+    for (int b = 0; b < n; ++b)
+        vx_out[b] = (omega_pp[b] - omega_mm[b]) / (2.0 * h);
+
+    /* y-direction */
+    irrep_magnon_dispersion(L, kx, ky + h, omega_pp, u_dummy);
+    irrep_magnon_dispersion(L, kx, ky - h, omega_mm, u_dummy);
+    for (int b = 0; b < n; ++b)
+        vy_out[b] = (omega_pp[b] - omega_mm[b]) / (2.0 * h);
+
+    free(omega_pp);
+    free(omega_mm);
+    free(u_dummy);
+    return IRREP_OK;
+}
+
 double irrep_magnon_free_energy(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny) {
     if (!L || T <= 0 || Nx <= 0 || Ny <= 0) {
         irrep_set_error_("irrep_magnon_free_energy: invalid arguments");

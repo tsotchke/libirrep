@@ -203,6 +203,42 @@ IRREP_API irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_
                                                           int n_omega, double eta,
                                                           double *intensity_out);
 
+/** @brief Compute the magnon group velocity v_g(k) = ∇_k ω_b(k) for
+ *         each band at a single k point via central finite difference.
+ *
+ *  The group velocity tells you how fast a magnon wave-packet
+ *  propagates and is the natural input for spin-current transport
+ *  calculations:
+ *
+ *      j_s = (1/V) Σ_b ∫ d²k/(2π)² · v_g_b(k) · n_B(ω_b/T)
+ *
+ *  is the magnon spin-current density. Regions of the BZ where
+ *  v_g is large dominate spin transport; regions with v_g → 0 (band
+ *  bottoms / tops, flat bands) are spectator modes. Linearly
+ *  dispersing magnons (Dirac points, AFM Goldstone) have constant
+ *  |v_g| ~ c_s (spin-wave velocity).
+ *
+ *  Central-difference estimator:
+ *
+ *      v_x_b(k) = [ω_b(k_x + h, k_y) − ω_b(k_x − h, k_y)] / (2h)
+ *      v_y_b(k) = [ω_b(k_x, k_y + h) − ω_b(k_x, k_y − h)] / (2h)
+ *
+ *  Step `h` (typical 1e-3 - 1e-2): smaller h gives sharper local
+ *  resolution but more numerical noise; larger h smooths over band
+ *  curvature. Near band crossings, the eigenvector ordering can
+ *  flip and the central difference picks up a discontinuity — the
+ *  result there is unreliable; the user should be aware of band-
+ *  crossing locations from the dispersion plot.
+ *
+ *  @param L         LSW handle
+ *  @param kx, ky    central momentum
+ *  @param h         finite-difference step (typical 1e-3 - 1e-2)
+ *  @param vx_out    caller buffer of size n_sub doubles
+ *  @param vy_out    caller buffer of size n_sub doubles */
+IRREP_API irrep_status_t irrep_magnon_group_velocity(const irrep_magnon_lsw_t *L, double kx,
+                                                      double ky, double h, double *vx_out,
+                                                      double *vy_out);
+
 /** @brief Magnon contribution to the Helmholtz free energy F(T) per
  *         unit cell, in natural units (k_B = ℏ = 1). For a Bose gas
  *         of non-interacting magnons,

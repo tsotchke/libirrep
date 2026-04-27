@@ -1025,6 +1025,40 @@ static void test_free_energy_entropy_consistency(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (32) Group velocity on the 1-band square FM. Closed form:
+ *   ω(k) = 2|J|S(2 - cos kx - cos ky) = 1·(2 - cos kx - cos ky)  [J=-1, S=½]
+ *   v_x = sin(kx),  v_y = sin(ky)
+ * Test at three k-points to ≤ 1e-7 (central-difference 2nd order). */
+static void test_group_velocity_square_fm(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+
+    /* k = (π/3, π/4) → v_x = sin(π/3) ≈ 0.866, v_y = sin(π/4) ≈ 0.707 */
+    double vx, vy;
+    irrep_magnon_group_velocity(L, M_PI / 3.0, M_PI / 4.0, 1e-3, &vx, &vy);
+    ASSERT_NEAR(vx, sin(M_PI / 3.0), 1e-5, "FM square v_x = sin(kx)");
+    ASSERT_NEAR(vy, sin(M_PI / 4.0), 1e-5, "FM square v_y = sin(ky)");
+
+    /* At Γ (k=0, 0): v_g = 0 (band minimum). */
+    irrep_magnon_group_velocity(L, 1e-6, 1e-6, 1e-3, &vx, &vy);
+    ASSERT_NEAR(vx, 0.0, 1e-5, "FM square v_x = 0 at Γ");
+    ASSERT_NEAR(vy, 0.0, 1e-5, "FM square v_y = 0 at Γ");
+
+    /* At M = (π, π): v_g = 0 (band maximum, sin π = 0). */
+    irrep_magnon_group_velocity(L, M_PI, M_PI, 1e-3, &vx, &vy);
+    ASSERT_NEAR(vx, 0.0, 1e-5, "FM square v_x = 0 at M (band max)");
+    ASSERT_NEAR(vy, 0.0, 1e-5, "FM square v_y = 0 at M (band max)");
+
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -1057,6 +1091,7 @@ int main(void) {
     test_susceptibility_gapped_fm();
     test_free_energy_monotonic();
     test_free_energy_entropy_consistency();
+    test_group_velocity_square_fm();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

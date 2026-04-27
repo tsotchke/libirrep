@@ -1239,7 +1239,50 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Magnon Helmholtz free energy F(T)
+### 15.7. Magnon group velocity v_g(k) = ∇_k ω(k)
+
+The group velocity governs how fast a magnon wave-packet
+propagates and is the natural input for spin-current transport
+calculations:
+
+```
+j_s(T) = (1/V) Σ_b ∫_BZ d²k/(2π)² · v_g_b(k) · n_B(ω_b/T)
+```
+
+The library implements `irrep_magnon_group_velocity(L, kx, ky, h,
+v_x, v_y)` via 2nd-order central difference:
+
+```
+v_x_b(k) = [ω_b(k_x + h, k_y) − ω_b(k_x − h, k_y)] / (2h)
+```
+
+Step `h` is user-supplied (typical 1e-3 - 1e-2). Smaller h gives
+sharper local resolution but more numerical noise; larger h smooths
+band curvature.
+
+**Physical regimes**:
+
+- **Band extrema** (Γ in FM, top of band at zone boundary): v_g →
+  0. Magnons here are spectator modes for transport.
+- **Linearly dispersing regions** (Dirac points in topological
+  bands; AFM Goldstone): |v_g| ≈ c_s = constant — the "spin-wave
+  velocity" reported in inelastic-neutron papers as the slope of
+  the Goldstone branch near Γ.
+- **Saddle points** (van-Hove): v_g passes through 0 in one
+  direction and is large in the perpendicular direction — the
+  angular pattern around saddles dominates the DOS log-singularity.
+
+**Caveat — band crossings**: at band-degenerate points, the
+eigenvector ordering can flip and the central-difference picks up
+a discontinuity. The user should be aware of band-crossing
+locations from the dispersion plot before consuming v_g there;
+the smooth-band approximation breaks down within ~h of crossings.
+
+Verified on the 1-band square FM at three k-points to ≤ 10⁻⁵:
+v_x = sin(kx), v_y = sin(ky) (analytic gradient of the closed-form
+ω(k) = 2 − cos kx − cos ky).
+
+### 15.8. Magnon Helmholtz free energy F(T)
 
 The magnon contribution to the Helmholtz free energy per unit cell
 follows from standard Bose-gas thermodynamics:
@@ -1608,9 +1651,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.17. Verification protocol
+### 15.18. Verification protocol
 
-`tests/test_magnon.c` covers thirty-one independent checks (88 assertions):
+`tests/test_magnon.c` covers thirty-two independent checks (94 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1711,6 +1754,9 @@ Lu₂V₂O₇).
     difference at T = 1 is positive (third-law-respecting
     entropy), confirming the thermodynamic-relation consistency
     between `_free_energy` and the implicit entropy.
+32. **v_g(k) on square FM**: matches analytic gradient v_x = sin kx,
+    v_y = sin ky at three k-points (interior, Γ, M-point) to
+    ≤ 10⁻⁵ via 2nd-order central difference (step h = 10⁻³).
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

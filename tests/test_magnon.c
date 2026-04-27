@@ -789,6 +789,35 @@ static void test_3d_chern_layered_kagome(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (24) Specific-heat limits: C_V → 0 as T → 0 (BE-suppressed) and
+ * C_V → n_sub at T → ∞ (equipartition). For 1-sublattice FM. */
+static void test_specific_heat_limits(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+
+    /* Low-T: very small C_V. */
+    double cv_low = irrep_magnon_specific_heat(L, /*T=*/0.01, 32, 32);
+    ASSERT(cv_low < 0.01, "low-T C_V → 0 (BE-suppressed)");
+
+    /* High-T: equipartition C_V → n_sub = 1. */
+    double cv_high = irrep_magnon_specific_heat(L, /*T=*/100.0, 32, 32);
+    ASSERT(fabs(cv_high - 1.0) < 0.01, "high-T C_V → n_sub = 1 (equipartition)");
+
+    /* Intermediate-T monotonic increase from low to high. */
+    double cv_mid = irrep_magnon_specific_heat(L, /*T=*/0.5, 32, 32);
+    ASSERT(cv_mid > cv_low && cv_mid < cv_high,
+           "C_V is monotonic in T over 0.01 → 0.5 → 100");
+
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -813,6 +842,7 @@ int main(void) {
     test_dos_van_hove();
     test_3d_chern_trivial();
     test_3d_chern_layered_kagome();
+    test_specific_heat_limits();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

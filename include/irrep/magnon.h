@@ -167,6 +167,36 @@ IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx,
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);
 
+/** @brief Magnon contribution to the magnetic specific heat C_V(T)
+ *         per unit cell, in units of k_B.
+ *
+ *  For a Bose gas of non-interacting magnons,
+ *
+ *      C_V(T) = Σ_b ∫_BZ d²k/(2π)² · (ω_b/T)² · n_B(ω_b/T)·(1 + n_B(ω_b/T))
+ *
+ *  with n_B(x) = 1/(eˣ − 1). Limits:
+ *
+ *    - T → 0: C_V vanishes exponentially (BE-suppressed). For
+ *      gapless modes, the leading power follows the dispersion
+ *      shape: T (2D quadratic FM Goldstone) ∝ T (∫ const · T·dT),
+ *      T^{3/2} (3D quadratic FM, Bloch law), T^d (d-dim linear AFM
+ *      Goldstone).
+ *
+ *    - T → ∞: C_V → n_sub · k_B (equipartition: each band per cell
+ *      contributes 1 k_B of heat capacity).
+ *
+ *  Sampling on Nx × Ny grid; the Goldstone-mode contribution at
+ *  k = 0 is regularised by skipping ω < 10⁻¹⁰ to avoid the BE
+ *  singularity (the missing measure-zero contribution is well
+ *  below grid noise).
+ *
+ *  @param L      LSW handle
+ *  @param T      temperature (same units as ω)
+ *  @param Nx, Ny BZ grid (typical 50–200)
+ *  @return       C_V(T) per unit cell (dimensionless in k_B = ℏ = 1
+ *                units), or NaN on error. */
+IRREP_API double irrep_magnon_specific_heat(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny);
+
 /** @brief Magnon density of states D(ω) via BZ histogram.
  *
  *  Samples ω_b(k) on an Nx × Ny grid in reduced momentum coordinates,

@@ -1239,7 +1239,38 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Magnon density of states D(ω)
+### 15.7. Magnon contribution to specific heat C_V(T)
+
+The magnetic specific heat per unit cell, in units of k_B, is the
+direct experimental observable that probes the *thermally excited*
+magnon population:
+
+```
+C_V(T) = Σ_b ∫_BZ d²k/(2π)² · (ω_b/T)² · n_B(ω_b/T)·(1 + n_B(ω_b/T))
+```
+
+Limits:
+
+- **T → 0**: C_V → 0 with band-specific power law set by the
+  dispersion shape near gapless modes:
+    - 2D quadratic FM Goldstone: C_V ∝ T (D(ω) ~ const at low ω)
+    - 3D quadratic FM Goldstone: **C_V ∝ T^{3/2}** (Bloch's law)
+    - 2D linear AFM Goldstone: C_V ∝ T²
+    - 3D linear AFM Goldstone: C_V ∝ T³
+  The crossover from quadratic-FM to linear-AFM scaling is the
+  signature distinction between the two magnetic orders in
+  specific-heat data, isolating the gapless-mode dispersion shape.
+
+- **T → ∞**: C_V → n_sub · k_B (equipartition: each band per cell
+  contributes 1 k_B). Verified for the 1-sublattice square FM at
+  T = 100 → C_V ≈ 1.0.
+
+The library implements `irrep_magnon_specific_heat(L, T, Nx, Ny)`
+as a direct BZ integral; for ground-state-energy considerations
+(zero-point AFM corrections like Anderson 1952), users would
+multiply T·C_V and integrate over T.
+
+### 15.8. Magnon density of states D(ω)
 
 Integrating ω_b(k) over the BZ gives the *density of states*
 
@@ -1420,9 +1451,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.12. Verification protocol
+### 15.13. Verification protocol
 
-`tests/test_magnon.c` covers twenty-three independent checks (72 assertions):
+`tests/test_magnon.c` covers twenty-four independent checks (75 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1496,6 +1527,11 @@ Lu₂V₂O₇).
     coupling J' = -0.05 has the (-1, 0, +1) signature at k_z = 0 to
     ±0.05 numerical precision — confirms inter-layer coupling does
     not destroy the in-plane topology.
+24. **C_V(T) limits**: 1-sublattice square FM has C_V → 0 as T → 0
+    (BE-suppressed, |C_V(T=0.01)| < 0.01) and C_V → 1 = n_sub at
+    T → ∞ (equipartition, |C_V(T=100) - 1| < 0.01). Monotonic
+    increase from low to high T verified with intermediate
+    T = 0.5.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

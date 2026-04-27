@@ -383,6 +383,49 @@ irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
     return IRREP_OK;
 }
 
+double irrep_magnon_specific_heat(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny) {
+    if (!L || T <= 0 || Nx <= 0 || Ny <= 0) {
+        irrep_set_error_("irrep_magnon_specific_heat: invalid arguments");
+        return NAN;
+    }
+    int     n = L->n_sub;
+    double *omega = malloc((size_t)n * sizeof *omega);
+    double _Complex *u = malloc((size_t)n * n * sizeof *u);
+    if (!omega || !u) {
+        free(omega);
+        free(u);
+        return NAN;
+    }
+    double cv = 0;
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = (double)ix / Nx;
+            double fy = (double)iy / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            irrep_magnon_dispersion(L, kx, ky, omega, u);
+            for (int b = 0; b < n; ++b) {
+                double w = omega[b];
+                if (w < 1e-10)
+                    continue; /* BE singularity; measure-zero, skip */
+                double x = w / T;
+                /* For very large x (low T regime), exp(x) overflows but
+                 * the contribution is exponentially suppressed; treat as 0. */
+                if (x > 700.0)
+                    continue;
+                double ex = exp(x);
+                double n_BE = 1.0 / (ex - 1.0);
+                cv += x * x * n_BE * (1.0 + n_BE);
+            }
+        }
+    free(omega);
+    free(u);
+    /* Average over BZ grid → integral ∫ d²k/(2π)² in our discretisation.
+     * The grid has Nx · Ny points; each represents a fraction 1/(Nx·Ny)
+     * of the BZ. So sum/Nx/Ny is the per-cell C_V. */
+    return cv / ((double)Nx * (double)Ny);
+}
+
 irrep_status_t irrep_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, int Ny, double omega_min,
                                  double omega_max, int n_bins, double *dos_out) {
     if (!L || Nx <= 0 || Ny <= 0 || n_bins <= 0 || omega_max <= omega_min || !dos_out)

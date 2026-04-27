@@ -1318,7 +1318,36 @@ spectral-weight transfer to the middle band at K (Dirac-point
 extinction of the lower-band weight), and the 4:2:0 redistribution
 at M.
 
-### 15.8. 3D extension: magnon dispersion on cubic / layered lattices
+### 15.8. 3D Chern numbers on BZ slices
+
+For 3D systems with non-trivial topology — vdW magnet stacks like
+CrI₃, layered kagome metals like Fe₃Sn₂ × c-axis, B20 chiral
+magnets in their FM-approximated ground state — the topological
+invariants live on 2D BZ slices at fixed k_z (or rotated). Each
+slice carries a 2D Chern number C_b(k_z) per band, which is
+piecewise-constant in k_z and changes only at band-gap closures
+(Weyl points / nodal lines projected onto the k_z axis).
+
+The library implements `irrep_magnon_chern_3d_slice_kz(L, a₃, kz,
+Nx, Ny, C)`: same FHS-plaquette algorithm as the 2D `_chern`, but
+using `_dispersion_3d` to sample the (k_x, k_y) plane at fixed k_z.
+
+For a *layered* topological model where the 2D in-plane Hamiltonian
+already gives a non-trivial Chern signature and the inter-layer
+coupling is a small Heisenberg term, the 2D Chern numbers persist
+as long as the inter-layer coupling does not close the band gaps.
+Verified on a layered kagome FM with in-plane DMI (Mook 2014) and
+a 0.05·J inter-layer coupling: the in-plane (-1, 0, +1) signature
+survives at k_z = 0 to ±0.05 numerical precision.
+
+For the 3D simple-cubic FM (no DMI, no anomalous Berry curvature),
+every k_z slice is topologically trivial: Chern = 0 across three
+sampled k_z values (verified in the test suite to ≤ 10⁻⁹).
+
+The full 3D topological invariants (Z₂ from Wilson-loop on slices,
+Weyl point counting, mirror Chern, etc.) are deferred to v1.5.
+
+### 15.9. 3D extension: magnon dispersion on cubic / layered lattices
 
 The 2D LSW handle generalises to 3D by adding a third primitive
 vector a₃ and an inter-cell `delta_z` field on each bond. The bond
@@ -1391,9 +1420,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.11. Verification protocol
+### 15.12. Verification protocol
 
-`tests/test_magnon.c` covers twenty-one independent checks (66 assertions):
+`tests/test_magnon.c` covers twenty-three independent checks (72 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1460,6 +1489,13 @@ Lu₂V₂O₇).
 21. **DOS van-Hove singularity**: 1-sublattice square FM has its
     DOS peak in the bin containing ω = 2 (the saddle-point energy
     at (π, 0) and (0, π)) to ±2 bins on a 40-bin × 128² grid.
+22. **3D Chern trivial on cubic FM**: simple-cubic FM (no DMI)
+    Chern = 0 on three k_z slices (0, π/2, π) to ≤ 10⁻⁹.
+23. **Layered-kagome 3D Chern persistence**: kagome topological FM
+    (in-plane DMI = ±0.15) with weak inter-layer Heisenberg
+    coupling J' = -0.05 has the (-1, 0, +1) signature at k_z = 0 to
+    ±0.05 numerical precision — confirms inter-layer coupling does
+    not destroy the in-plane topology.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

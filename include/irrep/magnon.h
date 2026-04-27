@@ -236,6 +236,27 @@ IRREP_API irrep_status_t irrep_magnon_structure_factor(const irrep_magnon_lsw_t 
                                                         double qy, double *omega_out,
                                                         double *S_perp_out);
 
+/** @brief Compute band Chern numbers on a 2D BZ slice at fixed k_z
+ *         of a 3D LSW model. Useful for layered van der Waals magnets
+ *         (CrI₃ stacks, kagome layer × c-axis), B20 chiral magnets in
+ *         a FM-approximated ground state, or any 3D system whose
+ *         topology localises on horizontal cuts of the 3D BZ.
+ *
+ *  Same FHS-plaquette algorithm as `irrep_magnon_chern`, but using
+ *  `_dispersion_3d` to sample the (k_x, k_y) plane at fixed k_z. For
+ *  a layered kagome topological FM, the Chern signature (-1, 0, +1)
+ *  at k_z = 0 typically persists across the k_z BZ until band-gap
+ *  closures at zone-boundary planes redistribute the integers.
+ *
+ *  @param L           LSW handle
+ *  @param a3          third primitive vector
+ *  @param kz          fixed k_z value of the slice
+ *  @param Nx, Ny      integration grid (typical 50–200)
+ *  @param chern_out   caller buffer of size n_sub doubles */
+IRREP_API irrep_status_t irrep_magnon_chern_3d_slice_kz(const irrep_magnon_lsw_t *L,
+                                                         const double a3[3], double kz, int Nx,
+                                                         int Ny, double *chern_out);
+
 /** @brief Compute the magnon dispersion ω_b(k) on a *3D* lattice.
  *
  *  The 2D `irrep_magnon_dispersion` only consumes a₁, a₂ and the

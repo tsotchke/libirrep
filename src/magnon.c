@@ -482,6 +482,70 @@ static void build_H_3d_(const irrep_magnon_lsw_t *L, const double a3[3], double 
     }
 }
 
+irrep_status_t irrep_magnon_chern_3d_slice_kz(const irrep_magnon_lsw_t *L, const double a3[3],
+                                               double kz, int Nx, int Ny, double *chern_out) {
+    if (!L || !a3 || !chern_out || Nx <= 0 || Ny <= 0)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    double _Complex *u_grid = malloc((size_t)Nx * Ny * n * n * sizeof *u_grid);
+    double          *w_grid = malloc((size_t)Nx * Ny * n * sizeof *w_grid);
+    if (!u_grid || !w_grid) {
+        free(u_grid);
+        free(w_grid);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    /* Sample (k_x, k_y) on a uniform grid in reduced (b1, b2)
+     * coordinates, with k_z held fixed. */
+    double _Complex *H = malloc((size_t)n * n * sizeof *H);
+    if (!H) {
+        free(u_grid);
+        free(w_grid);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = (double)ix / Nx;
+            double fy = (double)iy / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            int    p = iy * Nx + ix;
+            build_H_3d_(L, a3, kx, ky, kz, H);
+            hermitian_eig_(n, H, w_grid + p * n, u_grid + p * n * n);
+        }
+    free(H);
+
+    for (int b = 0; b < n; ++b) {
+        double total = 0;
+        for (int iy = 0; iy < Ny; ++iy) {
+            for (int ix = 0; ix < Nx; ++ix) {
+                int p00 = iy * Nx + ix;
+                int p10 = iy * Nx + (ix + 1) % Nx;
+                int p11 = ((iy + 1) % Ny) * Nx + (ix + 1) % Nx;
+                int p01 = ((iy + 1) % Ny) * Nx + ix;
+                int pairs[4][2] = {{p00, p10}, {p10, p11}, {p11, p01}, {p01, p00}};
+                double _Complex z = 1.0;
+                int             skipped = 0;
+                for (int pp = 0; pp < 4; ++pp) {
+                    double _Complex ip = inner_(u_grid + pairs[pp][0] * n * n + b * n,
+                                                u_grid + pairs[pp][1] * n * n + b * n, n);
+                    double          mod = cabs(ip);
+                    if (mod < 1e-300) {
+                        skipped = 1;
+                        break;
+                    }
+                    z *= ip / mod;
+                }
+                if (!skipped)
+                    total += atan2(cimag(z), creal(z));
+            }
+        }
+        chern_out[b] = total / (2.0 * M_PI);
+    }
+    free(u_grid);
+    free(w_grid);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_dispersion_3d(const irrep_magnon_lsw_t *L, const double a3[3],
                                            double kx, double ky, double kz, double *omega_out,
                                            double _Complex *u_out) {

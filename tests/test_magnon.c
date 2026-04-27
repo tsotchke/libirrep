@@ -731,6 +731,64 @@ static void test_dos_van_hove(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (22) Trivial 3D simple-cubic FM has zero Chern on every k_z slice. */
+static void test_3d_chern_trivial(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    double a3[3] = {0.0, 0.0, 1.0};
+    irrep_magnon_bond_t bonds[3] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 0, .delta_z = 1,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 3, bonds, 0);
+    double              chern;
+    /* Try three k_z values across the BZ. */
+    double kz_set[3] = {0.0, M_PI / 2, M_PI};
+    for (int i = 0; i < 3; ++i) {
+        irrep_magnon_chern_3d_slice_kz(L, a3, kz_set[i], 16, 16, &chern);
+        ASSERT_NEAR(chern, 0.0, 1e-9, "3D simple-cubic FM Chern = 0 at every k_z");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
+/* (23) Layered topological kagome: kagome FM with DMI in plane plus a
+ * weak inter-layer Heisenberg coupling along c-axis. At k_z = 0, the
+ * 2D Chern signature (-1, 0, +1) should persist (small inter-layer
+ * coupling does not destroy the in-plane topology). */
+static void test_3d_chern_layered_kagome(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * 1.7320508075688772};
+    double a3[3] = {0.0, 0.0, 1.0};
+    double D = 0.15;
+    /* In-plane bonds: same as the 2D kagome topological model. */
+    irrep_magnon_bond_t bonds[9] = {
+        /* up-tri CCW */
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .delta_z = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 2, .delta_x = 0,  .delta_y = 0,  .delta_z = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 2, .bj = 0, .delta_x = 0,  .delta_y = 0,  .delta_z = 0, .J = -1.0, .D = {0, 0, +D}},
+        /* down-tri */
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0,  .delta_z = 0, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .delta_z = 0, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1,  .delta_z = 0, .J = -1.0, .D = {0, 0, -D}},
+        /* Inter-layer: weak FM Heisenberg, A→A, B→B, C→C along +ẑ. */
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 0, .delta_z = 1, .J = -0.05, .D = {0, 0, 0}},
+        {.bi = 1, .bj = 1, .delta_x = 0, .delta_y = 0, .delta_z = 1, .J = -0.05, .D = {0, 0, 0}},
+        {.bi = 2, .bj = 2, .delta_x = 0, .delta_y = 0, .delta_z = 1, .J = -0.05, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, 1.0, a1, a2, 9, bonds, 0);
+    double              chern[3];
+    /* k_z = 0 slice: the in-plane (-1, 0, +1) topology should survive. */
+    irrep_magnon_chern_3d_slice_kz(L, a3, 0.0, 32, 32, chern);
+    ASSERT_NEAR(chern[0], -1.0, 0.05, "layered kagome k_z=0: lower band Chern -1");
+    ASSERT_NEAR(chern[1], 0.0, 0.05, "layered kagome k_z=0: middle band Chern 0");
+    ASSERT_NEAR(chern[2], +1.0, 0.05, "layered kagome k_z=0: upper band Chern +1");
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -753,6 +811,8 @@ int main(void) {
     test_structure_factor_kagome_gamma();
     test_dos_sum_rule();
     test_dos_van_hove();
+    test_3d_chern_trivial();
+    test_3d_chern_layered_kagome();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

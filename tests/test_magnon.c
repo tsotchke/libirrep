@@ -1284,6 +1284,60 @@ static void test_softest_mode_skips_goldstone(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (41) AFM zero-point on the canonical 2D Néel square lattice.
+ * Anderson 1952: ⟨n_α⟩_GS = 0.1966 (S=½, J=1, square lattice with
+ * doubled cell). Both sublattices A (σ=+1) and B (σ=-1) by C_4
+ * symmetry have the same correction.
+ *
+ * The FM-recovery sub-test: setting all signs = +1 should give zero
+ * quantum reduction (no anomalous pairing in pure FM ground state). */
+static void test_afm_zero_point_square(void) {
+    double a1[2] = {1.0, 1.0};
+    double a2[2] = {1.0, -1.0};
+    /* Same square AFM as in test_afm_chain_general / square_afm_magnons.c */
+    irrep_magnon_bond_t bonds[4] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .delta_z = 0,
+         .J = +1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = -1, .delta_z = 0,
+         .J = +1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = -1, .delta_z = 0,
+         .J = +1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = 0,  .delta_z = 0,
+         .J = +1.0, .D = {0, 0, 0}},
+    };
+    int    signs[2] = {+1, -1};
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, 0.5, a1, a2, 4, bonds, 0);
+
+    double dm[2];
+    irrep_magnon_afm_zero_point(L, signs, /*Nx=*/64, /*Ny=*/64, dm);
+    /* Anderson: ⟨n⟩ ≈ 0.1966; tolerance ±0.02 for a 64×64 grid. */
+    ASSERT_NEAR(dm[0], 0.197, 0.02, "AFM square: ⟨n_A⟩_GS ≈ 0.197 (Anderson)");
+    ASSERT_NEAR(dm[1], 0.197, 0.02, "AFM square: ⟨n_B⟩_GS ≈ 0.197 (Anderson)");
+    ASSERT_NEAR(dm[0], dm[1], 1e-3, "AFM square: A and B equal by C_4 symmetry");
+    irrep_magnon_lsw_free(L);
+}
+
+/* (42) FM recovery: pure FM (all signs = +1) has zero quantum
+ * reduction since the FM ground state is exact in HP and there is
+ * no anomalous pairing. */
+static void test_afm_zero_point_fm_recovery(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    int                 signs[1] = {+1};
+    double              dm;
+    irrep_magnon_afm_zero_point(L, signs, 32, 32, &dm);
+    /* Tolerance accounts for ε regularisation (1e-10) effects. */
+    ASSERT(dm < 1e-3, "FM zero-point reduction = 0 (no anomalous pairing)");
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -1325,6 +1379,8 @@ int main(void) {
     test_internal_energy_consistency();
     test_softest_mode_square_fm();
     test_softest_mode_skips_goldstone();
+    test_afm_zero_point_square();
+    test_afm_zero_point_fm_recovery();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

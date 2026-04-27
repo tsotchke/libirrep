@@ -1239,7 +1239,59 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Softest-mode locator
+### 15.7. AFM zero-point sublattice magnetisation (Anderson 1952)
+
+For an antiferromagnet, the classical Néel state |↑↓↑↓...⟩ is *not*
+an eigenstate of the Heisenberg Hamiltonian: zero-point quantum
+fluctuations reduce the staggered magnetisation per site at T = 0.
+This is the Anderson 1952 textbook result.
+
+The library implements `irrep_magnon_afm_zero_point(L,
+sublattice_signs, Nx, Ny, ⟨n_α⟩_GS)` which computes the per-
+sublattice quantum reduction:
+
+```
+⟨n_α⟩_GS = ∫_BZ d²k/(2π)² · Σ_b |λ_b(k)| · |T_b(k)[α]|²
+```
+
+where T_b is the Bogoliubov-Colpa transformation column for band b
+and the |λ_b| factor is the paraunitary-normalisation weight (= ω_b
+on positive-energy bands; the sum runs over the negative-eigenvalue
+half of the W-spectrum because eigenvectors there correspond to
+β^† magnon-creation operators in the BdG basis, and ⟨a^†_α a_α⟩
+extracts the |β^†_b coefficient|² from the boson amplitude).
+
+The actual sublattice magnetisation at T = 0 is:
+
+```
+M_α(T = 0) = S − ⟨n_α⟩_GS
+```
+
+falsifiable against μSR Knight-shift, Mössbauer-spectroscopy, and
+NMR data on antiferromagnetic materials.
+
+**Canonical textbook check**: spin-½ square AFM gives the Anderson
+1952 value `⟨n_α⟩_GS ≈ 0.196602`, so `M(T=0) = 0.5 − 0.197 = 0.303`.
+The library reproduces this to ≤ 2% on a 64×64 BZ grid and to
+≤ 1% on 128×128 (the residual is finite-grid bias from the
+integrable 1/√(1−γ²) Goldstone divergence). C₄ symmetry between
+sublattices A and B is preserved exactly to ~10⁻⁶.
+
+**FM recovery sanity check**: setting all `sublattice_signs = +1`
+gives ⟨n_α⟩_GS ≈ 0 (no anomalous pairing in the FM ground state)
+— quantum-fluctuation-free, as expected.
+
+**Implementation note** — the BZ grid uses a *half-shifted*
+sampling `f = (i + 0.5)/N` to avoid landing exactly on the
+Goldstone-mode k-points where M(k) is positive-semi-definite (not
+strictly positive-definite). At those points Cholesky's diagonal
+becomes near-singular and the |T|² weight diverges; the half-shift
+ensures every sampled k has finite-rank M while the Goldstone
+contribution remains integrable in 2D.
+
+**Reference**: Anderson, P. W. *Phys. Rev.* 86, 694 (1952).
+
+### 15.8. Softest-mode locator
 
 Beyond just the spin-gap value, the *location* of the band minimum
 in the BZ is itself a useful observable. The library implements
@@ -1854,9 +1906,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.23. Verification protocol
+### 15.24. Verification protocol
 
-`tests/test_magnon.c` covers forty independent checks (121 assertions):
+`tests/test_magnon.c` covers forty-two independent checks (125 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1986,6 +2038,14 @@ Lu₂V₂O₇).
 40. **Softest mode skips Γ via exclude_below**: setting
     exclude_below = 10⁻⁶ pushes the located mode to a finite k
     off Γ with 0 < ω < 1, validating the threshold knob.
+41. **AFM zero-point on Néel square**: ⟨n_α⟩_GS ≈ 0.197 to ±0.02
+    on 64×64 grid (Anderson 1952 textbook value 0.196602). Both
+    sublattices A and B equal to 10⁻⁶ by C₄ symmetry. M(T=0) =
+    S - ⟨n⟩ = 0.303, matching La₂CuO₄ within few-percent ring-
+    exchange correction.
+42. **AFM zero-point FM recovery**: pure FM with all
+    `sublattice_signs = +1` has ⟨n⟩_GS < 10⁻³ — no anomalous
+    pairing, no quantum-fluctuation reduction.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

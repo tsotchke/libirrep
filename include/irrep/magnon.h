@@ -666,6 +666,42 @@ IRREP_API irrep_status_t irrep_magnon_dispersion_3d(const irrep_magnon_lsw_t *L,
 IRREP_API irrep_status_t irrep_magnon_wilson_spectrum(const irrep_magnon_lsw_t *L, double kx,
                                                        int Ny, double *theta_out);
 
+/** @brief Quantum zero-point reduction of the sublattice magnetisation
+ *         on a generic collinear (FM/AFM/ferrimagnetic) ground state.
+ *
+ *  For an antiferromagnet, the classical Néel state is *not* an
+ *  eigenstate of the Heisenberg Hamiltonian; quantum fluctuations
+ *  reduce the staggered magnetisation per site at T = 0 by the
+ *  Anderson (1952) correction:
+ *
+ *      ⟨n_α⟩_GS = Σ_b ∫_BZ d²k/(2π)² · |v_α^b(k)|²
+ *
+ *  where v_α^b are the "anomalous" components of the Bogoliubov-
+ *  Colpa transformation T = K⁻¹ U. The actual sublattice magneti-
+ *  sation at T = 0 is M_α(T=0) = S − ⟨n_α⟩_GS, falsifiable by
+ *  μSR Knight-shift / Mössbauer-spectroscopy / NMR data.
+ *
+ *  Textbook result: spin-½ square AFM gives ⟨n_α⟩_GS ≈ 0.1966
+ *  (Anderson 1952), so M(T=0) = 0.5 − 0.197 = 0.303 — observed in
+ *  La₂CuO₄ to within a few-percent ring-exchange correction.
+ *
+ *  Pure ferromagnets (all `sublattice_signs[α] = +1`) have no
+ *  anomalous pairing and ⟨n_α⟩_GS = 0 identically — verified as
+ *  a smoke-test in the test suite.
+ *
+ *  Internally re-runs the Cholesky-Colpa diagonalisation from
+ *  `_dispersion_general` and computes the v-coefficients via
+ *  back-substitution K · T = ψ_+.
+ *
+ *  @param L                LSW handle
+ *  @param sublattice_signs σ_α ∈ {+1, -1} per sublattice
+ *  @param Nx, Ny           BZ grid (typical 32-128)
+ *  @param delta_m_out      caller buffer of size n_sub doubles —
+ *                          per-sublattice ⟨n_α⟩_GS quantum reduction. */
+IRREP_API irrep_status_t irrep_magnon_afm_zero_point(const irrep_magnon_lsw_t *L,
+                                                      const int *sublattice_signs, int Nx, int Ny,
+                                                      double *delta_m_out);
+
 /** @brief Compute the magnon dispersion ω_b(k) on top of a *general*
  *         collinear ground state in which sublattice α has its spin
  *         along σ_α · ẑ where σ_α ∈ {+1, -1}. AFM, ferrimagnetic,

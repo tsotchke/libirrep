@@ -1056,6 +1056,150 @@ static int cholesky_(int n, const double _Complex *M, double _Complex *K) {
     return 0;
 }
 
+/* Build the BdG matrix M(k) for a generic collinear ground state.
+ * Same structure as irrep_magnon_dispersion_general embeds inline.
+ * Caller-supplied output buffer M of size N*N where N = 2*n_sub. */
+static void build_M_bdg_(const irrep_magnon_lsw_t *L, const int *sublattice_signs, double kx,
+                          double ky, double _Complex *M) {
+    int n = L->n_sub;
+    int N = 2 * n;
+    memset(M, 0, (size_t)N * N * sizeof(double _Complex));
+    double S = L->S;
+
+    for (int a = 0; a < n; ++a) {
+        M[a * N + a] += 2.0 * L->Kz * S;
+        M[(a + n) * N + (a + n)] += 2.0 * L->Kz * S;
+    }
+
+    for (int b = 0; b < L->n_bonds; ++b) {
+        const irrep_magnon_bond_t *bd = &L->bonds[b];
+        int    i = bd->bi, j = bd->bj;
+        int    sigma = sublattice_signs[i] * sublattice_signs[j];
+        double tx = bd->delta_x * L->a1[0] + bd->delta_y * L->a2[0];
+        double ty = bd->delta_x * L->a1[1] + bd->delta_y * L->a2[1];
+        double phase = kx * tx + ky * ty;
+        double _Complex eikt = cos(phase) + I * sin(phase);
+        double _Complex eikt_neg = cos(phase) - I * sin(phase);
+
+        if (sigma > 0) {
+            M[i * N + i] += -S * bd->J;
+            M[j * N + j] += -S * bd->J;
+            M[(i + n) * N + (i + n)] += -S * bd->J;
+            M[(j + n) * N + (j + n)] += -S * bd->J;
+            double _Complex hop_part = (S * bd->J - I * S * bd->D[2]) * eikt;
+            M[i * N + j] += hop_part;
+            M[j * N + i] += conj(hop_part);
+            double _Complex hop_hole = (S * bd->J + I * S * bd->D[2]) * eikt;
+            M[(i + n) * N + (j + n)] += hop_hole;
+            M[(j + n) * N + (i + n)] += conj(hop_hole);
+        } else {
+            M[i * N + i] += S * bd->J;
+            M[j * N + j] += S * bd->J;
+            M[(i + n) * N + (i + n)] += S * bd->J;
+            M[(j + n) * N + (j + n)] += S * bd->J;
+            double _Complex pair_fwd = (S * bd->J - I * S * bd->D[2]) * eikt;
+            double _Complex pair_bwd = (S * bd->J - I * S * bd->D[2]) * eikt_neg;
+            M[i * N + (j + n)] += pair_fwd;
+            M[j * N + (i + n)] += pair_bwd;
+            M[(j + n) * N + i] += conj(pair_fwd);
+            M[(i + n) * N + j] += conj(pair_bwd);
+        }
+    }
+}
+
+irrep_status_t irrep_magnon_afm_zero_point(const irrep_magnon_lsw_t *L,
+                                            const int *sublattice_signs, int Nx, int Ny,
+                                            double *delta_m_out) {
+    if (!L || !sublattice_signs || Nx <= 0 || Ny <= 0 || !delta_m_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    int N = 2 * n;
+    for (int a = 0; a < n; ++a)
+        if (sublattice_signs[a] != +1 && sublattice_signs[a] != -1)
+            return IRREP_ERR_INVALID_ARG;
+    for (int a = 0; a < n; ++a)
+        delta_m_out[a] = 0.0;
+
+    double _Complex *M = malloc((size_t)N * N * sizeof *M);
+    double _Complex *K = malloc((size_t)N * N * sizeof *K);
+    double _Complex *W = malloc((size_t)N * N * sizeof *W);
+    double          *eigs = malloc((size_t)N * sizeof *eigs);
+    double _Complex *evecs = malloc((size_t)N * N * sizeof *evecs);
+    double _Complex *v_band = malloc((size_t)N * sizeof *v_band);
+    if (!M || !K || !W || !eigs || !evecs || !v_band) {
+        free(M); free(K); free(W); free(eigs); free(evecs); free(v_band);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    static const double EPS_PSD = 1e-10;
+
+    /* Half-shifted grid: f = (i + 0.5)/N. Avoids exact Goldstone-mode
+     * sampling at k = 0 where M is singular and the |v|² integrand
+     * diverges (integrably) in 2D AFM systems. */
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = ((double)ix + 0.5) / Nx;
+            double fy = ((double)iy + 0.5) / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            build_M_bdg_(L, sublattice_signs, kx, ky, M);
+            for (int a = 0; a < N; ++a)
+                M[a * N + a] += EPS_PSD;
+            if (cholesky_(N, M, K) != 0)
+                continue; /* skip k-points where M is non-PD */
+            /* W = K η K^† */
+            for (int i = 0; i < N; ++i)
+                for (int j = 0; j < N; ++j) {
+                    double _Complex s = 0;
+                    for (int l = 0; l < N; ++l) {
+                        double sg = (l < n) ? +1.0 : -1.0;
+                        s += sg * K[i * N + l] * conj(K[j * N + l]);
+                    }
+                    W[i * N + j] = s;
+                }
+            hermitian_eig_(N, W, eigs, evecs);
+            /* Holstein-Primakoff convention: c_α = a_α at every site
+             * (magnon = +1 boson regardless of σ_α — the parallel/anti-
+             * parallel split affects ONLY the bilinear hopping/pairing
+             * structure, not the boson↔magnon mapping itself).
+             *
+             * With Ψ = (a_1, ..., a_n, a_1^†, ..., a_n^†)^T = T β
+             * where β = (β_1, ..., β_n, β_1^†, ..., β_n^†)^T, the
+             * coefficient of β^†_b in a_α is T[α, n + b].
+             *
+             * In the Colpa formulation, eigenvectors with *negative*
+             * eigenvalues correspond to β^† columns (Holstein-Primakoff
+             * particle-hole conjugation). hermitian_eig_ sorts ascending,
+             * so negative eigenvalues are at indices 0..n-1.
+             *
+             * The unit-normalised W-eigenvectors give T = K⁻¹ψ with
+             * T^† η T = sign(λ_b)/|λ_b| per column. To make T paraunitary
+             * (T^† η T = ±1), multiply each column by √|λ_b| = √ω_b. So
+             * the physical |v|² weight per band is |λ_b| · |K⁻¹ψ_b[α]|². */
+            for (int b = 0; b < n; ++b) {
+                for (int i = N - 1; i >= 0; --i) {
+                    double _Complex sum = evecs[b * N + i];
+                    for (int kk = i + 1; kk < N; ++kk)
+                        sum -= K[i * N + kk] * v_band[kk];
+                    v_band[i] = sum / K[i * N + i];
+                }
+                double abs_lambda = fabs(eigs[b]);
+                for (int a = 0; a < n; ++a) {
+                    double re = creal(v_band[a]);
+                    double im = cimag(v_band[a]);
+                    delta_m_out[a] += abs_lambda * (re * re + im * im);
+                }
+            }
+        }
+
+    /* Average over BZ. */
+    double inv_NBZ = 1.0 / ((double)Nx * (double)Ny);
+    for (int a = 0; a < n; ++a)
+        delta_m_out[a] *= inv_NBZ;
+
+    free(M); free(K); free(W); free(eigs); free(evecs); free(v_band);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_dispersion_general(const irrep_magnon_lsw_t *L,
                                                 const int *sublattice_signs, double kx, double ky,
                                                 double *omega_out) {

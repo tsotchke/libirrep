@@ -383,6 +383,43 @@ irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_t *L,
+                                                const double (*qpath)[2], int n_q,
+                                                double omega_min, double omega_max, int n_omega,
+                                                double eta, double *intensity_out) {
+    if (!L || !qpath || n_q <= 0 || n_omega <= 0 || eta <= 0 || omega_max <= omega_min ||
+        !intensity_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    memset(intensity_out, 0, (size_t)n_q * (size_t)n_omega * sizeof *intensity_out);
+
+    double *omega = malloc((size_t)n * sizeof *omega);
+    double *S_perp = malloc((size_t)n * sizeof *S_perp);
+    if (!omega || !S_perp) {
+        free(omega);
+        free(S_perp);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    double dw = (omega_max - omega_min) / n_omega;
+
+    for (int iq = 0; iq < n_q; ++iq) {
+        irrep_magnon_structure_factor(L, qpath[iq][0], qpath[iq][1], omega, S_perp);
+        for (int jw = 0; jw < n_omega; ++jw) {
+            double w = omega_min + (jw + 0.5) * dw;
+            double total = 0;
+            for (int b = 0; b < n; ++b) {
+                double dx = w - omega[b];
+                /* Unit-area Lorentzian */
+                total += S_perp[b] * (eta / M_PI) / (dx * dx + eta * eta);
+            }
+            intensity_out[iq * n_omega + jw] = total;
+        }
+    }
+    free(omega);
+    free(S_perp);
+    return IRREP_OK;
+}
+
 double irrep_magnon_magnetization(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny) {
     if (!L || T <= 0 || Nx <= 0 || Ny <= 0) {
         irrep_set_error_("irrep_magnon_magnetization: invalid arguments");

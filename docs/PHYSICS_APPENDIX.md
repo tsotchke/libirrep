@@ -1239,7 +1239,42 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Finite-temperature magnetisation M(T)
+### 15.7. Inelastic-neutron Q-ω intensity map
+
+The previous sections give ω_b(q) (band positions) and S_⊥_b(q)
+(band intensities) separately. The library bundles them into the
+single direct experimental observable that neutron-scattering
+papers publish: the *Q-ω heatmap*
+
+```
+I(q, ω) = Σ_b S_⊥_b(q) · L(ω − ω_b(q); η)
+```
+
+with L(x; η) = (η/π) / (x² + η²) the unit-area Lorentzian and η
+the user-supplied energy resolution (FWHM/2). The user supplies a
+momentum path through the BZ + an energy axis (ω_min, ω_max,
+n_omega) + the broadening η, and gets back a row-major 2D
+intensity grid that maps directly onto the canonical Q-ω plot.
+
+The Lorentzian acts as a finite-resolution approximation to the
+delta-function spectral support of LSW: real instruments have an
+energy resolution of 0.05 - 0.3 meV (cold and thermal triple-axis,
+respectively), so the Lorentzian convolution captures the
+instrument response exactly when η is set to the experimental
+half-width.
+
+Key sum rule: integrating I(q, ω) over ω gives Σ_b S_⊥_b(q) =
+2S·n_sub for any q (the band-summed structure factor — recovered
+from the Lorentzian unit-area normalisation). Verified on the 1-
+sublattice square FM at three q-points to 0.5%.
+
+The library implements `irrep_magnon_neutron_qomega_map(L, qpath,
+n_q, ω_min, ω_max, n_ω, η, I)`. Output rows index q-path
+points; columns index ω bins. Drop straight into a heatmap
+plotter (matplotlib pcolormesh, gnuplot pm3d, etc.) with no
+post-processing.
+
+### 15.8. Finite-temperature magnetisation M(T)
 
 The sublattice-averaged magnetisation per spin at temperature T is
 
@@ -1488,9 +1523,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.14. Verification protocol
+### 15.15. Verification protocol
 
-`tests/test_magnon.c` covers twenty-six independent checks (77 assertions):
+`tests/test_magnon.c` covers twenty-eight independent checks (81 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1574,6 +1609,12 @@ Lu₂V₂O₇).
     by the anisotropy gap.
 26. **M(T) monotonic in T**: same gapped 2D FM at T = 0.1, 0.5, 1.0
     has M strictly decreasing — confirming heat-induced spin tilt.
+27. **Q-ω map peaks track dispersion**: 5-point square-FM Q-path
+    Lorentzian-broadened (η = 0.05) max-intensity bins land within
+    3η of analytic ω(q) at every q.
+28. **Q-ω Lorentzian sum rule**: integrating I(q, ω) dω at three
+    q-points reproduces 2S = 1 to 0.5% (Lorentzian unit-area
+    × band-summed S_⊥ = 1).
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

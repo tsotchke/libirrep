@@ -859,6 +859,80 @@ static void test_magnetization_monotonic(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (27) Q-ω map: at each q on a square-FM path, the Lorentzian-broadened
+ * intensity must peak at ω = ω(q). Test by finding the energy bin with
+ * max intensity at each q and confirming it sits within η of ω(q). */
+static void test_qomega_map_peaks_track_dispersion(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+
+    int    n_q = 5;
+    int    n_w = 200;
+    double eta = 0.05;
+    double w_min = 0.0;
+    double w_max = 4.5;
+    double dw = (w_max - w_min) / n_w;
+    double qpath[5][2] = {{0.1, 0.0}, {1.0, 0.0}, {2.0, 0.0}, {2.5, 0.0}, {3.0, 0.0}};
+    double *I_qw = malloc((size_t)n_q * (size_t)n_w * sizeof *I_qw);
+    irrep_magnon_neutron_qomega_map(L, qpath, n_q, w_min, w_max, n_w, eta, I_qw);
+    /* Verify max-intensity bin matches dispersion ω(q) = 1 - cos(qx)
+     * (with J=1, S=½). */
+    int hits = 0;
+    for (int iq = 0; iq < n_q; ++iq) {
+        int jmax = 0;
+        for (int j = 1; j < n_w; ++j)
+            if (I_qw[iq * n_w + j] > I_qw[iq * n_w + jmax])
+                jmax = j;
+        double w_peak = w_min + (jmax + 0.5) * dw;
+        double w_expected = 2.0 - cos(qpath[iq][0]) - cos(qpath[iq][1]);
+        if (fabs(w_peak - w_expected) < 3.0 * eta)
+            ++hits;
+    }
+    ASSERT(hits == n_q, "Q-ω map peaks track dispersion to within 3η");
+
+    free(I_qw);
+    irrep_magnon_lsw_free(L);
+}
+
+/* (28) Lorentzian unit-area sum rule: at each q, integrating I(q, ω) dω
+ * should give Σ_b S_⊥_b(q) (the band-summed structure factor). For a
+ * 1-sublattice FM, that's 2S = 1. */
+static void test_qomega_lorentzian_sum_rule(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    int     n_q = 3;
+    int     n_w = 800;
+    double  eta = 0.02;
+    /* Wide window so Lorentzian tails are negligible. */
+    double  w_min = -2.0, w_max = 6.0;
+    double  qpath[3][2] = {{0.5, 0.5}, {2.0, 0.0}, {3.0, 1.0}};
+    double *I_qw = malloc((size_t)n_q * (size_t)n_w * sizeof *I_qw);
+    irrep_magnon_neutron_qomega_map(L, qpath, n_q, w_min, w_max, n_w, eta, I_qw);
+    double dw = (w_max - w_min) / n_w;
+    for (int iq = 0; iq < n_q; ++iq) {
+        double sum = 0;
+        for (int j = 0; j < n_w; ++j)
+            sum += I_qw[iq * n_w + j] * dw;
+        ASSERT_NEAR(sum, 1.0, 0.005, "Q-ω Lorentzian unit-area sum = 2S = 1");
+    }
+    free(I_qw);
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -886,6 +960,8 @@ int main(void) {
     test_specific_heat_limits();
     test_magnetization_low_T();
     test_magnetization_monotonic();
+    test_qomega_map_peaks_track_dispersion();
+    test_qomega_lorentzian_sum_rule();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

@@ -167,6 +167,42 @@ IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx,
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);
 
+/** @brief Inelastic-neutron Q-ω intensity map I(q, ω) for a path of
+ *         momenta — the direct experimental observable that neutron
+ *         papers publish.
+ *
+ *  For each path momentum q_i, computes the band-resolved transverse
+ *  structure factor and sums Lorentzian-broadened delta functions:
+ *
+ *      I(q_i, ω_j) = Σ_b S_⊥_b(q_i) · L(ω_j − ω_b(q_i); η)
+ *
+ *  with L(x; η) = (1/π) · η / (x² + η²) the unit-area Lorentzian and
+ *  η the user-supplied energy resolution (FWHM / 2). The result is a
+ *  Q × ω heatmap directly comparable to the canonical inelastic-
+ *  neutron-scattering plots.
+ *
+ *  Caller supplies:
+ *    - a momentum path through the BZ as an array of (qx, qy) pairs;
+ *    - an energy axis: omega_min, omega_max, n_omega bins;
+ *    - the broadening η (typical 0.02 - 0.05 in J-units).
+ *
+ *  Output: row-major intensity[i_q · n_omega + j_omega], in
+ *  natural units (S_⊥ × Lorentzian).
+ *
+ *  @param L           LSW handle
+ *  @param qpath       2D array [n_q][2] of (qx, qy) pairs
+ *  @param n_q         number of path points
+ *  @param omega_min   lower edge of energy axis
+ *  @param omega_max   upper edge of energy axis
+ *  @param n_omega     number of energy bins
+ *  @param eta         Lorentzian half-width
+ *  @param intensity_out caller buffer of size n_q · n_omega doubles */
+IRREP_API irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_t *L,
+                                                          const double (*qpath)[2], int n_q,
+                                                          double omega_min, double omega_max,
+                                                          int n_omega, double eta,
+                                                          double *intensity_out);
+
 /** @brief Finite-temperature sublattice-averaged magnetisation M(T)
  *         per spin, in units of (g·μ_B). For a collinear-FM ground
  *         state with spin S per site, the LSW result at T > 0 is

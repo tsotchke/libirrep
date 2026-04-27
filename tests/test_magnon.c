@@ -1192,6 +1192,45 @@ static void test_band_extrema_gapped_fm(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (38) Internal energy U(T): T → 0 → 0 (BE-suppressed); monotonic in T;
+ * Maxwell-relation cross-check C_V = dU/dT via FD (matches direct
+ * _specific_heat to within ~few-percent). */
+static void test_internal_energy_consistency(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, /*Kz=*/0.5);
+
+    /* U(T → 0) → 0 exponentially (gapped FM) */
+    double U_low = irrep_magnon_internal_energy(L, 0.05, 32, 32);
+    ASSERT(U_low > 0 && U_low < 1e-3, "U(T → 0) → 0⁺ exponentially small");
+
+    /* U(T) is monotonically increasing in T */
+    double U_mid = irrep_magnon_internal_energy(L, 0.5, 32, 32);
+    double U_high = irrep_magnon_internal_energy(L, 2.0, 32, 32);
+    ASSERT(U_mid > U_low, "U monotonic: U(0.5) > U(0.05)");
+    ASSERT(U_high > U_mid, "U monotonic: U(2) > U(0.5)");
+
+    /* Maxwell consistency: dU/dT |_T computed by central FD
+     * should match _specific_heat(T) within ~few percent. */
+    double T0 = 1.0;
+    double dT = 0.05;
+    double U_p = irrep_magnon_internal_energy(L, T0 + dT, 64, 64);
+    double U_m = irrep_magnon_internal_energy(L, T0 - dT, 64, 64);
+    double Cv_FD = (U_p - U_m) / (2.0 * dT);
+    double Cv_direct = irrep_magnon_specific_heat(L, T0, 64, 64);
+    /* Both come from the same BZ grid; the difference is ~O(h²) ~ 2e-3 */
+    ASSERT_NEAR(Cv_FD, Cv_direct, 0.01,
+                "Maxwell relation: dU/dT ≈ C_V from independent integrals");
+
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -1230,6 +1269,7 @@ int main(void) {
     test_hessian_square_fm();
     test_band_extrema_gapless_fm();
     test_band_extrema_gapped_fm();
+    test_internal_energy_consistency();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

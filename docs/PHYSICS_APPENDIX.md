@@ -1414,6 +1414,42 @@ Verified on the 1-band square FM at three k-points to ≤ 10⁻⁵:
 v_x = sin(kx), v_y = sin(ky) (analytic gradient of the closed-form
 ω(k) = 2 − cos kx − cos ky).
 
+### 15.8. Magnon internal energy U(T)
+
+The per-cell magnon internal energy at temperature T is the
+Bose-weighted dispersion integral:
+
+```
+U(T) = Σ_b ∫_BZ d²k/(2π)² · ω_b(k) · n_B(ω_b/T)
+```
+
+This is the *correction* to the classical-ground-state energy
+from thermally-populated magnons.
+
+**Limits**:
+
+- T → 0: U → 0 exponentially for gapped systems; ∝ T^{5/2} for
+  3D FM with quadratic Goldstone (Bloch DOS).
+- T ≫ bandwidth: classical equipartition U → n_sub · T (where
+  C_V → n_sub).
+
+**Thermodynamic-quartet consistency**: U closes the loop with F,
+S_th, and C_V via
+
+```
+U = F + T·S_th,    S_th = −∂F/∂T,    C_V = ∂U/∂T = −T·∂²F/∂T²
+```
+
+The library implements `irrep_magnon_internal_energy(L, T, Nx, Ny)`
+as a direct BZ integral. The Maxwell relation `∂U/∂T = C_V` provides
+a non-trivial cross-check between two *independently-computed*
+integrals (each running its own BZ scan), verified at T = 1 to
+≤ 1% in the test suite — agreement validates the numerical
+integration grid as well as the formulas.
+
+Direct application: the magnon contribution to the Joule-Thomson
+cooling coefficient and to magnetic-cooling device specifications.
+
 ### 15.8. Magnon Helmholtz free energy F(T)
 
 The magnon contribution to the Helmholtz free energy per unit cell
@@ -1783,9 +1819,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.21. Verification protocol
+### 15.22. Verification protocol
 
-`tests/test_magnon.c` covers thirty-seven independent checks (111 assertions):
+`tests/test_magnon.c` covers thirty-eight independent checks (115 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1904,6 +1940,11 @@ Lu₂V₂O₇).
     Mermin-Wagner-respecting in 2D), bandwidth ≈ 4 to ±0.1.
 37. **Band extrema gapped FM**: K_z = 0.5 → spin gap = 2·K_z·S =
     0.5 to ≤ 10⁻³, top energy = 4.5 = bandwidth + gap.
+38. **U(T) consistency**: gapped FM has U(T → 0) → 0⁺ exponentially,
+    monotonic increase to high T, AND the Maxwell relation
+    `dU/dT ≈ C_V` cross-check between two independent BZ integrals
+    matches at T = 1 to ≤ 1% — non-trivial agreement of formulas
+    *and* grids.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

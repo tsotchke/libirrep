@@ -307,6 +307,45 @@ IRREP_API irrep_status_t irrep_magnon_group_velocity(const irrep_magnon_lsw_t *L
                                                       double ky, double h, double *vx_out,
                                                       double *vy_out);
 
+/** @brief Magnon contribution to the per-cell internal energy U(T)
+ *         in natural units (k_B = ℏ = 1).
+ *
+ *      U(T) = Σ_b ∫_BZ d²k/(2π)² · ω_b(k) · n_B(ω_b/T)
+ *
+ *  This is the *correction* to the classical-ground-state energy
+ *  E_cl from thermally-populated magnons; total internal energy of
+ *  a magnetic system is E_cl + U(T).
+ *
+ *  Limits:
+ *
+ *    - **T → 0**: U → 0 like Σ_b ∫ ω·e^{−ω/T} (vanishes
+ *      exponentially for gapped systems; in 3D FM with quadratic
+ *      Goldstone, U ∝ T^{5/2} via the Bloch DOS).
+ *
+ *    - **T ≫ bandwidth**: equipartition gives U → n_sub · T (each
+ *      band per cell contributes 1·k_B·T in classical limit). This
+ *      is the same regime where C_V → n_sub k_B; LSW remains
+ *      reliable while T < bandwidth.
+ *
+ *  Thermodynamic consistency:
+ *
+ *      U(T) = F(T) + T·S_th(T)        with S_th = −∂F/∂T
+ *      C_V(T) = ∂U/∂T                  (Maxwell relation)
+ *
+ *  Direct application: the magnon contribution to the Joule-Thomson
+ *  cooling coefficient and to magnetic-cooling device specifications
+ *  (energy storage capacity per unit cell vs operating temperature).
+ *
+ *  Same Goldstone-mode (ω < 10⁻¹⁰) and BE-overflow (x > 700) regul-
+ *  arisations as the rest of the thermodynamic API.
+ *
+ *  @param L      LSW handle
+ *  @param T      temperature (same units as ω)
+ *  @param Nx, Ny BZ grid (typical 50-200)
+ *  @return       U(T) per unit cell, or NaN on error. */
+IRREP_API double irrep_magnon_internal_energy(const irrep_magnon_lsw_t *L, double T, int Nx,
+                                               int Ny);
+
 /** @brief Magnon contribution to the Helmholtz free energy F(T) per
  *         unit cell, in natural units (k_B = ℏ = 1). For a Bose gas
  *         of non-interacting magnons,

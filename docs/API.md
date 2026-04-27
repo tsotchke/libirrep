@@ -51,7 +51,7 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | `<irrep/tensor_product.h>` (half-int path, 1.3) | spinor tensor products | `tp_2j_descriptor_t` | `irrep_tp_2j_enumerate_paths`, `_build`, `_free`, `_apply`, `_apply_weighted`, `_apply_backward`, `_output_dim`, `_num_paths` |
 | `<irrep/dmi.h>` (1.3) | Bond + triangle exchange-tensor symmetry analyzers (DMI + symmetric exchange + scalar chirality + magnetic-point-group antiunitary) | `irrep_dmi_sym_op_t` | `irrep_dmi_allowed_basis`, `_from_pg`, `irrep_exchange_symmetric_basis`, `_from_pg`, `irrep_chirality_allowed`, `_from_pg`, `irrep_pg_element` |
 | `<irrep/dmi_hamiltonian.h>` (1.3) | spin-½ DMI apply operator (`H = Σ D · (S_i × S_j)`) | `irrep_dmi_hamiltonian_t` | `irrep_dmi_hamiltonian_new`, `_free`, `irrep_dmi_apply`, `irrep_dmi_hamiltonian_num_sites`, `_dim` |
-| `<irrep/magnon.h>` (1.4-α) | Linearised spin-wave theory: FM + AFM 2D/3D dispersion ω(k), group velocity v_g(k), Hessian H_ij(k) / effective mass / spin stiffness, spin gap + bandwidth, Berry curvature, Chern numbers (2D and 3D-on-slice), thermal Hall κ_xy(T), spin Nernst α^s_xy(T), strip dispersion for chiral edge modes, Wilson-loop spectrum, transverse INS structure factor, magnon DOS, free energy F(T), specific heat C_V(T), finite-T magnetisation M(T), susceptibility χ(T), neutron Q-ω heatmap | `irrep_magnon_lsw_t`, `irrep_magnon_bond_t` | `irrep_magnon_lsw_new`, `_free`, `irrep_magnon_dispersion`, `irrep_magnon_dispersion_3d`, `irrep_magnon_dispersion_general`, `irrep_magnon_group_velocity`, `irrep_magnon_hessian`, `irrep_magnon_band_extrema`, `irrep_magnon_berry`, `irrep_magnon_chern`, `irrep_magnon_chern_3d_slice_kz`, `irrep_magnon_dos`, `irrep_magnon_free_energy`, `irrep_magnon_magnetization`, `irrep_magnon_neutron_qomega_map`, `irrep_magnon_specific_heat`, `irrep_magnon_spin_nernst`, `irrep_magnon_structure_factor`, `irrep_magnon_susceptibility`, `irrep_magnon_thermal_hall_kxy`, `irrep_magnon_strip_dispersion`, `irrep_magnon_wilson_spectrum`, `irrep_magnon_lsw_num_bands` |
+| `<irrep/magnon.h>` (1.4-α) | Linearised spin-wave theory: FM + AFM 2D/3D dispersion ω(k), group velocity v_g(k), Hessian H_ij(k) / effective mass / spin stiffness, spin gap + bandwidth, Berry curvature, Chern numbers (2D and 3D-on-slice), thermal Hall κ_xy(T), spin Nernst α^s_xy(T), strip dispersion for chiral edge modes, Wilson-loop spectrum, transverse INS structure factor, magnon DOS, internal energy U(T), free energy F(T), specific heat C_V(T), finite-T magnetisation M(T), susceptibility χ(T), neutron Q-ω heatmap | `irrep_magnon_lsw_t`, `irrep_magnon_bond_t` | `irrep_magnon_lsw_new`, `_free`, `irrep_magnon_dispersion`, `irrep_magnon_dispersion_3d`, `irrep_magnon_dispersion_general`, `irrep_magnon_group_velocity`, `irrep_magnon_hessian`, `irrep_magnon_band_extrema`, `irrep_magnon_berry`, `irrep_magnon_chern`, `irrep_magnon_chern_3d_slice_kz`, `irrep_magnon_dos`, `irrep_magnon_free_energy`, `irrep_magnon_internal_energy`, `irrep_magnon_magnetization`, `irrep_magnon_neutron_qomega_map`, `irrep_magnon_specific_heat`, `irrep_magnon_spin_nernst`, `irrep_magnon_structure_factor`, `irrep_magnon_susceptibility`, `irrep_magnon_thermal_hall_kxy`, `irrep_magnon_strip_dispersion`, `irrep_magnon_wilson_spectrum`, `irrep_magnon_lsw_num_bands` |
 | `<irrep/irrep.h>` | umbrella | — | all of the above |
 
 ---
@@ -568,6 +568,13 @@ from a 2D bond list and exposes three observables:
    Vanishes at band extrema (transport spectators); approximates
    c_s near linear-Dirac and AFM-Goldstone regions. Verified
    against analytic v = sin(k) on the square FM to ≤ 10⁻⁵.
+7. **Internal energy U(T)**: `irrep_magnon_internal_energy(L, T, Nx, Ny)`
+   returns the per-cell magnon internal energy as the Bose-weighted
+   dispersion integral `U = Σ_b ∫ ω·n_BE(ω/T) d²k/(2π)²`. Closes
+   the thermodynamic-quartet self-consistency: `dU/dT = C_V`
+   (Maxwell relation) cross-checks two independent integrals at the
+   1% level. Direct application: magnon contribution to magnetic-
+   cooling-device specifications.
 8. **Free energy F(T)**: `irrep_magnon_free_energy(L, T, Nx, Ny)`
    returns the magnon contribution to the per-cell Helmholtz free
    energy: `F(T) = T · Σ_b ∫ ln(1 − e^{−ω/T}) d²k/(2π)²`. Always

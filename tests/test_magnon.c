@@ -320,6 +320,86 @@ static void test_thermal_hall_kagome(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (10) Strip dispersion of the trivial 1-band square FM: all modes are
+ * bulk (extended sin(nπx/L)) with edge_weight = 0.5 by symmetry. */
+static void test_strip_trivial(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0, 0, 0}},
+    };
+    double              S = 0.5;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, S, a1, a2, 2, bonds, 0);
+
+    int     Lx = 12;
+    int     N = Lx; /* 1 sublattice */
+    double *omega = malloc((size_t)N * sizeof *omega);
+    double *ew = malloc((size_t)N * sizeof *ew);
+    /* Sweep five k_y values; at every one, all modes should have
+     * edge_weight = 0.5 to within numerical noise (sinusoidal envelope
+     * is symmetric). */
+    double kys[5] = {0.0, M_PI / 4.0, M_PI / 2.0, 3.0 * M_PI / 4.0, M_PI};
+    int    bad = 0;
+    for (int i = 0; i < 5; ++i) {
+        irrep_magnon_strip_dispersion(L, Lx, kys[i], omega, ew);
+        for (int b = 0; b < N; ++b)
+            if (fabs(ew[b] - 0.5) > 0.02)
+                ++bad;
+    }
+    ASSERT(bad == 0, "trivial strip: every mode has edge_weight ≈ 0.5");
+    free(omega);
+    free(ew);
+    irrep_magnon_lsw_free(L);
+}
+
+/* (11) Strip dispersion of the topological kagome FM has chiral edge
+ * states inside the bulk gaps. We pick a k_y deep inside the bulk
+ * mid-band gap and check that the strip has at least 2 modes (one per
+ * edge) with edge_weight far from 0.5. */
+static void test_strip_kagome_edge_modes(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * 1.7320508075688772};
+    double D = 0.15;
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0, .delta_y = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 2, .delta_x = 0, .delta_y = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 2, .bj = 0, .delta_x = 0, .delta_y = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1, .J = -1.0, .D = {0, 0, -D}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, /*S=*/1.0, a1, a2, 6, bonds, 0);
+
+    int     Lx = 24;
+    int     N = Lx * 3;
+    double *omega = malloc((size_t)N * sizeof *omega);
+    double *ew = malloc((size_t)N * sizeof *ew);
+
+    /* Scan a few k_y values; for each, count modes with strong edge
+     * localisation (edge_weight far from 0.5) lying in the topological
+     * gap region [2.7, 5.4] (between the K-point Dirac splittings of
+     * bands 1 and 2 of the bulk). At least at one k_y, we expect ≥ 2
+     * such modes — one per edge. */
+    int max_localised_in_gap = 0;
+    double kys[5] = {-2.0, -1.0, 0.0, 1.0, 2.0};
+    for (int i = 0; i < 5; ++i) {
+        irrep_magnon_strip_dispersion(L, Lx, kys[i], omega, ew);
+        int loc = 0;
+        for (int b = 0; b < N; ++b)
+            if (omega[b] > 2.8 && omega[b] < 5.4 && fabs(ew[b] - 0.5) > 0.4)
+                ++loc;
+        if (loc > max_localised_in_gap)
+            max_localised_in_gap = loc;
+    }
+    ASSERT(max_localised_in_gap >= 2,
+           "kagome strip: ≥2 edge-localised modes appear inside the topological gap");
+
+    free(omega);
+    free(ew);
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -330,6 +410,8 @@ int main(void) {
     test_chern_trivial();
     test_thermal_hall_trivial();
     test_thermal_hall_kagome();
+    test_strip_trivial();
+    test_strip_kagome_edge_modes();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

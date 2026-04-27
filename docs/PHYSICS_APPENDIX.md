@@ -1116,9 +1116,45 @@ Nx, Ny)` and discretises the integral on the same Nx × Ny grid as
 `_chern`. It returns κ_xy in natural units (k_B = ℏ = 1, lengths in
 unit-cell units); a docstring conversion table maps to SI.
 
-### 15.5. Verification protocol
+### 15.5. Bulk-boundary correspondence: chiral edge modes
 
-`tests/test_magnon.c` covers nine independent checks (32 assertions):
+The bulk Chern numbers C_b acquire a *physical* signature on
+finite-strip geometries through the bulk-boundary correspondence
+theorem (Hatsugai 1993). For a strip with open boundary along one
+direction (say a₁) and periodic along the other (a₂), the
+dispersion ω(k_y) carries gapless *chiral edge modes* that traverse
+each bulk gap, with the *net signed crossing count* on a given edge
+equal to the sum of Chern numbers of all bands below the gap.
+
+These edge modes have wavefunctions exponentially localised on one
+of the two boundaries. They propagate unidirectionally (the slope
+dω/dk_y has a definite sign on each edge) and are topologically
+protected against any disorder that does not close the bulk gap —
+backscattering would require coupling left-edge to right-edge,
+which is exponentially suppressed.
+
+The library implements `irrep_magnon_strip_dispersion(L, Lx, ky,
+ω, edge_weight)` which builds the (Lx · n_sub)² Hermitian
+Hamiltonian by replicating the unit cell Lx times along a₁, opening
+the boundary at the strip edges, and applying the Bloch phase
+`exp(i k_y · t_y)` for the y-projection of every bond. The output
+`edge_weight[b] = Σ_{x ∈ left half} |ψ_b(x)|²` is near 1 for
+left-edge modes, near 0 for right-edge modes, and near 0.5 for
+extended bulk modes.
+
+For the kagome FM with Mook-Henk-Mertig (−1, 0, +1) Chern
+signature, `examples/kagome_chiral_edge_modes.c` traces both edge
+modes through the lower bulk gap as k_y winds across the BZ. The
+right-edge mode disperses one way (ω increases with decreasing k_y)
+and the left-edge mode the opposite way — directly visualising the
+counter-propagating chiral magnon currents that are the bosonic
+analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
+the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
+Lu₂V₂O₇).
+
+### 15.6. Verification protocol
+
+`tests/test_magnon.c` covers eleven independent checks (34 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1145,6 +1181,13 @@ unit-cell units); a docstring conversion table maps to SI.
    triangle parity: low-T κ_xy → 0 exponentially, intermediate-T
    κ_xy ≠ 0, monotonic increase from low to mid T. Chern numbers
    verify (−1, 0, +1) on the same handle.
+10. **Trivial strip dispersion**: 1-band square FM strip has every
+    mode with edge_weight ≈ 0.5 (sinusoidal envelope is symmetric
+    about the strip mid-plane). No chiral edge channels.
+11. **Topological strip edge modes**: kagome strip exhibits ≥ 2
+    edge-localised modes (edge_weight far from 0.5) inside the
+    lower bulk gap at some k_y — confirming the Hatsugai
+    correspondence on the (−1, 0, +1) Chern signature.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome
@@ -1187,6 +1230,9 @@ sweep showing the BE-suppressed → plateau crossover.
 - Akazawa, M. *et al.* *Phys. Rev. X* 10, 041059 (2020). Thermal
   Hall conductivity κ_xy(T) on Cu(1,3-bdc); peak at T ≈ 5 K
   matches the topological-gap prediction from inelastic neutron.
+- Hatsugai, Y. *Phys. Rev. Lett.* 71, 3697 (1993). Bulk-boundary
+  correspondence for Chern insulators — chiral edge mode counts
+  match the bulk topological invariant.
 
 ---
 

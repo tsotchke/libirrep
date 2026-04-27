@@ -161,6 +161,42 @@ IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx,
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);
 
+/** @brief Compute the magnon dispersion on a strip geometry: open
+ *         boundary conditions along a₁ (Lx unit cells stacked) and
+ *         periodic boundary conditions along a₂ (momentum k_y).
+ *
+ *  This is the *bulk-boundary correspondence* probe. For a 2D model
+ *  with non-zero band Chern numbers, the strip-projected dispersion
+ *  exhibits gapless chiral edge modes crossing every bulk gap. The
+ *  net chirality of the edge modes at one edge equals the sum of
+ *  Chern numbers of all bands below the gap (Hatsugai 1993).
+ *
+ *  The strip Hamiltonian H_strip(k_y) is an (Lx · n_sub) × (Lx ·
+ *  n_sub) Hermitian matrix obtained by:
+ *
+ *    - keeping intra-cell bonds (delta_x = 0) on every cell;
+ *    - connecting cells `i` and `i+1` via bonds with delta_x = ±1;
+ *    - applying Bloch phase exp(i k_y · t_y) for the y-projection of
+ *      every bond.
+ *
+ *  Bonds with |delta_x| > 1 are not currently supported (most NN /
+ *  NNN bond lists fit within ±1).
+ *
+ *  @param L                LSW handle
+ *  @param Lx               number of unit cells along a₁ (open BC).
+ *                          Must be ≥ 2.
+ *  @param ky               momentum along a₂ (cartesian)
+ *  @param omega_out        caller buffer of size Lx · n_sub doubles —
+ *                          eigenvalues sorted ascending
+ *  @param edge_weight_out  caller buffer of size Lx · n_sub doubles
+ *                          (may be NULL). On return, holds Σ_{x in
+ *                          left half} |ψ_x|² for each mode — values
+ *                          near 1 indicate left-edge localisation,
+ *                          near 0 right-edge, near 0.5 bulk. */
+IRREP_API irrep_status_t irrep_magnon_strip_dispersion(const irrep_magnon_lsw_t *L, int Lx,
+                                                        double ky, double *omega_out,
+                                                        double *edge_weight_out);
+
 /** @brief Magnon thermal Hall conductivity κ_xy(T) in the
  *         Matsumoto-Murakami formulation (PRL 106, 197202, 2011 /
  *         PRB 89, 054420, 2014).

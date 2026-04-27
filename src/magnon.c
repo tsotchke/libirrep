@@ -383,6 +383,107 @@ irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
     return IRREP_OK;
 }
 
+/* Build the strip Hamiltonian H_strip(k_y) of size (Lx·n_sub)². Each
+ * undirected bond contributes both forward and backward orientations.
+ * Bonds with delta_x = 0 stay within a cell; |delta_x|=1 connect to the
+ * next/previous cell (skip boundary wraps to enforce open BC); |delta_x|>1
+ * is rejected upstream. */
+static int build_H_strip_(const irrep_magnon_lsw_t *L, int Lx, double ky,
+                          double _Complex *H_out) {
+    int n = L->n_sub;
+    int N = Lx * n;
+    memset(H_out, 0, (size_t)N * N * sizeof(double _Complex));
+    double S = L->S;
+
+    /* Diagonal anisotropy on every site of every cell. */
+    for (int cx = 0; cx < Lx; ++cx)
+        for (int a = 0; a < n; ++a) {
+            int idx = cx * n + a;
+            H_out[idx * N + idx] += 2.0 * L->Kz * S;
+        }
+
+    for (int b = 0; b < L->n_bonds; ++b) {
+        const irrep_magnon_bond_t *bd = &L->bonds[b];
+        int dx = bd->delta_x;
+        if (dx < -1 || dx > 1)
+            return -1;
+        /* y-component of bond translation. */
+        double ty = bd->delta_x * L->a1[1] + bd->delta_y * L->a2[1];
+        double phase_arg = ky * ty;
+        double _Complex eikt = cos(phase_arg) + I * sin(phase_arg);
+
+        double _Complex Jhop = +S * bd->J * eikt;
+        double _Complex Dhop = -I * S * bd->D[2] * eikt;
+        double _Complex hop = Jhop + Dhop;
+
+        /* For each strip cell cx, the bond connects (cx, bi) to
+         * (cx + dx, bj). If cx + dx is outside [0, Lx), drop the bond
+         * (open BC). */
+        for (int cx = 0; cx < Lx; ++cx) {
+            int cx2 = cx + dx;
+            if (cx2 < 0 || cx2 >= Lx)
+                continue;
+            int idx_a = cx * n + bd->bi;
+            int idx_b = cx2 * n + bd->bj;
+            H_out[idx_a * N + idx_b] += hop;
+            H_out[idx_b * N + idx_a] += conj(hop);
+            /* Diagonal "self-energy" -S·J(n_a + n_b) per unique bond.
+             * Only counted on bonds that actually connect — equivalently,
+             * once per undirected bond endpoint that lies inside the
+             * strip. Since we already gate cx + dx ∈ [0, Lx), both
+             * endpoints exist when this branch fires. */
+            H_out[idx_a * N + idx_a] += -S * bd->J;
+            H_out[idx_b * N + idx_b] += -S * bd->J;
+        }
+    }
+    return 0;
+}
+
+irrep_status_t irrep_magnon_strip_dispersion(const irrep_magnon_lsw_t *L, int Lx, double ky,
+                                              double *omega_out, double *edge_weight_out) {
+    if (!L || Lx < 2 || !omega_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    int N = Lx * n;
+    double _Complex *H = malloc((size_t)N * N * sizeof *H);
+    double _Complex *V = malloc((size_t)N * N * sizeof *V);
+    if (!H || !V) {
+        free(H);
+        free(V);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    if (build_H_strip_(L, Lx, ky, H) < 0) {
+        free(H);
+        free(V);
+        irrep_set_error_("irrep_magnon_strip_dispersion: bonds with |delta_x| > 1 not supported");
+        return IRREP_ERR_INVALID_ARG;
+    }
+    hermitian_eig_(N, H, omega_out, V);
+
+    if (edge_weight_out) {
+        /* For each band b, weight = Σ_{x in left half} |ψ_x|². Modes
+         * localised on the left edge get values near 1; right-edge near
+         * 0; bulk modes near 0.5. The "left half" is the first Lx/2
+         * unit cells. */
+        int half = Lx / 2;
+        for (int b = 0; b < N; ++b) {
+            double w = 0;
+            for (int cx = 0; cx < half; ++cx)
+                for (int a = 0; a < n; ++a) {
+                    int idx = cx * n + a;
+                    /* hermitian_eig_ writes evec b into row b,
+                     * components 0..N-1 in the V buffer. */
+                    double _Complex c = V[b * N + idx];
+                    w += creal(c) * creal(c) + cimag(c) * cimag(c);
+                }
+            edge_weight_out[b] = w;
+        }
+    }
+    free(H);
+    free(V);
+    return IRREP_OK;
+}
+
 double irrep_magnon_thermal_hall_kxy(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny) {
     if (!L || T <= 0 || Nx <= 0 || Ny <= 0) {
         irrep_set_error_("irrep_magnon_thermal_hall_kxy: invalid arguments");

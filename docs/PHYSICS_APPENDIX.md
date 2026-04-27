@@ -1239,7 +1239,52 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. 3D extension: magnon dispersion on cubic / layered lattices
+### 15.7. Dynamic spin structure factor S_⊥(q, ω)
+
+The direct observable of inelastic neutron scattering is the
+*dynamic spin structure factor* — the Fourier transform of the
+spin-spin correlator. For a one-magnon transition out of the
+collinear-FM ground state, the transverse component (perpendicular
+to the ordering axis) at frequency ω = ω_b(q) carries spectral
+weight
+
+```
+S_⊥_b(q) = 2S · |Σ_α u_b(q)_α|²
+```
+
+where u_b(q) is the band-b LSW eigenvector. Bands with `S_⊥_b(q) =
+0` are *dark* — invisible to transverse-channel neutron scattering
+at that q. The most striking pattern arises on multi-sublattice
+systems: at the BZ centre Γ, the *uniform-mode Goldstone* eigenvector
+u = (1, 1, ..., 1)/√n_sub carries the full spectral weight `S_⊥ =
+2S · n_sub`, while the upper bands are exactly orthogonal to the
+uniform mode and have S_⊥ = 0 (dark at Γ). Moving away from Γ,
+spectral weight redistributes between bands while obeying the *sum
+rule*
+
+```
+Σ_b S_⊥_b(q) = 2S · n_sub        for every q
+```
+
+— a model-independent constraint that any LSW prediction (and the
+neutron-cross-section reconstruction it feeds) must satisfy
+exactly.
+
+The library API is `irrep_magnon_structure_factor(L, qx, qy, ω,
+S_⊥)`. The library uses a Wannier-centred Bloch convention
+(sublattice positions absorbed into the cell origin); for a full
+INS prediction including intra-cell interference, the user
+post-multiplies the band-resolved S_⊥_b(q) by the form factor
+|Σ_α e^{i q·r_α} u_b(q)_α|² / |Σ_α u_b(q)_α|² with explicit
+sublattice positions r_α.
+
+Demo: the kagome topological-magnon demo prints S_⊥(q) along Γ →
+K → M → Γ, showing the Goldstone-mode brightness at Γ, the
+spectral-weight transfer to the middle band at K (Dirac-point
+extinction of the lower-band weight), and the 4:2:0 redistribution
+at M.
+
+### 15.8. 3D extension: magnon dispersion on cubic / layered lattices
 
 The 2D LSW handle generalises to 3D by adding a third primitive
 vector a₃ and an inter-cell `delta_z` field on each bond. The bond
@@ -1312,9 +1357,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.9. Verification protocol
+### 15.10. Verification protocol
 
-`tests/test_magnon.c` covers seventeen independent checks (53 assertions):
+`tests/test_magnon.c` covers nineteen independent checks (64 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1369,6 +1414,13 @@ Lu₂V₂O₇).
 17. **3D-to-2D reduction**: the 3D solver at k_z = 0 with all
     delta_z = 0 reproduces the 2D dispersion to ≤ 10⁻¹² —
     consistency check between the two paths.
+18. **Single-sublattice S_⊥ = 2S**: 1-band square FM has trivial
+    transverse structure factor S_⊥ = 2S = 1 at every q sampled
+    (5 q-points to ≤ 10⁻¹²).
+19. **Kagome FM Γ-extinction + sum rule**: at Γ, the lowest band
+    carries S_⊥ = 6 (= 2S·n_sub with S=1, n_sub=3) and the upper
+    two bands have S_⊥ ≈ 0 (dark at Γ). The sum rule
+    Σ_b S_⊥_b(q) = 2S·n_sub holds at three off-Γ q-points to ≤ 10⁻⁹.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

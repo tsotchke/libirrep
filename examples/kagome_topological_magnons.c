@@ -142,7 +142,23 @@ int main(void) {
     }
     printf("    Net winding (after BZ unwrap): -2π, 0, +2π → Chern (-1, 0, +1) ✓\n");
 
-    /* (5) Thermal Hall conductivity κ_xy(T) — Matsumoto-Murakami. The
+    /* (5) Transverse spin structure factor S_⊥_b(q) — band-resolved
+     *     INS spectral weight. Sum rule: Σ_b S_⊥_b = 2S·n_sub
+     *     independent of q. */
+    printf("\n    Transverse structure factor S_⊥(q) on Γ → K → M:\n");
+    printf("    %-7s  %-9s  %-9s  %-9s  %-9s\n", "label", "S_⊥(ω₁)", "S_⊥(ω₂)", "S_⊥(ω₃)", "Σ_b");
+    printf("    ────────────────────────────────────────────────\n");
+    for (size_t i = 0; i < sizeof(kpath) / sizeof(*kpath); ++i) {
+        double w[3], sf[3];
+        irrep_magnon_structure_factor(L, kpath[i].kx + 1e-6, kpath[i].ky, w, sf);
+        printf("    %-7s  %9.4f  %9.4f  %9.4f  %9.4f\n", kpath[i].name, sf[0], sf[1], sf[2],
+               sf[0] + sf[1] + sf[2]);
+    }
+    printf("    Goldstone band carries S_⊥ = 2S·n_sub at Γ; spectral weight\n");
+    printf("    redistributes between bands at K and M. Sum rule (= 6) is\n");
+    printf("    constant — characteristic of LSW transverse INS response.\n");
+
+    /* (6) Thermal Hall conductivity κ_xy(T) — Matsumoto-Murakami. The
      * peak T scales with the topological gap O(D). */
     printf("\n    Thermal Hall conductivity κ_xy(T) (natural units, Nx×Ny = 32×32):\n");
     printf("    %-9s  %-14s\n", "T/J", "κ_xy");

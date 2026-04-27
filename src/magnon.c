@@ -383,6 +383,31 @@ irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_structure_factor(const irrep_magnon_lsw_t *L, double qx, double qy,
+                                              double *omega_out, double *S_perp_out) {
+    if (!L || !omega_out || !S_perp_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    double _Complex *u = malloc((size_t)n * n * sizeof *u);
+    if (!u)
+        return IRREP_ERR_OUT_OF_MEMORY;
+    irrep_status_t st = irrep_magnon_dispersion(L, qx, qy, omega_out, u);
+    if (st != IRREP_OK) {
+        free(u);
+        return st;
+    }
+    /* For each band b, S_perp_b = 2S · |Σ_α u_b(q)_α|² . Eigenvectors
+     * are stored as rows of u: u[b*n + α]. */
+    for (int b = 0; b < n; ++b) {
+        double _Complex sum = 0;
+        for (int a = 0; a < n; ++a)
+            sum += u[b * n + a];
+        S_perp_out[b] = 2.0 * L->S * (creal(sum) * creal(sum) + cimag(sum) * cimag(sum));
+    }
+    free(u);
+    return IRREP_OK;
+}
+
 /* Build H(k) for the 3D extension: t = delta_x·a₁ + delta_y·a₂ +
  * delta_z·a₃. Otherwise identical to build_H_(). */
 static void build_H_3d_(const irrep_magnon_lsw_t *L, const double a3[3], double kx, double ky,

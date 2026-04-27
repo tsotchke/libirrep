@@ -167,6 +167,48 @@ IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx,
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);
 
+/** @brief Compute the band-resolved transverse dynamic spin structure
+ *         factor S⊥_b(q) of a collinear-FM-along-z LSW magnet.
+ *
+ *  For a one-magnon excitation at momentum q on band b, the transverse
+ *  spin operator S^- = √(2S)·a^† gives the matrix element
+ *
+ *      ⟨b, q | S^-_q | 0⟩ = √(2S) · Σ_α u_b(q)_α
+ *
+ *  in the Wannier-centred Bloch convention used by the rest of this
+ *  module (sublattice positions absorbed into the cell-origin
+ *  convention; caller can post-multiply the band-resolved result by
+ *  intra-cell phase factors |Σ_α e^{i q·r_α} u_b(q)_α|² /
+ *  |Σ_α u_b(q)_α|² for full INS prediction). The band-resolved
+ *  spectral weight is
+ *
+ *      S⊥_b(q) = 2S · |Σ_α u_b(q)_α|²
+ *
+ *  This is the *intensity* an inelastic-neutron experiment measures
+ *  along the magnon-band line ω = ω_b(q). Bands with `S⊥_b(q) = 0`
+ *  are *dark* — invisible to transverse-channel neutron scattering at
+ *  that q.
+ *
+ *  For a single-sublattice FM, |u_b|² = 1 by normalisation, so S⊥ =
+ *  2S identically (q-independent intensity, all bands fully bright).
+ *
+ *  For the kagome FM at Γ, the lowest band is the uniform-mode
+ *  Goldstone u_1 = (1, 1, 1)/√3 with |Σ u| = √3, giving S⊥ = 2S·3 =
+ *  6S. The upper bands are orthogonal to the uniform mode and have
+ *  S⊥ = 0 — dark at Γ. As q moves through the BZ, spectral weight
+ *  redistributes between bands; the *integrated* sum-rule is
+ *  Σ_b S⊥_b(q) = 2S·n_sub independent of q.
+ *
+ *  @param L            LSW handle
+ *  @param qx, qy       momentum (cartesian)
+ *  @param omega_out    caller buffer of size n_sub doubles — band
+ *                      energies sorted ascending
+ *  @param S_perp_out   caller buffer of size n_sub doubles — band-
+ *                      resolved transverse spectral weight S⊥_b(q) */
+IRREP_API irrep_status_t irrep_magnon_structure_factor(const irrep_magnon_lsw_t *L, double qx,
+                                                        double qy, double *omega_out,
+                                                        double *S_perp_out);
+
 /** @brief Compute the magnon dispersion ω_b(k) on a *3D* lattice.
  *
  *  The 2D `irrep_magnon_dispersion` only consumes a₁, a₂ and the

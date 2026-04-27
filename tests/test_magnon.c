@@ -616,6 +616,64 @@ static void test_3d_reduces_to_2d(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (18) Single-sublattice FM transverse structure factor: S_perp_b(q)
+ * = 2S identically for all q (|u_b|² = 1 trivially, no sublattice
+ * form factor). */
+static void test_structure_factor_single(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    double              S = 0.5;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, S, a1, a2, 2, bonds, 0);
+    double              q_pts[5][2] = {
+        {0.0, 0.0}, {M_PI, 0.0}, {0.0, M_PI}, {M_PI / 3, M_PI / 5}, {M_PI, M_PI}};
+    for (int i = 0; i < 5; ++i) {
+        double omega, S_perp;
+        irrep_magnon_structure_factor(L, q_pts[i][0], q_pts[i][1], &omega, &S_perp);
+        ASSERT_NEAR(S_perp, 2.0 * S, 1e-12, "single-sublattice S_perp = 2S");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
+/* (19) Kagome FM at Γ: lowest band carries S_perp = 2S·n_sub = 6S, and
+ * the upper bands are orthogonal so S_perp = 0. The sum rule
+ * Σ_b S_perp_b(q) = 2S·n_sub holds at every q. */
+static void test_structure_factor_kagome_gamma(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * 1.7320508075688772};
+    /* Pure Heisenberg kagome FM (no DMI for cleanest test). */
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .delta_z = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 2, .delta_x = 0,  .delta_y = 0,  .delta_z = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 0, .delta_x = 0,  .delta_y = 0,  .delta_z = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0,  .delta_z = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .delta_z = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1,  .delta_z = 0, .J = -1.0, .D = {0,0,0}},
+    };
+    double              S = 1.0;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, S, a1, a2, 6, bonds, 0);
+    double              omega[3], S_perp[3];
+    /* At Γ avoid the exact Goldstone numerical issue. */
+    irrep_magnon_structure_factor(L, 1e-6, 1e-6, omega, S_perp);
+    ASSERT_NEAR(S_perp[0], 2.0 * S * 3.0, 0.01, "kagome FM Goldstone band: S_perp = 6S");
+    ASSERT(S_perp[1] < 0.01, "kagome FM second band at Γ: dark (S_perp ≈ 0)");
+    ASSERT(S_perp[2] < 0.01, "kagome FM third band at Γ: dark (S_perp ≈ 0)");
+
+    /* Sum rule: Σ_b S_perp = 2S·n_sub, independent of q. Test at three q. */
+    double q_pts[3][2] = {{0.5, 0.3}, {1.5, 0.7}, {2.0, 1.0}};
+    for (int i = 0; i < 3; ++i) {
+        irrep_magnon_structure_factor(L, q_pts[i][0], q_pts[i][1], omega, S_perp);
+        double sum = S_perp[0] + S_perp[1] + S_perp[2];
+        ASSERT_NEAR(sum, 2.0 * S * 3.0, 1e-9, "kagome FM sum rule Σ S_perp = 2S·n_sub");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -634,6 +692,8 @@ int main(void) {
     test_wilson_trivial();
     test_3d_simple_cubic_fm();
     test_3d_reduces_to_2d();
+    test_structure_factor_single();
+    test_structure_factor_kagome_gamma();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

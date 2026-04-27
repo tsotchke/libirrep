@@ -383,6 +383,44 @@ irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
     return IRREP_OK;
 }
 
+double irrep_magnon_magnetization(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny) {
+    if (!L || T <= 0 || Nx <= 0 || Ny <= 0) {
+        irrep_set_error_("irrep_magnon_magnetization: invalid arguments");
+        return NAN;
+    }
+    int     n = L->n_sub;
+    double *omega = malloc((size_t)n * sizeof *omega);
+    double _Complex *u = malloc((size_t)n * n * sizeof *u);
+    if (!omega || !u) {
+        free(omega);
+        free(u);
+        return NAN;
+    }
+    double thermal_pop = 0;
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = (double)ix / Nx;
+            double fy = (double)iy / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            irrep_magnon_dispersion(L, kx, ky, omega, u);
+            for (int b = 0; b < n; ++b) {
+                double w = omega[b];
+                if (w < 1e-10)
+                    continue;
+                double x = w / T;
+                if (x > 700.0)
+                    continue;
+                thermal_pop += 1.0 / (exp(x) - 1.0);
+            }
+        }
+    free(omega);
+    free(u);
+    /* M(T) = S − (1/n_sub) · (1/N_BZ) · Σ_b Σ_k n_B(ω_b(k)/T)
+     * The BZ sum / N_BZ approximates ∫ d²k/(2π)² over the BZ. */
+    return L->S - thermal_pop / ((double)Nx * (double)Ny * (double)n);
+}
+
 double irrep_magnon_specific_heat(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny) {
     if (!L || T <= 0 || Nx <= 0 || Ny <= 0) {
         irrep_set_error_("irrep_magnon_specific_heat: invalid arguments");

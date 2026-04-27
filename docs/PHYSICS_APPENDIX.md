@@ -1239,7 +1239,44 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Magnon contribution to specific heat C_V(T)
+### 15.7. Finite-temperature magnetisation M(T)
+
+The sublattice-averaged magnetisation per spin at temperature T is
+
+```
+M(T) = S − (1/n_sub) · Σ_b ∫_BZ d²k/(2π)² · n_B(ω_b(k)/T)
+```
+
+i.e., S minus the per-cell thermal magnon population. This is the
+direct SQUID-magnetometry observable; the leading low-T correction
+is the famous *Bloch law*:
+
+```
+S − M(T) ∝ T^{d/2}     (FM, quadratic Goldstone, d = spatial dim)
+```
+
+Specifically d = 3 (cubic FM): T^{3/2}, the canonical Bloch
+signature observed in EuO, GdN, the rare-earth iron garnet YIG,
+and many metallic FMs. d = 2 (square FM Heisenberg, no
+anisotropy): the integral diverges logarithmically — the Mermin-
+Wagner theorem in action (no spontaneously broken continuous
+symmetry in 2D at finite T). For 2D FM models with a *gap* (uniaxial
+anisotropy K_z > 0 or DMI-induced gap), the integral converges and
+the function returns the leading population correction.
+
+LSW assumes small fluctuations: the result is reliable when S −
+M(T) ≪ S. At higher temperatures the user should switch to
+Schwinger-boson, Holstein-Primakoff with O(1/S²) corrections, or
+classical Monte-Carlo treatments. The crossover from LSW to non-
+LSW regimes is set by T ≈ J·z·S; below that LSW is quantitatively
+accurate.
+
+The library implements `irrep_magnon_magnetization(L, T, Nx, Ny)`
+as a direct BZ integral. Verified on a 2D FM with anisotropy gap:
+M(T → 0) → S = ½ to 10⁻³ (BE-suppressed); M(T) monotonically
+decreases as T increases.
+
+### 15.8. Magnon contribution to specific heat C_V(T)
 
 The magnetic specific heat per unit cell, in units of k_B, is the
 direct experimental observable that probes the *thermally excited*
@@ -1451,9 +1488,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.13. Verification protocol
+### 15.14. Verification protocol
 
-`tests/test_magnon.c` covers twenty-four independent checks (75 assertions):
+`tests/test_magnon.c` covers twenty-six independent checks (77 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1532,6 +1569,11 @@ Lu₂V₂O₇).
     T → ∞ (equipartition, |C_V(T=100) - 1| < 0.01). Monotonic
     increase from low to high T verified with intermediate
     T = 0.5.
+25. **M(T → 0) → S**: gapped 2D FM (K_z = 0.5) at T = 0.05 has
+    M ≈ S = ½ to 10⁻³ — thermal magnon population is BE-suppressed
+    by the anisotropy gap.
+26. **M(T) monotonic in T**: same gapped 2D FM at T = 0.1, 0.5, 1.0
+    has M strictly decreasing — confirming heat-induced spin tilt.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

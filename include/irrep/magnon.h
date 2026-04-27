@@ -167,6 +167,38 @@ IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx,
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);
 
+/** @brief Finite-temperature sublattice-averaged magnetisation M(T)
+ *         per spin, in units of (g·μ_B). For a collinear-FM ground
+ *         state with spin S per site, the LSW result at T > 0 is
+ *
+ *      M(T) = S − (1/n_sub) · Σ_b ∫_BZ d²k/(2π)² n_B(ω_b(k)/T)
+ *
+ *  where the BZ integral counts the thermally-excited magnon
+ *  population per cell. The leading low-T behaviour is the famous
+ *  *Bloch law*:
+ *
+ *      M(T) − M(0) ∝ −T^{d/2}                     (FM, quadratic Goldstone)
+ *
+ *  with d the spatial dimension. d = 3 (cubic FM): the canonical
+ *  T^{3/2} signature. d = 2: log-divergent at any T > 0 (Mermin-
+ *  Wagner — no long-range FM order in 2D Heisenberg without
+ *  anisotropy); the function still returns a numerical value for
+ *  *gapped* 2D FM models (with K_z > 0 or DMI gap), where the
+ *  integral converges.
+ *
+ *  LSW assumes small spin fluctuations; the result is reliable when
+ *  S − M(T) ≪ S. At higher temperatures the user should switch to
+ *  Schwinger-boson or Monte-Carlo treatments.
+ *
+ *  Goldstone-mode regularisation (ω < 10⁻¹⁰) and BE overflow guard
+ *  (x = ω/T > 700) are identical to `_specific_heat`.
+ *
+ *  @param L      LSW handle
+ *  @param T      temperature (same units as ω)
+ *  @param Nx, Ny BZ grid (typical 50–200)
+ *  @return       M(T) per spin (in (g·μ_B) units), or NaN on error. */
+IRREP_API double irrep_magnon_magnetization(const irrep_magnon_lsw_t *L, double T, int Nx, int Ny);
+
 /** @brief Magnon contribution to the magnetic specific heat C_V(T)
  *         per unit cell, in units of k_B.
  *

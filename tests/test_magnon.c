@@ -818,6 +818,47 @@ static void test_specific_heat_limits(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (25) Magnetization at T → 0 → S (no thermal magnons). At very low T,
+ * the gapped 2D FM should give M ≈ S to high precision. */
+static void test_magnetization_low_T(void) {
+    /* 2D square FM with K_z = 0.5 → 2 K_z S = 0.5 gap. Hence at T = 0.05
+     * (10× below the gap), thermal population is exp(-10) ~ 1e-5,
+     * giving M ≈ S − ε. */
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, /*Kz=*/0.5);
+    double M_low = irrep_magnon_magnetization(L, 0.05, 32, 32);
+    /* M(T=0.05) should be 0.5 minus exponentially-small population. */
+    ASSERT(fabs(M_low - 0.5) < 1e-3, "M(T → 0) → S = 0.5");
+    irrep_magnon_lsw_free(L);
+}
+
+/* (26) M(T) is monotonically decreasing in T. Test on the same gapped
+ * 2D FM. */
+static void test_magnetization_monotonic(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0.5);
+    double M1 = irrep_magnon_magnetization(L, 0.1, 32, 32);
+    double M2 = irrep_magnon_magnetization(L, 0.5, 32, 32);
+    double M3 = irrep_magnon_magnetization(L, 1.0, 32, 32);
+    ASSERT(M1 > M2 && M2 > M3,
+           "M(T) monotonically decreases: M(0.1) > M(0.5) > M(1.0)");
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -843,6 +884,8 @@ int main(void) {
     test_3d_chern_trivial();
     test_3d_chern_layered_kagome();
     test_specific_heat_limits();
+    test_magnetization_low_T();
+    test_magnetization_monotonic();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

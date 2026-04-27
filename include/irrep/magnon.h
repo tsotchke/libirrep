@@ -203,6 +203,40 @@ IRREP_API irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_
                                                           int n_omega, double eta,
                                                           double *intensity_out);
 
+/** @brief Compute the band-resolved magnon-dispersion Hessian
+ *         H_ij(k) = ∂²ω_b/∂k_i ∂k_j at a single k point.
+ *
+ *  At a band extremum (Γ for collinear FM), the inverse Hessian is
+ *  the *effective mass tensor*:
+ *
+ *      m*_b_ij(k_min) = ℏ² · (H_b⁻¹)_ij
+ *
+ *  For an isotropic FM, the Hessian at Γ is diag(2D, 2D) where D is
+ *  the *spin stiffness* — the prefactor in the Bloch T^{d/2} law:
+ *
+ *      M(T) − M(0) = −ζ(d/2) / Γ(d/2) · (T / 4πD)^{d/2}
+ *
+ *  reported in inelastic-neutron papers as the slope ω/k² in the
+ *  low-k Goldstone limit. Anisotropic FMs have non-degenerate
+ *  H_xx ≠ H_yy and possibly non-zero H_xy.
+ *
+ *  At saddle points (van-Hove singularities), H has mixed-sign
+ *  eigenvalues. At band maxima, both eigenvalues are negative.
+ *
+ *  5-point central-difference estimator with step `h` (typical
+ *  10⁻³ - 10⁻²). Caveats around band crossings same as for
+ *  `_group_velocity`.
+ *
+ *  @param L         LSW handle
+ *  @param kx, ky    central momentum
+ *  @param h         finite-difference step
+ *  @param hxx_out   ∂²ω/∂k_x² per band (size n_sub)
+ *  @param hyy_out   ∂²ω/∂k_y² per band (size n_sub)
+ *  @param hxy_out   ∂²ω/∂k_x ∂k_y per band (size n_sub) */
+IRREP_API irrep_status_t irrep_magnon_hessian(const irrep_magnon_lsw_t *L, double kx, double ky,
+                                               double h, double *hxx_out, double *hyy_out,
+                                               double *hxy_out);
+
 /** @brief Compute the magnon group velocity v_g(k) = ∇_k ω_b(k) for
  *         each band at a single k point via central finite difference.
  *

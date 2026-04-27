@@ -1239,7 +1239,55 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Spin-Nernst coefficient α^s_xy(T)
+### 15.7. Dispersion Hessian + effective mass + spin stiffness
+
+The band-resolved Hessian H_ij(k) = ∂²ω_b/∂k_i∂k_j is the natural
+input for several derived observables:
+
+**Effective mass tensor** at a band extremum:
+
+```
+m*_b_ij(k_min) = ℏ² · (H_b⁻¹)_ij
+```
+
+For an isotropic FM at Γ, H = diag(2D, 2D) with D the *spin
+stiffness*. D enters the Bloch T^{d/2} law as
+
+```
+M(T) − M(0) = −ζ(d/2)/Γ(d/2) · (T / 4πD)^{d/2}
+```
+
+so D is *the* parameter quoted in low-T magnetisation fits and the
+slope ω/k² of the Goldstone mode in inelastic-neutron papers. For
+the canonical 2D NN-Heisenberg square FM (J = -1, S = ½):
+
+```
+ω(k) = 2 − cos kx − cos ky ≈ ½(kx² + ky²)
+H(0) = diag(1, 1)
+D = ½     [in our J=1 / S=½ units]
+```
+
+**Saddle points** (van-Hove): H has eigenvalues of opposite sign.
+The 2D square FM at (π, 0) has Hxx = -1, Hyy = +1 — a
+hyperbolic-cosine saddle. The signed Hessian determinant is the
+density-of-states factor at the singularity.
+
+**Band maxima**: both eigenvalues negative. At M = (π, π) on the
+square FM, H = diag(-1, -1).
+
+The library implements `irrep_magnon_hessian(L, kx, ky, h, hxx,
+hyy, hxy)` via 5-point central difference (9 dispersion calls per
+band). Step h is user-supplied; smaller h gives sharper local
+resolution at the cost of finite-difference noise. Verified on
+the square FM: H matches cos(kx), cos(ky), 0 at three k-points
+(Γ, M, saddle) to ≤ 10⁻⁵.
+
+**Caveats** at band crossings: same as group velocity — the
+eigenvector ordering can flip and the central difference becomes
+ill-defined. User should know crossing locations from the
+dispersion plot.
+
+### 15.8. Spin-Nernst coefficient α^s_xy(T)
 
 Alongside κ_xy (energy-current Hall response), magnons carry spin
 along the magnetisation axis and produce a *spin-current* Hall
@@ -1706,9 +1754,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.19. Verification protocol
+### 15.20. Verification protocol
 
-`tests/test_magnon.c` covers thirty-four independent checks (100 assertions):
+`tests/test_magnon.c` covers thirty-five independent checks (107 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1819,6 +1867,10 @@ Lu₂V₂O₇).
     T (|α^s| < 10⁻³ at T = 0.05), finite at intermediate T
     (|α^s| > 10⁻² at T = 1.0), magnitude grows monotonically — same
     Berry curvature, distinct weight from κ_xy.
+35. **Hessian on square FM**: matches cos(kx), cos(ky), 0 to ≤ 10⁻⁵
+    at three k-points: Γ (band min, H = diag(1,1)); M-point (band
+    max, H = diag(-1,-1)); saddle (π, 0) (van-Hove, mixed-sign
+    H = diag(-1, +1)).
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

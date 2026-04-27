@@ -433,6 +433,50 @@ irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_t *L,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_hessian(const irrep_magnon_lsw_t *L, double kx, double ky, double h,
+                                     double *hxx_out, double *hyy_out, double *hxy_out) {
+    if (!L || !hxx_out || !hyy_out || !hxy_out || h <= 0)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    double *w_c = malloc((size_t)n * sizeof *w_c);   /* ω at (kx, ky) */
+    double *w_xp = malloc((size_t)n * sizeof *w_xp); /* (kx+h, ky)    */
+    double *w_xm = malloc((size_t)n * sizeof *w_xm);
+    double *w_yp = malloc((size_t)n * sizeof *w_yp);
+    double *w_ym = malloc((size_t)n * sizeof *w_ym);
+    double *w_pp = malloc((size_t)n * sizeof *w_pp); /* (kx+h, ky+h)  */
+    double *w_pm = malloc((size_t)n * sizeof *w_pm); /* (kx+h, ky-h)  */
+    double *w_mp = malloc((size_t)n * sizeof *w_mp); /* (kx-h, ky+h)  */
+    double *w_mm = malloc((size_t)n * sizeof *w_mm); /* (kx-h, ky-h)  */
+    double _Complex *u_dummy = malloc((size_t)n * n * sizeof *u_dummy);
+    if (!w_c || !w_xp || !w_xm || !w_yp || !w_ym || !w_pp || !w_pm || !w_mp || !w_mm ||
+        !u_dummy) {
+        free(w_c); free(w_xp); free(w_xm); free(w_yp); free(w_ym);
+        free(w_pp); free(w_pm); free(w_mp); free(w_mm); free(u_dummy);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    irrep_magnon_dispersion(L, kx, ky, w_c, u_dummy);
+    irrep_magnon_dispersion(L, kx + h, ky, w_xp, u_dummy);
+    irrep_magnon_dispersion(L, kx - h, ky, w_xm, u_dummy);
+    irrep_magnon_dispersion(L, kx, ky + h, w_yp, u_dummy);
+    irrep_magnon_dispersion(L, kx, ky - h, w_ym, u_dummy);
+    irrep_magnon_dispersion(L, kx + h, ky + h, w_pp, u_dummy);
+    irrep_magnon_dispersion(L, kx + h, ky - h, w_pm, u_dummy);
+    irrep_magnon_dispersion(L, kx - h, ky + h, w_mp, u_dummy);
+    irrep_magnon_dispersion(L, kx - h, ky - h, w_mm, u_dummy);
+
+    double h2 = h * h;
+    double four_h2 = 4.0 * h2;
+    for (int b = 0; b < n; ++b) {
+        hxx_out[b] = (w_xp[b] - 2.0 * w_c[b] + w_xm[b]) / h2;
+        hyy_out[b] = (w_yp[b] - 2.0 * w_c[b] + w_ym[b]) / h2;
+        hxy_out[b] = (w_pp[b] - w_pm[b] - w_mp[b] + w_mm[b]) / four_h2;
+    }
+
+    free(w_c); free(w_xp); free(w_xm); free(w_yp); free(w_ym);
+    free(w_pp); free(w_pm); free(w_mp); free(w_mm); free(u_dummy);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_group_velocity(const irrep_magnon_lsw_t *L, double kx, double ky,
                                             double h, double *vx_out, double *vy_out) {
     if (!L || !vx_out || !vy_out || h <= 0)

@@ -1116,6 +1116,42 @@ static void test_spin_nernst_kagome(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (35) Hessian on the 1-band square FM. Closed form:
+ *   ω = 2 - cos kx - cos ky → Hxx = cos(kx), Hyy = cos(ky), Hxy = 0.
+ * At Γ: Hxx = Hyy = 1 (band minimum); H_xy = 0. Effective mass tensor
+ *   m* = H⁻¹ → m*_xx = m*_yy = 1, m*_xy = 0 (isotropic). */
+static void test_hessian_square_fm(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double hxx, hyy, hxy;
+
+    /* At Γ: Hxx = Hyy = 1, Hxy = 0 (band minimum, isotropic). */
+    irrep_magnon_hessian(L, 1e-7, 1e-7, /*h=*/1e-3, &hxx, &hyy, &hxy);
+    ASSERT_NEAR(hxx, 1.0, 1e-5, "FM square Hxx = cos(kx) = 1 at Γ");
+    ASSERT_NEAR(hyy, 1.0, 1e-5, "FM square Hyy = cos(ky) = 1 at Γ");
+    ASSERT_NEAR(hxy, 0.0, 1e-5, "FM square Hxy = 0 at Γ (isotropic)");
+
+    /* At M = (π, π): Hxx = Hyy = -1 (band maximum), Hxy = 0. */
+    irrep_magnon_hessian(L, M_PI, M_PI, 1e-3, &hxx, &hyy, &hxy);
+    ASSERT_NEAR(hxx, -1.0, 1e-5, "FM square Hxx = -1 at M (band max)");
+    ASSERT_NEAR(hyy, -1.0, 1e-5, "FM square Hyy = -1 at M");
+
+    /* At saddle (π, 0): Hxx = -1 (concave along x), Hyy = +1 (convex
+     * along y) — mixed-sign Hessian = van-Hove signature. */
+    irrep_magnon_hessian(L, M_PI, 1e-7, 1e-3, &hxx, &hyy, &hxy);
+    ASSERT_NEAR(hxx, -1.0, 1e-5, "FM square Hxx = -1 at saddle (π, 0)");
+    ASSERT_NEAR(hyy, 1.0, 1e-5, "FM square Hyy = +1 at saddle (mixed-sign)");
+
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -1151,6 +1187,7 @@ int main(void) {
     test_group_velocity_square_fm();
     test_spin_nernst_trivial();
     test_spin_nernst_kagome();
+    test_hessian_square_fm();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

@@ -383,6 +383,53 @@ irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
     return IRREP_OK;
 }
 
+/* Build H(k) for the 3D extension: t = delta_x·a₁ + delta_y·a₂ +
+ * delta_z·a₃. Otherwise identical to build_H_(). */
+static void build_H_3d_(const irrep_magnon_lsw_t *L, const double a3[3], double kx, double ky,
+                         double kz, double _Complex *H_out) {
+    int n = L->n_sub;
+    memset(H_out, 0, (size_t)n * n * sizeof(double _Complex));
+    double S = L->S;
+    for (int a = 0; a < n; ++a)
+        H_out[a * n + a] += 2.0 * L->Kz * S;
+
+    for (int b = 0; b < L->n_bonds; ++b) {
+        const irrep_magnon_bond_t *bd = &L->bonds[b];
+        int    a_idx = bd->bi, b_idx = bd->bj;
+        /* a₁, a₂ have only x, y components (2D structure). a₃ is fully
+         * 3D. */
+        double tx = bd->delta_x * L->a1[0] + bd->delta_y * L->a2[0] + bd->delta_z * a3[0];
+        double ty = bd->delta_x * L->a1[1] + bd->delta_y * L->a2[1] + bd->delta_z * a3[1];
+        double tz = bd->delta_z * a3[2];
+        double phase_arg = kx * tx + ky * ty + kz * tz;
+        double _Complex eikt = cos(phase_arg) + I * sin(phase_arg);
+
+        double _Complex Jhop = +S * bd->J * eikt;
+        double _Complex Dhop = -I * S * bd->D[2] * eikt;
+
+        H_out[a_idx * n + b_idx] += Jhop + Dhop;
+        H_out[b_idx * n + a_idx] += conj(Jhop) + conj(Dhop);
+
+        H_out[a_idx * n + a_idx] += -S * bd->J;
+        H_out[b_idx * n + b_idx] += -S * bd->J;
+    }
+}
+
+irrep_status_t irrep_magnon_dispersion_3d(const irrep_magnon_lsw_t *L, const double a3[3],
+                                           double kx, double ky, double kz, double *omega_out,
+                                           double _Complex *u_out) {
+    if (!L || !a3 || !omega_out || !u_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    double _Complex *H = malloc((size_t)n * n * sizeof *H);
+    if (!H)
+        return IRREP_ERR_OUT_OF_MEMORY;
+    build_H_3d_(L, a3, kx, ky, kz, H);
+    hermitian_eig_(n, H, omega_out, u_out);
+    free(H);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_wilson_spectrum(const irrep_magnon_lsw_t *L, double kx, int Ny,
                                              double *theta_out) {
     if (!L || !theta_out || Ny < 4)

@@ -66,12 +66,18 @@
 extern "C" {
 #endif
 
-/** @brief Per-bond coupling spec for a magnetic ground state. */
+/** @brief Per-bond coupling spec for a magnetic ground state.
+ *
+ *  The `delta_z` field defaults to 0 (zero-init) and is unused by the
+ *  existing 2D LSW functions, which only consume `delta_x` and
+ *  `delta_y`. It carries the inter-cell displacement along a₃ for
+ *  the 3D extension (`irrep_magnon_dispersion_3d`). */
 typedef struct {
     int    bi;        /**< source sublattice (within the magnetic unit cell) */
     int    bj;        /**< destination sublattice */
     int    delta_x;   /**< inter-cell displacement along a₁ */
     int    delta_y;   /**< inter-cell displacement along a₂ */
+    int    delta_z;   /**< inter-cell displacement along a₃ (3D only; 0 for 2D) */
     double J;         /**< Heisenberg coupling magnitude */
     double D[3];      /**< DMI vector D_ij */
 } irrep_magnon_bond_t;
@@ -160,6 +166,31 @@ IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx,
 /** @brief Read out the number of magnon bands (= number of magnetic
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);
+
+/** @brief Compute the magnon dispersion ω_b(k) on a *3D* lattice.
+ *
+ *  The 2D `irrep_magnon_dispersion` only consumes a₁, a₂ and the
+ *  bond's (delta_x, delta_y). For 3D systems — simple cubic FM,
+ *  honeycomb-stack van der Waals magnets like CrI₃, B20 helimagnets
+ *  approximated by their FM ground state — pass the third primitive
+ *  vector a₃ here, and use `delta_z` on each bond to specify the
+ *  inter-cell displacement along a₃. The bond translation vector
+ *  becomes t = delta_x·a₁ + delta_y·a₂ + delta_z·a₃ in cartesian
+ *  3D space.
+ *
+ *  All other parameters mirror `irrep_magnon_dispersion`. The
+ *  returned ω_out and u_out have the same layout (n_sub
+ *  eigenvalues / n_sub × n_sub eigenvectors).
+ *
+ *  @param L          LSW handle
+ *  @param a3         third primitive vector (cartesian 3D)
+ *  @param kx, ky, kz momentum (cartesian 3D)
+ *  @param omega_out  caller buffer of size n_sub doubles
+ *  @param u_out      caller buffer of size n_sub × n_sub complex doubles */
+IRREP_API irrep_status_t irrep_magnon_dispersion_3d(const irrep_magnon_lsw_t *L,
+                                                     const double a3[3], double kx, double ky,
+                                                     double kz, double *omega_out,
+                                                     double _Complex *u_out);
 
 /** @brief Compute the *Abelian* Wilson loop spectrum θ_b(k_x) at fixed
  *         k_x. For each band b, the Wilson loop along k_y is

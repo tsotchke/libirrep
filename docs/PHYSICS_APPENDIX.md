@@ -1239,7 +1239,44 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Bulk-boundary correspondence: chiral edge modes
+### 15.7. 3D extension: magnon dispersion on cubic / layered lattices
+
+The 2D LSW handle generalises to 3D by adding a third primitive
+vector a₃ and an inter-cell `delta_z` field on each bond. The bond
+translation becomes
+
+```
+t = delta_x · a₁ + delta_y · a₂ + delta_z · a₃
+```
+
+with the magnon Bloch Hamiltonian H(k) constructed identically to
+the 2D case but evaluated at a 3D momentum (k_x, k_y, k_z). The API
+is `irrep_magnon_dispersion_3d(L, a₃, k_x, k_y, k_z, ω, u)` —
+caller supplies a₃ explicitly (avoiding ABI churn on the LSW
+handle), and bonds carry their delta_z (zero by default for 2D
+back-compatibility).
+
+Verified on the canonical 3D simple-cubic FM (J<0, S=½, 6 NN bonds
+±x̂, ±ŷ, ±ẑ): the LSW dispersion matches the closed-form
+ω(k) = 2|J|·S·z·(1−γ_k) = 3 − cos k_x − cos k_y − cos k_z (with
+J=1, S=½, z=6) to machine precision (≤ 10⁻¹²) at five high-
+symmetry k-points, with the canonical 4|J|·S·d = 6 bandwidth
+ratio. The Goldstone slope along the (1,1,1) body diagonal is
+*quadratic* ω ∝ |k|² (FM signature, contrast to AFM linear),
+slope = ½ in our units.
+
+3D Berry curvature, Chern numbers (defined on 2D BZ slices
+k_z = const), and the 3D Wilson-loop spectrum are deferred to
+v1.5. The 3D dispersion alone covers the largest immediate use
+case: layered van der Waals magnets like CrI₃ (kagome / honeycomb
+in-plane × stacked along c-axis), chiral magnets like Cu₂OSeO₃ B20
+in the FM regime, and metallic itinerant FMs SrRuO₃, GdN.
+
+Demo: `examples/cubic_fm_magnons_3d.c` walks the Γ → X → M → R → Γ
+cubic-BZ path with side-by-side LSW vs analytic dispersion, and
+displays the quadratic Goldstone scaling.
+
+### 15.8. Bulk-boundary correspondence: chiral edge modes
 
 The bulk Chern numbers C_b acquire a *physical* signature on
 finite-strip geometries through the bulk-boundary correspondence
@@ -1275,9 +1312,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.8. Verification protocol
+### 15.9. Verification protocol
 
-`tests/test_magnon.c` covers fifteen independent checks (47 assertions):
+`tests/test_magnon.c` covers seventeen independent checks (53 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1326,6 +1363,12 @@ Lu₂V₂O₇).
     points unwrapped.
 15. **Trivial Wilson is flat**: 1-band square FM has θ(k_x) ≈ 0
     everywhere (max deviation < 1e-6) — no Wannier-centre motion.
+16. **3D simple-cubic FM dispersion**: `_dispersion_3d` matches the
+    analytic ω(k) = 3 − cos k_x − cos k_y − cos k_z to ≤ 10⁻¹² at
+    five high-symmetry k-points (Γ, X, M, R, plus a generic point).
+17. **3D-to-2D reduction**: the 3D solver at k_z = 0 with all
+    delta_z = 0 reproduces the 2D dispersion to ≤ 10⁻¹² —
+    consistency check between the two paths.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

@@ -553,6 +553,69 @@ static void test_wilson_trivial(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (16) 3D simple-cubic FM dispersion. NN J on the simple-cubic
+ * lattice with 6 NN bonds per site (±x, ±y, ±z). For J<0 (FM),
+ * S = ½, the analytic dispersion is
+ *
+ *   ω(k) = 3·|J|·S·(1 − γ_k)·2 = 3 − cos kx − cos ky − cos kz   (J=-1, S=½)
+ *
+ * with 0 at k=0 (Goldstone), 6 at k=(π, π, π). */
+static void test_3d_simple_cubic_fm(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    double a3[3] = {0.0, 0.0, 1.0};
+    irrep_magnon_bond_t bonds[3] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 0, .delta_z = 1,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    double              S = 0.5;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, S, a1, a2, 3, bonds, 0);
+
+    struct {
+        double kx, ky, kz;
+    } kpts[] = {
+        {0.0, 0.0, 0.0},   /* Γ: ω = 0 */
+        {M_PI, 0.0, 0.0},  /* X: ω = 2 */
+        {M_PI, M_PI, 0.0}, /* M: ω = 4 */
+        {M_PI, M_PI, M_PI}, /* R: ω = 6 */
+        {M_PI / 2, M_PI / 3, M_PI / 4},
+    };
+    double          omega;
+    double _Complex u;
+    for (size_t i = 0; i < sizeof(kpts) / sizeof(*kpts); ++i) {
+        irrep_magnon_dispersion_3d(L, a3, kpts[i].kx, kpts[i].ky, kpts[i].kz, &omega, &u);
+        double expected =
+            3.0 - cos(kpts[i].kx) - cos(kpts[i].ky) - cos(kpts[i].kz);
+        ASSERT_NEAR(omega, expected, 1e-12, "3D simple-cubic FM dispersion");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
+/* (17) 3D-to-2D reduction: setting delta_z = 0 on every bond and using
+ * the 3D dispersion at k_z = 0 must reproduce the 2D dispersion. */
+static void test_3d_reduces_to_2d(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    double a3[3] = {0.0, 0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double          w_2d, w_3d;
+    double _Complex u_2d, u_3d;
+    irrep_magnon_dispersion(L, M_PI / 3.0, M_PI / 5.0, &w_2d, &u_2d);
+    irrep_magnon_dispersion_3d(L, a3, M_PI / 3.0, M_PI / 5.0, 0.0, &w_3d, &u_3d);
+    ASSERT_NEAR(w_3d, w_2d, 1e-12, "3D dispersion at kz=0 reduces to 2D");
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -569,6 +632,8 @@ int main(void) {
     test_general_fm_recovery();
     test_wilson_winding_kagome();
     test_wilson_trivial();
+    test_3d_simple_cubic_fm();
+    test_3d_reduces_to_2d();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

@@ -17,6 +17,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* M_PI is not in C11; glibc and MinGW need _USE_MATH_DEFINES or
+ * _GNU_SOURCE. Macro-fallback works everywhere libirrep targets. */
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 static int total = 0, failed = 0;
 
 #define ASSERT(cond, msg)                                                                          \

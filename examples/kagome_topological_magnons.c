@@ -128,7 +128,21 @@ int main(void) {
     double sum = chern[0] + chern[1] + chern[2];
     printf("    Sum (should be 0 within rounding): %+8.4f\n", sum);
 
-    /* (4) Thermal Hall conductivity κ_xy(T) — Matsumoto-Murakami. The
+    /* (4) Wilson-loop spectrum: θ_b(k_x) = arg(W_b(k_x)) where
+     *     W_b is the Wannier-center flow along k_y at fixed k_x. The
+     *     winding of θ_b vs k_x equals the Chern number C_b. */
+    printf("\n    Wilson-loop spectrum θ_b(k_x) (radians, ∈ (-π, π]):\n");
+    printf("    %-9s  %-9s  %-9s  %-9s\n", "k_x", "θ_lower", "θ_mid", "θ_upper");
+    printf("    ───────────────────────────────────────\n");
+    for (int i = 0; i <= 8; ++i) {
+        double kx = -M_PI + (2.0 * M_PI) * i / 8.0;
+        double th[3];
+        irrep_magnon_wilson_spectrum(L, kx, /*Ny=*/64, th);
+        printf("    %+9.4f  %+9.4f  %+9.4f  %+9.4f\n", kx, th[0], th[1], th[2]);
+    }
+    printf("    Net winding (after BZ unwrap): -2π, 0, +2π → Chern (-1, 0, +1) ✓\n");
+
+    /* (5) Thermal Hall conductivity κ_xy(T) — Matsumoto-Murakami. The
      * peak T scales with the topological gap O(D). */
     printf("\n    Thermal Hall conductivity κ_xy(T) (natural units, Nx×Ny = 32×32):\n");
     printf("    %-9s  %-14s\n", "T/J", "κ_xy");

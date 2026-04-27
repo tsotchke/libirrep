@@ -161,6 +161,37 @@ IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx,
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);
 
+/** @brief Compute the *Abelian* Wilson loop spectrum θ_b(k_x) at fixed
+ *         k_x. For each band b, the Wilson loop along k_y is
+ *
+ *      W_b(k_x) = ∏_{i=0}^{N_y-1} ⟨u_b(k_x, k_y_i) | u_b(k_x, k_y_{i+1})⟩
+ *
+ *  where the k_y values are taken at N_y equally-spaced points around
+ *  the second BZ direction (b₂). The Wilson-loop phase is θ_b(k_x) =
+ *  arg(W_b(k_x)) ∈ (−π, π].
+ *
+ *  This is the *Wannier-center flow* of the band b: as k_x sweeps
+ *  across its BZ (-π/|b₁|, +π/|b₁|], θ_b(k_x) traces out a curve. The
+ *  winding number of θ_b(k_x) — i.e., the number of times the curve
+ *  crosses the branch cut at θ = ±π modulo 2π — equals the Chern
+ *  number C_b of the band. This is the Soluyanov-Vanderbilt 2011
+ *  formulation of band topology — a sharper probe than just the
+ *  integer C_b because the *shape* of the curve distinguishes
+ *  fragile vs stable topology and gives access to higher-order
+ *  topological invariants.
+ *
+ *  For the canonical kagome FM with (-1, 0, +1) Chern signature:
+ *  band 0 (lower) has θ(k_x) winding once; band 1 (mid) is flat;
+ *  band 2 (upper) winds the opposite direction.
+ *
+ *  @param L          LSW handle
+ *  @param kx         momentum along a₁ (cartesian)
+ *  @param Ny         k_y discretisation (typical 32–128)
+ *  @param theta_out  caller buffer of size n_sub doubles; on return
+ *                    holds θ_b(k_x) ∈ (−π, π] for each band */
+IRREP_API irrep_status_t irrep_magnon_wilson_spectrum(const irrep_magnon_lsw_t *L, double kx,
+                                                       int Ny, double *theta_out);
+
 /** @brief Compute the magnon dispersion ω_b(k) on top of a *general*
  *         collinear ground state in which sublattice α has its spin
  *         along σ_α · ẑ where σ_α ∈ {+1, -1}. AFM, ferrimagnetic,

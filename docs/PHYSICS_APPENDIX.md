@@ -1182,7 +1182,64 @@ hallmark AFM signature, in contrast to the *quadratic* FM mode.
 Materials realising this dispersion: La₂CuO₄, Sr₂CuO₂Cl₂ (cuprate
 parents), K₂CuF₄.
 
-### 15.6. Bulk-boundary correspondence: chiral edge modes
+### 15.6. Wilson-loop spectrum: Wannier-center flow
+
+A complementary topological probe to the integer Chern number is the
+*Wilson-loop spectrum* — the eigenvalues e^{i θ_b(k_x)} of the
+holonomy matrix obtained by parallel-transporting eigenvectors
+around a non-contractible loop in the BZ. For the Abelian (single-
+band) case at fixed k_x, the loop is
+
+```
+W_b(k_x) = ∏_{i=0}^{N_y-1} ⟨u_b(k_x, k_y_i) | u_b(k_x, k_y_{i+1})⟩
+```
+
+with k_y_i sampled at N_y equally-spaced points around the b₂ BZ
+direction. The phase θ_b(k_x) = arg(W_b(k_x)) ∈ (−π, π] traces a
+curve as k_x sweeps the b₁ BZ. The winding number of this curve —
+the number of times it crosses the branch cut at θ = ±π modulo 2π —
+*equals the Chern number* C_b of the band:
+
+```
+∫ ∂_kx θ_b(k_x) dk_x / (2π) = C_b
+```
+
+This is the *Wannier-center flow* picture (Soluyanov-Vanderbilt
+2011; King-Smith-Vanderbilt 1993): θ_b(k_x)/(2π) is the position of
+the b-th hybrid Wannier centre along a₂, and the windings track how
+that centre flows as k_x advances.
+
+The Wilson-loop spectrum is a *sharper* probe than the integer C_b:
+
+- For *fragile-topology* bands (Bouhon, Lange, Bzdušek 2020), C_b
+  vanishes but the Wilson curve has a non-trivial *shape* that
+  classifies the band differently from a strictly trivial atomic
+  insulator.
+- For *higher-order topological* phases, the Wilson curve develops
+  characteristic crossings or "snake" patterns that the integer
+  invariant misses.
+- For numerical convergence checks, the Wilson curve smoothness
+  validates the eigenvector phase choice in a way that integer
+  Chern integration via FHS plaquettes cannot.
+
+The library API is `irrep_magnon_wilson_spectrum(L, k_x, N_y,
+θ_out)`. Verified on the kagome FM (-1, 0, +1) Chern signature: the
+lower band winds θ by -2π, the middle is flat, the upper winds by
++2π. The kagome demo prints θ_b(k_x) at 9 sweep points to make the
+windings visually unambiguous.
+
+### References for §15.6
+
+- Soluyanov, A. A. and Vanderbilt, D. *Phys. Rev. B* 83, 035108
+  (2011). Wannier-centre flow as a topological invariant for
+  Z₂ insulators and Chern bands.
+- King-Smith, R. D. and Vanderbilt, D. *Phys. Rev. B* 47, 1651
+  (1993). Theory of polarisation in crystalline solids — the
+  hybrid-Wannier interpretation of the Wilson-loop phase.
+- Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
+  115135 (2020). Wilson-loop spectrum and fragile topology.
+
+### 15.7. Bulk-boundary correspondence: chiral edge modes
 
 The bulk Chern numbers C_b acquire a *physical* signature on
 finite-strip geometries through the bulk-boundary correspondence
@@ -1218,9 +1275,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.7. Verification protocol
+### 15.8. Verification protocol
 
-`tests/test_magnon.c` covers thirteen independent checks (43 assertions):
+`tests/test_magnon.c` covers fifteen independent checks (47 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1260,6 +1317,15 @@ Lu₂V₂O₇).
 13. **General-solver FM recovery**: setting sublattice_signs = +1
     everywhere reproduces the FM dispersion (Bogoliubov-Colpa →
     direct Hermitian eigenvalue problem) at three sampled k.
+
+(Sections 15.5 above adds the §15.6 Wilson-loop tests.)
+
+14. **Wilson winding = Chern**: kagome topological model has
+    θ_b(k_x) winding numbers (-1, 0, +1) matching the
+    independently-computed Chern signature, sweep over 64 k_x
+    points unwrapped.
+15. **Trivial Wilson is flat**: 1-band square FM has θ(k_x) ≈ 0
+    everywhere (max deviation < 1e-6) — no Wannier-centre motion.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

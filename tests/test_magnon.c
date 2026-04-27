@@ -473,6 +473,86 @@ static void test_general_fm_recovery(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (14) Wilson-loop winding equals Chern number on the topological
+ * kagome model. Sweep k_x across the BZ and accumulate the windings of
+ * θ_b(k_x); each must equal the corresponding Chern number. */
+static void test_wilson_winding_kagome(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * 1.7320508075688772};
+    double D = 0.15;
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0, .delta_y = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 2, .delta_x = 0, .delta_y = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 2, .bj = 0, .delta_x = 0, .delta_y = 0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1, .J = -1.0, .D = {0, 0, -D}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, 1.0, a1, a2, 6, bonds, 0);
+
+    /* Sweep k_x across the BZ (b1 = 2π·(1, 0) for our a1) and unwrap
+     * θ_b(k_x). Total winding = Chern. */
+    int     Nx = 64;
+    int     Ny = 64;
+    double  prev[3], theta[3];
+    double  unwrapped[3] = {0, 0, 0};
+    double  start[3];
+    irrep_magnon_wilson_spectrum(L, -M_PI, Ny, prev);
+    for (int b = 0; b < 3; ++b) {
+        unwrapped[b] = prev[b];
+        start[b] = prev[b];
+    }
+    for (int ix = 1; ix <= Nx; ++ix) {
+        double kx = -M_PI + (2.0 * M_PI) * ix / Nx;
+        irrep_magnon_wilson_spectrum(L, kx, Ny, theta);
+        for (int b = 0; b < 3; ++b) {
+            double diff = theta[b] - prev[b];
+            /* Unwrap: branch-cut shifts of ±2π */
+            while (diff > M_PI)
+                diff -= 2.0 * M_PI;
+            while (diff < -M_PI)
+                diff += 2.0 * M_PI;
+            unwrapped[b] += diff;
+            prev[b] = theta[b];
+        }
+    }
+    /* Total winding = (unwrapped[b] - start[b]) / (2π). */
+    double winding[3];
+    for (int b = 0; b < 3; ++b)
+        winding[b] = (unwrapped[b] - start[b]) / (2.0 * M_PI);
+
+    /* Expected Chern (-1, 0, +1). Wilson winding has the same sign
+     * convention as Chern (FHS). */
+    ASSERT_NEAR(winding[0], -1.0, 0.05, "Wilson winding band 0 = -1");
+    ASSERT_NEAR(winding[1], 0.0, 0.05, "Wilson winding band 1 = 0");
+    ASSERT_NEAR(winding[2], +1.0, 0.05, "Wilson winding band 2 = +1");
+
+    irrep_magnon_lsw_free(L);
+}
+
+/* (15) Trivial 1-band square FM has zero Wilson winding. */
+static void test_wilson_trivial(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    /* Single band; θ(k_x) should be flat (= 0 modulo branch-cut noise). */
+    int Nx = 16, Ny = 32;
+    double max_theta = 0;
+    for (int ix = 0; ix < Nx; ++ix) {
+        double kx = -M_PI + (2.0 * M_PI) * ix / Nx;
+        double th;
+        irrep_magnon_wilson_spectrum(L, kx, Ny, &th);
+        if (fabs(th) > max_theta)
+            max_theta = fabs(th);
+    }
+    ASSERT(max_theta < 1e-6, "trivial Wilson θ(k_x) ≈ 0 everywhere");
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -487,6 +567,8 @@ int main(void) {
     test_strip_kagome_edge_modes();
     test_afm_chain_general();
     test_general_fm_recovery();
+    test_wilson_winding_kagome();
+    test_wilson_trivial();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

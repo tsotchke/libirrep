@@ -383,6 +383,59 @@ irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_wilson_spectrum(const irrep_magnon_lsw_t *L, double kx, int Ny,
+                                             double *theta_out) {
+    if (!L || !theta_out || Ny < 4)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    /* Sample u_b(k_x, k_y_i) at Ny equally-spaced points along the b₂
+     * BZ direction (cartesian: k_y_i = (i/Ny) · b₂_y, plus the
+     * k_x-shift along b₂ if a₁ and a₂ are non-orthogonal). For
+     * Wannier-center flow we want a closed loop in cartesian k-space
+     * along the b₂ direction at fixed (k_x · b₁ / |b₁|²). */
+    double _Complex *u_grid = malloc((size_t)Ny * n * n * sizeof *u_grid);
+    double          *w_grid = malloc((size_t)Ny * n * sizeof *w_grid);
+    if (!u_grid || !w_grid) {
+        free(u_grid);
+        free(w_grid);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    /* The Wilson loop is along the b₂ direction. For each band b,
+     * compute u_b at points k = k_fixed + (i/Ny)·b₂ (closed loop since
+     * adding b₂ wraps the BZ). The fixed k component is the projection
+     * of (kx, 0) onto b₁: f₁ = (kx · b₁_x + 0 · b₁_y) / |b₁|² (we just
+     * use kx along x for simplicity). */
+    for (int i = 0; i < Ny; ++i) {
+        double fy = (double)i / Ny;
+        double k1 = kx + fy * L->b2[0];
+        double k2 = 0.0 + fy * L->b2[1];
+        irrep_magnon_dispersion(L, k1, k2, w_grid + i * n, u_grid + i * n * n);
+    }
+
+    for (int b = 0; b < n; ++b) {
+        double _Complex W = 1.0;
+        for (int i = 0; i < Ny; ++i) {
+            int    j = (i + 1) % Ny;
+            double _Complex ip = 0;
+            for (int k = 0; k < n; ++k)
+                ip += conj(u_grid[i * n * n + b * n + k]) * u_grid[j * n * n + b * n + k];
+            double mod = cabs(ip);
+            if (mod < 1e-300) {
+                /* Band crossing — Wilson loop phase ill-defined. */
+                theta_out[b] = NAN;
+                W = 0;
+                break;
+            }
+            W *= ip / mod; /* normalise for unitarity */
+        }
+        if (W != 0.0)
+            theta_out[b] = atan2(cimag(W), creal(W));
+    }
+    free(u_grid);
+    free(w_grid);
+    return IRREP_OK;
+}
+
 /* Cholesky factorisation M = K^† K for n×n positive-definite Hermitian M.
  * K is upper triangular. Returns 0 on success, -1 if a non-positive
  * pivot is found (M not positive-definite — caller's assumed ground

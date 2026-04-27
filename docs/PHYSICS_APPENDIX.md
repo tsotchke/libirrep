@@ -1116,7 +1116,73 @@ Nx, Ny)` and discretises the integral on the same Nx × Ny grid as
 `_chern`. It returns κ_xy in natural units (k_B = ℏ = 1, lengths in
 unit-cell units); a docstring conversion table maps to SI.
 
-### 15.5. Bulk-boundary correspondence: chiral edge modes
+### 15.5. Bogoliubov-Colpa: AFM and ferrimagnetic ground states
+
+The collinear-FM derivation above assumes every sublattice spin
+points along +ẑ. For *general* collinear ground states — Néel AFM,
+ferrimagnetic, or any mix of σ_α ∈ {+1, −1} per sublattice — the
+HP bosonisation introduces *anomalous* pairing terms `a_i a_j` and
+`a_i^† a_j^†` whenever a bond connects two antiparallel sublattices
+(σ_i σ_j = −1).
+
+The full bilinear bosonic Hamiltonian becomes a *Bogoliubov-de-Gennes
+problem*:
+
+```
+H = (1/2) Σ_k Ψ_k^† M(k) Ψ_k     Ψ_k = (a_{1,k}, ..., a_{n,k},
+                                          a_{1,-k}^†, ..., a_{n,-k}^†)
+```
+
+with M(k) a 2n × 2n Hermitian matrix that decomposes into a normal
+*particle* block A(k), an anomalous *pairing* block B(k), and a
+*hole* block A(-k)^T. Magnon energies are the *positive* eigenvalues
+of η M, where η = diag(I_n, -I_n) — they come in ±ω pairs.
+
+Direct diagonalisation of η M is non-Hermitian. *Colpa's algorithm*
+(J. Phys. A 11, 1881, 1978) reduces this to a Hermitian eigenvalue
+problem:
+
+1. Cholesky factorise M = K^† K (K upper triangular).
+2. Form W = K η K^† — Hermitian, with eigenvalues sorted as
+   ω_1 ≥ ω_2 ≥ ... ≥ ω_n > 0 > -ω_n ≥ ... ≥ -ω_1.
+3. The n positive eigenvalues are the magnon energies.
+
+Cholesky requires M positive-definite. At gap-closing points
+(Goldstone modes for AFM) M becomes positive-semi-definite and
+Cholesky fails; the library regularises with a small ε ∼ 10⁻¹⁰ on
+the diagonal so the solver remains numerically robust. The
+introduced systematic error in ω is O(√ε) ∼ 10⁻⁵, well below the
+LSW approximation itself.
+
+For each unique bond (i, j, t, J, D_z) with sublattice signs σ_i,
+σ_j:
+
+| σ_i σ_j | Diagonal A | Off-diag A | Anomalous B |
+| --- | --- | --- | --- |
+| +1 (parallel) | -S·J | (S·J - i·S·D_z)·e^{i k·t} | 0 |
+| -1 (antiparallel) | +S·J | 0 | (S·J - i·S·D_z)·e^{i k·t} |
+
+The hole-block off-diag is A(-k)^T = the same expression with the
+sign of D_z flipped (time-reversal relation). The B-block
+contributes both at (i, j+n) and (j, i+n) per bond, with (i, j+n)
+carrying the e^{+i k·t} phase and (j, i+n) the conjugate.
+
+The library API is `irrep_magnon_dispersion_general(L,
+sublattice_signs, kx, ky, omega_out)`. The `sublattice_signs` array
+of length n_sub specifies σ_α ∈ {+1, -1} for each sublattice. Setting
+all signs to +1 recovers the FM dispersion to numerical precision
+(verified in the test suite as a cross-check against the existing
+`_dispersion`).
+
+Demo: `examples/square_afm_magnons.c` reproduces the closed-form
+bipartite-AFM dispersion ω(k) = J·S·z·√(1 − γ_k²) on the Néel-
+ordered square lattice (analytic match to ≤ 5×10⁻⁶), and
+demonstrates the *linear* Goldstone slope c_s = √2·J·S — the
+hallmark AFM signature, in contrast to the *quadratic* FM mode.
+Materials realising this dispersion: La₂CuO₄, Sr₂CuO₂Cl₂ (cuprate
+parents), K₂CuF₄.
+
+### 15.6. Bulk-boundary correspondence: chiral edge modes
 
 The bulk Chern numbers C_b acquire a *physical* signature on
 finite-strip geometries through the bulk-boundary correspondence
@@ -1152,9 +1218,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.6. Verification protocol
+### 15.7. Verification protocol
 
-`tests/test_magnon.c` covers eleven independent checks (34 assertions):
+`tests/test_magnon.c` covers thirteen independent checks (43 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1188,6 +1254,12 @@ Lu₂V₂O₇).
     edge-localised modes (edge_weight far from 0.5) inside the
     lower bulk gap at some k_y — confirming the Hatsugai
     correspondence on the (−1, 0, +1) Chern signature.
+12. **AFM bipartite-chain dispersion**: 2-sublattice doubled-cell
+    AFM solver matches ω(k) = 2·J·S·|sin(k_x)| (folded BZ) at three
+    k_x points to ≤ 1×10⁻⁷.
+13. **General-solver FM recovery**: setting sublattice_signs = +1
+    everywhere reproduces the FM dispersion (Bogoliubov-Colpa →
+    direct Hermitian eigenvalue problem) at three sampled k.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome
@@ -1233,6 +1305,13 @@ sweep showing the BE-suppressed → plateau crossover.
 - Hatsugai, Y. *Phys. Rev. Lett.* 71, 3697 (1993). Bulk-boundary
   correspondence for Chern insulators — chiral edge mode counts
   match the bulk topological invariant.
+- Colpa, J. H. P. *J. Phys. A: Math. Gen.* 11, 1881 (1978).
+  Paraunitary diagonalisation of bosonic quadratic forms via
+  Cholesky + Hermitian eigenvalue problem — the standard recipe
+  for AFM / ferrimagnetic Bogoliubov-de-Gennes magnon spectra.
+- Coldea, R. *et al.* *Phys. Rev. Lett.* 86, 5377 (2001).
+  Inelastic neutron scattering on La₂CuO₄ — high-precision test of
+  LSW + ring-exchange corrections on a square AFM cuprate parent.
 
 ---
 

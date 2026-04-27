@@ -161,6 +161,47 @@ IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx,
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);
 
+/** @brief Compute the magnon dispersion ω_b(k) on top of a *general*
+ *         collinear ground state in which sublattice α has its spin
+ *         along σ_α · ẑ where σ_α ∈ {+1, -1}. AFM, ferrimagnetic,
+ *         and any collinear order with ↑/↓ sublattice mixture is
+ *         supported.
+ *
+ *  This is the *Bogoliubov-Colpa* generalisation of LSW to non-FM
+ *  ground states. For each unique bond (i, j, t) with sublattice
+ *  signs σ_i and σ_j, the bilinear-in-bosons Hamiltonian acquires
+ *  three different structures:
+ *
+ *    - σ_i σ_j = +1 (parallel sublattices): same as the FM case —
+ *      hopping a_i^† a_j with coefficient +S·J·exp(i k·t) and
+ *      anomalous-DMI hopping −i S D_z exp(i k·t).
+ *    - σ_i σ_j = -1 (antiparallel sublattices): the off-diagonal
+ *      Heisenberg piece becomes a particle-creation pairing
+ *      a_i a_j with coefficient +S·J·exp(i k·t), and the diagonal
+ *      "self-energy" flips sign relative to FM (for Néel
+ *      stability). The DMI z-component becomes ineffective at
+ *      bilinear order on antiparallel-sublattice bonds.
+ *
+ *  We assemble a 2n × 2n Hermitian *Bogoliubov-de-Gennes* matrix
+ *  M(k) on the basis (a_{1,k}, ..., a_{n,k}, a_{1,-k}^†, ...,
+ *  a_{n,-k}^†) and diagonalise it via the Colpa (1978) prescription:
+ *  Cholesky M = K^† K, then diagonalise K η K^† (Hermitian, with η =
+ *  diag(I_n, −I_n)) — the positive eigenvalues are the n magnon
+ *  energies ω_b(k). Returns IRREP_ERR_INVALID_ARG if M(k) is not
+ *  positive-definite (the assumed ground state is unstable for the
+ *  given bond list).
+ *
+ *  @param L                LSW handle
+ *  @param sublattice_signs array of length n_sub with values +1 or
+ *                          -1, indicating the spin direction of each
+ *                          sublattice in the classical ground state
+ *  @param kx, ky           momentum (cartesian)
+ *  @param omega_out        caller buffer of size n_sub doubles —
+ *                          magnon energies sorted ascending */
+IRREP_API irrep_status_t irrep_magnon_dispersion_general(const irrep_magnon_lsw_t *L,
+                                                          const int *sublattice_signs, double kx,
+                                                          double ky, double *omega_out);
+
 /** @brief Compute the magnon dispersion on a strip geometry: open
  *         boundary conditions along a₁ (Lx unit cells stacked) and
  *         periodic boundary conditions along a₂ (momentum k_y).

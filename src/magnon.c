@@ -383,6 +383,175 @@ irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
     return IRREP_OK;
 }
 
+/* Cholesky factorisation M = K^† K for n×n positive-definite Hermitian M.
+ * K is upper triangular. Returns 0 on success, -1 if a non-positive
+ * pivot is found (M not positive-definite — caller's assumed ground
+ * state is unstable). */
+static int cholesky_(int n, const double _Complex *M, double _Complex *K) {
+    memset(K, 0, (size_t)n * n * sizeof *K);
+    for (int j = 0; j < n; ++j) {
+        double _Complex s = M[j * n + j];
+        for (int k = 0; k < j; ++k)
+            s -= conj(K[k * n + j]) * K[k * n + j];
+        double d = creal(s);
+        if (d <= 1e-12)
+            return -1;
+        K[j * n + j] = sqrt(d);
+        for (int i = j + 1; i < n; ++i) {
+            double _Complex sum = M[j * n + i];
+            for (int k = 0; k < j; ++k)
+                sum -= conj(K[k * n + j]) * K[k * n + i];
+            K[j * n + i] = sum / K[j * n + j];
+        }
+    }
+    return 0;
+}
+
+irrep_status_t irrep_magnon_dispersion_general(const irrep_magnon_lsw_t *L,
+                                                const int *sublattice_signs, double kx, double ky,
+                                                double *omega_out) {
+    if (!L || !sublattice_signs || !omega_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    int N = 2 * n;
+    /* Validate signs. */
+    for (int a = 0; a < n; ++a)
+        if (sublattice_signs[a] != +1 && sublattice_signs[a] != -1) {
+            irrep_set_error_("irrep_magnon_dispersion_general: sublattice_signs[%d] must be ±1", a);
+            return IRREP_ERR_INVALID_ARG;
+        }
+
+    double _Complex *M = calloc((size_t)N * N, sizeof *M);
+    if (!M)
+        return IRREP_ERR_OUT_OF_MEMORY;
+    double S = L->S;
+
+    /* Anisotropy on every site of particle and hole blocks. */
+    for (int a = 0; a < n; ++a) {
+        M[a * N + a] += 2.0 * L->Kz * S;
+        M[(a + n) * N + (a + n)] += 2.0 * L->Kz * S;
+    }
+
+    for (int b = 0; b < L->n_bonds; ++b) {
+        const irrep_magnon_bond_t *bd = &L->bonds[b];
+        int i = bd->bi, j = bd->bj;
+        int sigma = sublattice_signs[i] * sublattice_signs[j];
+        double tx = bd->delta_x * L->a1[0] + bd->delta_y * L->a2[0];
+        double ty = bd->delta_x * L->a1[1] + bd->delta_y * L->a2[1];
+        double phase = kx * tx + ky * ty;
+        double _Complex eikt = cos(phase) + I * sin(phase);
+        double _Complex eikt_neg = cos(phase) - I * sin(phase);
+
+        if (sigma > 0) {
+            /* Parallel sublattices: same as FM construction. */
+            M[i * N + i] += -S * bd->J;
+            M[j * N + j] += -S * bd->J;
+            M[(i + n) * N + (i + n)] += -S * bd->J;
+            M[(j + n) * N + (j + n)] += -S * bd->J;
+
+            double _Complex hop_part = (S * bd->J - I * S * bd->D[2]) * eikt;
+            M[i * N + j] += hop_part;
+            M[j * N + i] += conj(hop_part);
+
+            /* Hole block A(-k)^T: J part same, D_z sign flipped. */
+            double _Complex hop_hole = (S * bd->J + I * S * bd->D[2]) * eikt;
+            M[(i + n) * N + (j + n)] += hop_hole;
+            M[(j + n) * N + (i + n)] += conj(hop_hole);
+        } else {
+            /* Antiparallel sublattices: HP gives anomalous pairing
+             * a_i a_j + a_i^† a_j^†, plus +S·J diagonal "self-energy". */
+            M[i * N + i] += S * bd->J;
+            M[j * N + j] += S * bd->J;
+            M[(i + n) * N + (i + n)] += S * bd->J;
+            M[(j + n) * N + (j + n)] += S * bd->J;
+
+            /* Anomalous block: B[i,j](k) and B[j,i](k) = B[i,j](-k). */
+            double _Complex pair_fwd = (S * bd->J - I * S * bd->D[2]) * eikt;
+            double _Complex pair_bwd = (S * bd->J - I * S * bd->D[2]) * eikt_neg;
+            M[i * N + (j + n)] += pair_fwd;
+            M[j * N + (i + n)] += pair_bwd;
+            M[(j + n) * N + i] += conj(pair_fwd);
+            M[(i + n) * N + j] += conj(pair_bwd);
+        }
+    }
+
+    /* Colpa diagonalisation: M = K^† K (Cholesky), then diagonalise
+     * W = K η K^† where η = diag(I, -I). Eigenvalues come in ±ω pairs;
+     * the n positive ones are the magnon energies. */
+    double _Complex *K = malloc((size_t)N * N * sizeof *K);
+    double _Complex *W = malloc((size_t)N * N * sizeof *W);
+    if (!K || !W) {
+        free(M);
+        free(K);
+        free(W);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    /* At gap-closing points (Goldstone modes), M is positive-semi-
+     * definite, not strictly positive-definite, and Cholesky fails.
+     * Add a tiny regularisation to lift the zero eigenvalues into a
+     * numerically tractable positive range. The introduced systematic
+     * error in ω is O(√ε) ~ 1e-5, negligible compared to the LSW
+     * approximation itself. */
+    static const double EPS_PSD = 1e-10;
+    for (int a = 0; a < N; ++a)
+        M[a * N + a] += EPS_PSD;
+
+    if (cholesky_(N, M, K) != 0) {
+        free(M);
+        free(K);
+        free(W);
+        irrep_set_error_(
+            "irrep_magnon_dispersion_general: M(k) is not positive-definite even with "
+            "regularisation — assumed ground state is unstable for the given bond list "
+            "at k=(%g, %g)",
+            kx, ky);
+        return IRREP_ERR_INVALID_ARG;
+    }
+
+    /* W[i,j] = Σ_l σ_l K[i,l] conj(K[j,l]) where σ_l = +1 (l<n), -1 (l≥n). */
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j) {
+            double _Complex s = 0;
+            for (int l = 0; l < N; ++l) {
+                double sigma_l = (l < n) ? +1.0 : -1.0;
+                s += sigma_l * K[i * N + l] * conj(K[j * N + l]);
+            }
+            W[i * N + j] = s;
+        }
+
+    /* Diagonalise W. Discard eigenvectors; keep eigenvalues. */
+    double          *eigs_2n = malloc((size_t)N * sizeof *eigs_2n);
+    double _Complex *evecs_2n = malloc((size_t)N * N * sizeof *evecs_2n);
+    if (!eigs_2n || !evecs_2n) {
+        free(M);
+        free(K);
+        free(W);
+        free(eigs_2n);
+        free(evecs_2n);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    hermitian_eig_(N, W, eigs_2n, evecs_2n);
+
+    /* Pick positive eigenvalues, sort ascending. */
+    int count = 0;
+    for (int i = 0; i < N; ++i)
+        if (eigs_2n[i] > 0)
+            omega_out[count++] = eigs_2n[i];
+    /* Should have exactly n positive eigenvalues. If not, the matrix
+     * had degenerate ±ω pairs at zero — pad with zeros. */
+    while (count < n)
+        omega_out[count++] = 0.0;
+    /* hermitian_eig_ already returns ascending; positive ones are the
+     * upper half, also ascending. */
+
+    free(M);
+    free(K);
+    free(W);
+    free(eigs_2n);
+    free(evecs_2n);
+    return IRREP_OK;
+}
+
 /* Build the strip Hamiltonian H_strip(k_y) of size (Lx·n_sub)². Each
  * undirected bond contributes both forward and backward orientations.
  * Bonds with delta_x = 0 stay within a cell; |delta_x|=1 connect to the

@@ -400,6 +400,79 @@ static void test_strip_kagome_edge_modes(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (12) AFM bipartite-chain dispersion (2-sublattice doubled cell):
+ *
+ *   ω(k_a) = 2·J·S·|sin(k_a · a)|         (folded BZ k_a ∈ [-π/2, π/2])
+ *
+ * for J > 0 AFM, S = spin per site. Both bands degenerate (folding of
+ * a single-band original dispersion). Goldstone at k_a = 0. */
+static void test_afm_chain_general(void) {
+    /* 2-sublattice doubled cell along x: a1 = (2, 0), a2 = (0, 1).
+     * Sublattices A (σ=+1), B (σ=-1). 2 unique NN bonds per cell:
+     *   intra-cell: A→B with delta=(0, 0)  → t = 0
+     *   inter-cell: A→B with delta=(-1, 0) → t = -2·x̂
+     */
+    double a1[2] = {2.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0, .J = +1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = 0, .J = +1.0, .D = {0, 0, 0}},
+    };
+    double              S = 0.5;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, S, a1, a2, 2, bonds, 0);
+    int                 signs[2] = {+1, -1};
+
+    /* Bipartite-chain folded-BZ dispersion: ω(k_x) = 2·J·S·|sin(k_x)|
+     * (the doubled cell folds the original-BZ k_orig = k_x and k_orig +
+     * π = k_x + π onto the same k_x in the doubled BZ; both give |sin
+     * k_orig| = |sin k_x| since sin(k+π) = -sin(k)). Both bands
+     * degenerate. With J=1, S=0.5: ω = |sin(k_x)|. */
+
+    /* k_x = π/4 → ω = sin(π/4) = √2/2 ≈ 0.7071 */
+    double SQRT2_HALF = 0.5 * 1.4142135623730951;
+    double omega[2];
+    irrep_magnon_dispersion_general(L, signs, M_PI / 4.0, 0.0, omega);
+    ASSERT_NEAR(omega[0], SQRT2_HALF, 1e-7, "AFM chain at k_x=π/4 (band 1) = √2/2");
+    ASSERT_NEAR(omega[1], SQRT2_HALF, 1e-7, "AFM chain at k_x=π/4 (band 2) = √2/2");
+
+    /* k_x = π/8 → ω = sin(π/8) ≈ 0.3827 */
+    irrep_magnon_dispersion_general(L, signs, M_PI / 8.0, 0.0, omega);
+    ASSERT_NEAR(omega[0], sin(M_PI / 8.0), 1e-7, "AFM chain at k_x=π/8 = sin(π/8)");
+    ASSERT_NEAR(omega[1], sin(M_PI / 8.0), 1e-7, "AFM chain at k_x=π/8 = sin(π/8)");
+
+    /* k_x = π/2 → ω = sin(π/2) = 1 (peak of folded dispersion) */
+    irrep_magnon_dispersion_general(L, signs, M_PI / 2.0, 0.0, omega);
+    ASSERT_NEAR(omega[0], 1.0, 1e-7, "AFM chain at k_x=π/2 = 1");
+    ASSERT_NEAR(omega[1], 1.0, 1e-7, "AFM chain at k_x=π/2 = 1");
+
+    irrep_magnon_lsw_free(L);
+}
+
+/* (13) FM-mode-recovery: when sublattice signs are all +1, the
+ * Bogoliubov-Colpa solver should reproduce the FM Heisenberg
+ * dispersion. Cross-check against irrep_magnon_dispersion. */
+static void test_general_fm_recovery(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0, 0, 0}},
+    };
+    double              S = 0.5;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, S, a1, a2, 2, bonds, 0);
+    int                 signs[1] = {+1};
+
+    double w_fm, w_general;
+    double _Complex u;
+    double          k_set[3][2] = {{0.0, 0.0}, {M_PI / 2, M_PI / 3}, {M_PI, M_PI}};
+    for (int p = 0; p < 3; ++p) {
+        irrep_magnon_dispersion(L, k_set[p][0], k_set[p][1], &w_fm, &u);
+        irrep_magnon_dispersion_general(L, signs, k_set[p][0], k_set[p][1], &w_general);
+        ASSERT_NEAR(w_general, w_fm, 1e-8, "general (signs=+1) recovers FM dispersion");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -412,6 +485,8 @@ int main(void) {
     test_thermal_hall_kagome();
     test_strip_trivial();
     test_strip_kagome_edge_modes();
+    test_afm_chain_general();
+    test_general_fm_recovery();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

@@ -20,7 +20,13 @@ SO_MAJOR := 1
 # ---------------------------------------------------------------------------
 # Flags
 # ---------------------------------------------------------------------------
-CFLAGS_COMMON  = -std=c11 -Iinclude -fvisibility=hidden
+# _POSIX_C_SOURCE 200809L exposes clock_gettime / CLOCK_MONOTONIC from
+# <time.h> on glibc and MinGW (the 199309L variant is too narrow — it
+# hides vsnprintf and other C99 utilities on some toolchains). macOS
+# exposes the real-time clock unconditionally. The library proper does
+# not require this macro; benchmarks and timing-using examples do.
+# Setting it library-wide is harmless on every supported toolchain.
+CFLAGS_COMMON  = -std=c11 -Iinclude -fvisibility=hidden -D_POSIX_C_SOURCE=200809L
 CFLAGS_WARN    = -Wall -Wextra -Wpedantic -Wno-unused-parameter
 # -ffp-contract=on: force consistent a*b+c -> fma contraction across
 # compilers so the NEON / AVX2 kernels (which use explicit fma

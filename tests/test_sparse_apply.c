@@ -365,7 +365,7 @@ int main(void) {
         irrep_sg_heisenberg_sector_t *S  = irrep_sg_heisenberg_sector_build(H, T);
         long long n_reps = irrep_sg_heisenberg_sector_dim(S);
 
-        const char *path_triv = "/tmp/libirrep_sector_triv.bin";
+        const char *path_triv = "build/test_sector_triv.bin";
         IRREP_ASSERT(irrep_sg_heisenberg_sector_save(S, path_triv) == 0);
 
         irrep_sg_heisenberg_sector_t *S2 = irrep_sg_heisenberg_sector_load(path_triv, n_reps);
@@ -406,7 +406,7 @@ int main(void) {
 
         /* Truncated (empty) file. */
         {
-            const char *tp = "/tmp/libirrep_sector_trunc.bin";
+            const char *tp = "build/test_sector_trunc.bin";
             FILE *fp = fopen(tp, "wb");
             IRREP_ASSERT(fp != NULL);
             fclose(fp);
@@ -425,7 +425,7 @@ int main(void) {
             irrep_sg_heisenberg_sector_build_at_k(H, T, lg, B1);
         long long dim_B1 = irrep_sg_heisenberg_sector_dim(S_B1);
 
-        const char *path_cplx = "/tmp/libirrep_sector_cplx.bin";
+        const char *path_cplx = "build/test_sector_cplx.bin";
         IRREP_ASSERT(irrep_sg_heisenberg_sector_save(S_B1, path_cplx) == 0);
         irrep_sg_heisenberg_sector_t *S_B1_2 =
             irrep_sg_heisenberg_sector_load(path_cplx, dim_B1);

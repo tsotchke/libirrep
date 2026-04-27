@@ -206,7 +206,7 @@ int main(void) {
         long long cnt = irrep_sg_rep_table_count(T);
 
         /* Save to /tmp. */
-        const char *path = "/tmp/libirrep_rep_table_test.bin";
+        const char *path = "build/test_rep_table_test.bin";
         int rc = irrep_sg_rep_table_save(T, path);
         IRREP_ASSERT(rc == 0);
 
@@ -255,7 +255,7 @@ int main(void) {
         /* Wrong-version rejection: write a valid-magic file with an
          * unknown version field — load must reject. */
         {
-            const char *vp = "/tmp/libirrep_rep_table_badver.bin";
+            const char *vp = "build/test_rep_table_badver.bin";
             FILE *fp = fopen(vp, "wb");
             IRREP_ASSERT(fp != NULL);
             char magic[8] = {'I','R','R','E','P','_','R','T'};
@@ -275,7 +275,7 @@ int main(void) {
 
         /* Truncated file: zero-length → rejection. */
         {
-            const char *tp = "/tmp/libirrep_rep_table_trunc.bin";
+            const char *tp = "build/test_rep_table_trunc.bin";
             FILE *fp = fopen(tp, "wb");
             IRREP_ASSERT(fp != NULL);
             fclose(fp);

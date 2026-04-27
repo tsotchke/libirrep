@@ -1152,6 +1152,46 @@ static void test_hessian_square_fm(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (36) Band extrema on the gapless square FM (no anisotropy):
+ *   ω(k) = 2 - cos kx - cos ky ∈ [0, 4]
+ *   Spin gap = 0 (Goldstone), bandwidth = 4. */
+static void test_band_extrema_gapless_fm(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double w_min, w_max;
+    irrep_magnon_band_extrema(L, 64, 64, /*exclude_below=*/-1.0, &w_min, &w_max);
+    /* On a finite grid, ω = 0 may not be hit exactly; expect 0 to be very small. */
+    ASSERT(w_min < 1e-2, "gapless FM: spin gap ~ 0 (Goldstone)");
+    ASSERT_NEAR(w_max, 4.0, 0.1, "gapless FM: bandwidth = 4");
+    irrep_magnon_lsw_free(L);
+}
+
+/* (37) Band extrema on a gapped square FM (K_z = 0.5):
+ *   gap = 2·K_z·S = 0.5, bandwidth = 4 + 0.5 = 4.5. */
+static void test_band_extrema_gapped_fm(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, /*Kz=*/0.5);
+    double w_min, w_max;
+    irrep_magnon_band_extrema(L, 64, 64, -1.0, &w_min, &w_max);
+    ASSERT_NEAR(w_min, 0.5, 1e-3, "gapped FM: spin gap = 2·Kz·S = 0.5");
+    ASSERT_NEAR(w_max, 4.5, 0.1, "gapped FM: top = bandwidth + gap = 4.5");
+    irrep_magnon_lsw_free(L);
+}
+
 int main(void) {
     test_fm_square_dispersion();
     test_anisotropy_gap();
@@ -1188,6 +1228,8 @@ int main(void) {
     test_spin_nernst_trivial();
     test_spin_nernst_kagome();
     test_hessian_square_fm();
+    test_band_extrema_gapless_fm();
+    test_band_extrema_gapped_fm();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

@@ -203,6 +203,40 @@ IRREP_API irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_
                                                           int n_omega, double eta,
                                                           double *intensity_out);
 
+/** @brief Scan the dispersion across the BZ and return the global
+ *         minimum and maximum magnon energies.
+ *
+ *  The two outputs are the *most-quoted* dispersion summary
+ *  statistics:
+ *
+ *    - ω_min: the *spin gap* (= 0 for unbroken-symmetry Goldstone
+ *      modes; > 0 for systems with anisotropy K_z, DMI gap, or
+ *      AFM-canting gap). Distinguishes gapped from gapless ground
+ *      states in a single number.
+ *
+ *    - ω_max: the *band-top* energy. Bandwidth = ω_max − ω_min is
+ *      the dispersion span and sets the energy scale for thermal
+ *      population (T ~ bandwidth → all magnon bands are thermally
+ *      populated).
+ *
+ *  The user can exclude numerical-noise Goldstone modes by setting
+ *  `exclude_below`: any sampled mode with ω ≤ exclude_below is
+ *  skipped. For a clean LSW with a true gap, set
+ *  exclude_below = 0; for systems with a Goldstone mode that you
+ *  want to skip when reporting the *next* gap, set
+ *  exclude_below = some small ε (typical 10⁻⁶).
+ *
+ *  @param L              LSW handle
+ *  @param Nx, Ny         BZ grid (typical 50-200)
+ *  @param exclude_below  modes with ω ≤ this are skipped
+ *  @param omega_min_out  on return, lowest-band energy in the
+ *                        sampled BZ above exclude_below
+ *  @param omega_max_out  on return, highest-band energy in the
+ *                        sampled BZ */
+IRREP_API irrep_status_t irrep_magnon_band_extrema(const irrep_magnon_lsw_t *L, int Nx, int Ny,
+                                                    double exclude_below, double *omega_min_out,
+                                                    double *omega_max_out);
+
 /** @brief Compute the band-resolved magnon-dispersion Hessian
  *         H_ij(k) = ∂²ω_b/∂k_i ∂k_j at a single k point.
  *

@@ -1239,7 +1239,36 @@ windings visually unambiguous.
 - Bouhon, A., Lange, G. F. and Bzdušek, T. *Phys. Rev. B* 102,
   115135 (2020). Wilson-loop spectrum and fragile topology.
 
-### 15.7. Dispersion Hessian + effective mass + spin stiffness
+### 15.7. Spin gap and bandwidth
+
+The two universal dispersion-summary statistics quoted in nearly
+every inelastic-neutron paper are:
+
+- **Spin gap** Δ = min_{k, b} ω_b(k) — the lowest single-magnon
+  excitation energy, characterising whether the ground state is
+  *gapless* (Goldstone, Δ = 0) or *gapped* (anisotropy K_z, DMI
+  gap, AFM-canting, Higgs-like). Sign-of-life observable for
+  identifying broken-symmetry phases.
+
+- **Bandwidth** W = max ω − min ω — the dispersion span. Sets
+  the energy scale for thermal-population: T ~ W activates all
+  bands; T ≪ W activates only the lowest band.
+
+The library implements `irrep_magnon_band_extrema(L, Nx, Ny,
+exclude_below, ω_min, ω_max)` as a single BZ scan returning both
+extrema. The `exclude_below` knob lets the user skip numerical-
+noise Goldstone modes (set to a small ε ~ 10⁻⁶ if a true Goldstone
+exists and you want the *next* minimum); for clean LSW with a
+genuine gap, set exclude_below = -∞ (or any value < ω_min).
+
+Verified on the canonical 2D NN-Heisenberg square FM:
+
+| K_z | Spin gap (analytic) | Bandwidth (analytic) | Test passes |
+|---|---|---|---|
+| 0 (gapless) | 0 (Goldstone) | 4 | < 10⁻² |
+| 0.5 (gapped) | 2·K_z·S = 0.5 | 4.5 | < 10⁻³ |
+
+### 15.8. Dispersion Hessian + effective mass + spin stiffness
 
 The band-resolved Hessian H_ij(k) = ∂²ω_b/∂k_i∂k_j is the natural
 input for several derived observables:
@@ -1754,9 +1783,9 @@ analog of quantum-Hall edge channels (see Akazawa *et al.* 2020 for
 the Cu(1,3-bdc) measurement, and Hirschberger *et al.* 2015 for
 Lu₂V₂O₇).
 
-### 15.20. Verification protocol
+### 15.21. Verification protocol
 
-`tests/test_magnon.c` covers thirty-five independent checks (107 assertions):
+`tests/test_magnon.c` covers thirty-seven independent checks (111 assertions):
 
 1. **FM square dispersion**: ω(k) = 2|J|S(2 − cos k_x − cos k_y) at
    five k-points to 1e-12. Closed-form sanity check that the LSW
@@ -1871,6 +1900,10 @@ Lu₂V₂O₇).
     at three k-points: Γ (band min, H = diag(1,1)); M-point (band
     max, H = diag(-1,-1)); saddle (π, 0) (van-Hove, mixed-sign
     H = diag(-1, +1)).
+36. **Band extrema gapless FM**: spin gap < 10⁻² (Goldstone
+    Mermin-Wagner-respecting in 2D), bandwidth ≈ 4 to ±0.1.
+37. **Band extrema gapped FM**: K_z = 0.5 → spin gap = 2·K_z·S =
+    0.5 to ≤ 10⁻³, top energy = 4.5 = bandwidth + gap.
 
 The end-to-end `examples/kagome_topological_magnons.c` demo
 reproduces the canonical (−1, 0, +1) Chern signature of the kagome

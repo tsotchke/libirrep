@@ -433,6 +433,51 @@ irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_t *L,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_band_extrema(const irrep_magnon_lsw_t *L, int Nx, int Ny,
+                                          double exclude_below, double *omega_min_out,
+                                          double *omega_max_out) {
+    if (!L || Nx <= 0 || Ny <= 0 || !omega_min_out || !omega_max_out)
+        return IRREP_ERR_INVALID_ARG;
+    int     n = L->n_sub;
+    double *omega = malloc((size_t)n * sizeof *omega);
+    double _Complex *u = malloc((size_t)n * n * sizeof *u);
+    if (!omega || !u) {
+        free(omega);
+        free(u);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    double w_min = 1e300;
+    double w_max = -1e300;
+    int    found_any_above_threshold = 0;
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = (double)ix / Nx;
+            double fy = (double)iy / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            irrep_magnon_dispersion(L, kx, ky, omega, u);
+            for (int b = 0; b < n; ++b) {
+                double w = omega[b];
+                if (w > exclude_below) {
+                    if (w < w_min)
+                        w_min = w;
+                    if (w > w_max)
+                        w_max = w;
+                    found_any_above_threshold = 1;
+                }
+            }
+        }
+    free(omega);
+    free(u);
+    if (!found_any_above_threshold) {
+        irrep_set_error_("irrep_magnon_band_extrema: no modes above exclude_below threshold");
+        return IRREP_ERR_INVALID_ARG;
+    }
+    *omega_min_out = w_min;
+    *omega_max_out = w_max;
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_hessian(const irrep_magnon_lsw_t *L, double kx, double ky, double h,
                                      double *hxx_out, double *hyy_out, double *hxy_out) {
     if (!L || !hxx_out || !hyy_out || !hxy_out || h <= 0)

@@ -1317,6 +1317,65 @@ static void test_afm_zero_point_square(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (45) Non-collinear LSW reduces to FM when all n_α = +ẑ. Critical
+ * sanity check on the local-frame HP machinery. */
+static void test_noncollinear_fm_recovery(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0.05}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, -0.05}},
+    };
+    double S = 0.5;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, S, a1, a2, 2, bonds, 0);
+
+    /* All n_α = +ẑ. */
+    double n_vec[3] = {0.0, 0.0, 1.0};
+    /* Test at three k points. */
+    double kpts[3][2] = {{0.5, 0.7}, {1.5, -0.3}, {2.0, 1.0}};
+    for (int p = 0; p < 3; ++p) {
+        double          omega_fm, omega_nc;
+        double _Complex u_fm;
+        irrep_magnon_dispersion(L, kpts[p][0], kpts[p][1], &omega_fm, &u_fm);
+        irrep_magnon_dispersion_noncollinear(L, n_vec, kpts[p][0], kpts[p][1], &omega_nc);
+        ASSERT_NEAR(omega_nc, omega_fm, 1e-6,
+                    "non-collinear at all-n=+ẑ matches FM dispersion");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
+/* (46) Non-collinear LSW reduces to AFM when n_A = +ẑ, n_B = -ẑ.
+ * Test on the bipartite square AFM. */
+static void test_noncollinear_afm_recovery(void) {
+    double a1[2] = {1.0, 1.0};
+    double a2[2] = {1.0, -1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = -1, .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = -1, .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = 0,  .delta_z = 0, .J = +1.0, .D = {0,0,0}},
+    };
+    double S = 0.5;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, S, a1, a2, 4, bonds, 0);
+
+    int    signs[2] = {+1, -1};
+    /* n_A = +ẑ, n_B = -ẑ. */
+    double n_vec[6] = {0, 0, +1.0,  0, 0, -1.0};
+    double kpts[3][2] = {{0.5, 0.3}, {M_PI / 4.0, 0.0}, {M_PI / 2.0, M_PI / 8.0}};
+    for (int p = 0; p < 3; ++p) {
+        double omega_afm[2], omega_nc[2];
+        irrep_magnon_dispersion_general(L, signs, kpts[p][0], kpts[p][1], omega_afm);
+        irrep_magnon_dispersion_noncollinear(L, n_vec, kpts[p][0], kpts[p][1], omega_nc);
+        ASSERT_NEAR(omega_nc[0], omega_afm[0], 1e-6,
+                    "non-collinear (n=±ẑ) matches AFM dispersion (band 0)");
+        ASSERT_NEAR(omega_nc[1], omega_afm[1], 1e-6,
+                    "non-collinear (n=±ẑ) matches AFM dispersion (band 1)");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
 /* (43) 3D simple-cubic AFM: bipartite Néel order with NN AFM exchange
  * on the 3D cubic lattice. Doubled cell with sublattices A (σ=+1) and
  * B (σ=-1). Each site has 6 NN, all to opposite-sublattice. The exact
@@ -1482,6 +1541,8 @@ int main(void) {
     test_afm_zero_point_fm_recovery();
     test_3d_afm_simple_cubic();
     test_3d_general_reduces_to_2d();
+    test_noncollinear_fm_recovery();
+    test_noncollinear_afm_recovery();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

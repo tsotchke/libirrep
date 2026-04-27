@@ -610,6 +610,46 @@ IRREP_API irrep_status_t irrep_magnon_chern_3d_slice_kz(const irrep_magnon_lsw_t
                                                          const double a3[3], double kz, int Nx,
                                                          int Ny, double *chern_out);
 
+/** @brief Non-collinear LSW magnon dispersion for an arbitrary
+ *         classical-ground-state direction per sublattice.
+ *
+ *  Generalises `_dispersion_general` (which only handles σ_α ∈
+ *  {+1, -1} collinear) to ANY collinear, non-collinear, or canted
+ *  ground state — required for skyrmions, helimagnets, 120° Néel
+ *  on triangular/kagome AFMs, and chiral magnets like MnSi /
+ *  Cu₂OSeO₃ / FeGe in their helical phases.
+ *
+ *  Each sublattice α carries a unit-vector ground state n_α (3D
+ *  real, |n_α| = 1). HP bosonisation is performed in a LOCAL FRAME
+ *  per sublattice with the +ẑ axis rotated to n_α; bond Hamiltonian
+ *  terms are expressed in terms of M_ij = R_i^T R_j (the relative
+ *  rotation between local frames) and the DMI matrix N_ij computed
+ *  similarly. The bilinear-in-bosons Hamiltonian then has FOUR
+ *  channels per bond: hopping (a^†_i a_j + h.c.), pairing (a_i a_j +
+ *  a^†_i a^†_j), DMI hopping (anti-Hermitian off-diagonal), and
+ *  anti-symmetric pairing — all derived from the entries of c_{de}
+ *  = J·M_{de} + DMI contribution.
+ *
+ *  Linear-in-bosons terms (from S̃^x S̃^z and S̃^y S̃^z mixed
+ *  channels) are assumed to cancel by the equilibrium condition of
+ *  the supplied ground state. Caller responsibility: provide a
+ *  physically valid n_α set (the function does not check stability).
+ *
+ *  Reduces to:
+ *    - `_dispersion`         when all n_α = +ẑ (FM)
+ *    - `_dispersion_general` (σ_α=±1) when n_α = ±ẑ
+ *
+ *  @param L                LSW handle
+ *  @param n_vectors        n_sub × 3 array of unit ground-state
+ *                          vectors (row-major: n_vectors[3*α + i] is
+ *                          the i-th component of n_α)
+ *  @param kx, ky           momentum (cartesian)
+ *  @param omega_out        caller buffer of size n_sub doubles —
+ *                          magnon energies sorted ascending */
+IRREP_API irrep_status_t irrep_magnon_dispersion_noncollinear(const irrep_magnon_lsw_t *L,
+                                                                const double *n_vectors, double kx,
+                                                                double ky, double *omega_out);
+
 /** @brief 3D Bogoliubov-Colpa AFM dispersion. Same as
  *         `irrep_magnon_dispersion_general` but consumes a third
  *         primitive vector a₃ and per-bond `delta_z` to handle 3D

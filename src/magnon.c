@@ -1107,6 +1107,189 @@ static void build_M_bdg_(const irrep_magnon_lsw_t *L, const int *sublattice_sign
     }
 }
 
+/* Compute the 3×3 rotation matrix R that takes +ẑ to a given unit
+ * vector n. Column convention: R[3*row + col] (row-major). The
+ * rotation is the canonical "tilt then twist" form. For n = ẑ, R = I.
+ * For n = -ẑ, R = diag(1, -1, -1) (180° about x-axis). */
+static void rotate_zhat_to_n_(const double n[3], double R[9]) {
+    double nx = n[0], ny = n[1], nz = n[2];
+    double r2_xy = nx * nx + ny * ny;
+    if (r2_xy < 1e-24) {
+        /* n is along +ẑ or -ẑ: use a simple R. */
+        if (nz > 0) {
+            R[0] = 1; R[1] = 0; R[2] = 0;
+            R[3] = 0; R[4] = 1; R[5] = 0;
+            R[6] = 0; R[7] = 0; R[8] = 1;
+        } else {
+            R[0] = 1; R[1] = 0; R[2] = 0;
+            R[3] = 0; R[4] = -1; R[5] = 0;
+            R[6] = 0; R[7] = 0; R[8] = -1;
+        }
+        return;
+    }
+    double r_xy = sqrt(r2_xy);
+    double cos_phi = nx / r_xy;
+    double sin_phi = ny / r_xy;
+    double cos_theta = nz;
+    double sin_theta = r_xy;
+    /* Standard rotation: first rotate about y by θ (tilting ẑ toward n's
+     * azimuth), then about z by φ. The columns of R are e_x', e_y', e_z'
+     * (the local frame's basis vectors expressed in global coords): */
+    R[0] = cos_phi * cos_theta;  R[1] = -sin_phi;       R[2] = cos_phi * sin_theta;
+    R[3] = sin_phi * cos_theta;  R[4] =  cos_phi;       R[5] = sin_phi * sin_theta;
+    R[6] =          -sin_theta;  R[7] =  0;             R[8] =          cos_theta;
+}
+
+/* Compute c[3][3] = J·M + DMI for a bond between sublattices with
+ * rotation matrices R_i, R_j, Heisenberg J, and DMI vector D[3].
+ * c_{de} = J·(R_i^T R_j)_{de} + Σ_klm D^k ε^{klm} R_i^{ld} R_j^{me} */
+static void bond_c_matrix_(const double R_i[9], const double R_j[9], double J,
+                            const double D[3], double c[9]) {
+    /* M = R_i^T R_j. Note R[3*row + col]. Then M_de = Σ_k R_i[k][d] R_j[k][e]. */
+    for (int d = 0; d < 3; ++d)
+        for (int e = 0; e < 3; ++e) {
+            double s = 0;
+            for (int k = 0; k < 3; ++k)
+                s += R_i[3 * k + d] * R_j[3 * k + e];
+            c[3 * d + e] = J * s;
+        }
+
+    /* DMI: c_{de} += Σ_klm D^k ε^{klm} R_i^{ld} R_j^{me}.
+     * ε^{klm} non-zero for (012, 120, 201) = +1 and (021, 102, 210) = -1. */
+    static const int eps_idx[6][3] = {
+        {0, 1, 2}, {1, 2, 0}, {2, 0, 1},  /* +1 */
+        {0, 2, 1}, {1, 0, 2}, {2, 1, 0},  /* -1 */
+    };
+    static const double eps_sign[6] = {+1, +1, +1, -1, -1, -1};
+    for (int d = 0; d < 3; ++d)
+        for (int e = 0; e < 3; ++e) {
+            double s = 0;
+            for (int idx = 0; idx < 6; ++idx) {
+                int k = eps_idx[idx][0];
+                int l = eps_idx[idx][1];
+                int m = eps_idx[idx][2];
+                s += eps_sign[idx] * D[k] * R_i[3 * l + d] * R_j[3 * m + e];
+            }
+            c[3 * d + e] += s;
+        }
+}
+
+irrep_status_t irrep_magnon_dispersion_noncollinear(const irrep_magnon_lsw_t *L,
+                                                     const double *n_vectors, double kx, double ky,
+                                                     double *omega_out) {
+    if (!L || !n_vectors || !omega_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    int N = 2 * n;
+
+    /* Compute rotation matrices for each sublattice. */
+    double *R_arr = malloc((size_t)n * 9 * sizeof *R_arr);
+    if (!R_arr)
+        return IRREP_ERR_OUT_OF_MEMORY;
+    for (int a = 0; a < n; ++a)
+        rotate_zhat_to_n_(n_vectors + 3 * a, R_arr + 9 * a);
+
+    /* Build BdG matrix M(k) of size 2n × 2n. */
+    double _Complex *M = calloc((size_t)N * N, sizeof *M);
+    if (!M) {
+        free(R_arr);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    double S = L->S;
+
+    /* Anisotropy on every site (in particle and hole blocks, both diagonals). */
+    for (int a = 0; a < n; ++a) {
+        M[a * N + a] += 2.0 * L->Kz * S;
+        M[(a + n) * N + (a + n)] += 2.0 * L->Kz * S;
+    }
+
+    for (int b = 0; b < L->n_bonds; ++b) {
+        const irrep_magnon_bond_t *bd = &L->bonds[b];
+        int    i = bd->bi, j = bd->bj;
+        double tx = bd->delta_x * L->a1[0] + bd->delta_y * L->a2[0];
+        double ty = bd->delta_x * L->a1[1] + bd->delta_y * L->a2[1];
+        double phase = kx * tx + ky * ty;
+        double _Complex eikt = cos(phase) + I * sin(phase);
+
+        /* Compute the 3×3 c matrix for this bond. */
+        double c[9];
+        bond_c_matrix_(R_arr + 9 * i, R_arr + 9 * j, bd->J, bd->D, c);
+        double c_xx = c[3 * 0 + 0], c_xy = c[3 * 0 + 1], c_yx = c[3 * 1 + 0],
+               c_yy = c[3 * 1 + 1], c_zz = c[3 * 2 + 2];
+
+        /* Decompose c into 4 bilinear channels:
+         * α_A: hopping a^†_i a_j coefficient
+         * α_B: pairing a_i a_j coefficient
+         */
+        double _Complex alpha_A = 0.5 * S * (c_xx + c_yy) - 0.5 * I * S * (c_xy - c_yx);
+        double _Complex alpha_B = 0.5 * S * (c_xx - c_yy) - 0.5 * I * S * (c_xy + c_yx);
+
+        /* Diagonal "self-energy" from c_zz·S̃^z_i S̃^z_j: -c_zz·S per
+         * endpoint, in BOTH particle and hole blocks. */
+        M[i * N + i] += -c_zz * S;
+        M[j * N + j] += -c_zz * S;
+        M[(i + n) * N + (i + n)] += -c_zz * S;
+        M[(j + n) * N + (j + n)] += -c_zz * S;
+
+        /* Hopping (particle block): A_{i,j} += α_A·e^{ikt}, A_{j,i} += conj(α_A)·e^{-ikt}. */
+        M[i * N + j] += alpha_A * eikt;
+        M[j * N + i] += conj(alpha_A * eikt);
+
+        /* Hopping (hole block): A^*_{i,j} += conj(α_A)·e^{ikt}. The hole block carries
+         * the conjugate hopping (this is the BdG redundancy). */
+        M[(i + n) * N + (j + n)] += conj(alpha_A) * eikt;
+        M[(j + n) * N + (i + n)] += alpha_A * conj(eikt);
+
+        /* Pairing (anomalous block): B_{i,j} += α_B·e^{ikt}, with the
+         * canonical-commutation symmetric structure B_{j,i} = α_B·e^{-ikt}. */
+        M[i * N + (j + n)] += alpha_B * eikt;
+        M[j * N + (i + n)] += alpha_B * conj(eikt);
+        M[(j + n) * N + i] += conj(alpha_B * eikt);
+        M[(i + n) * N + j] += conj(alpha_B * conj(eikt));
+    }
+
+    /* Cholesky + Colpa diagonalisation (same machinery as
+     * `_dispersion_general`). Regularise PSD matrix at gap-closing
+     * Goldstone points. */
+    double _Complex *K = malloc((size_t)N * N * sizeof *K);
+    double _Complex *W = malloc((size_t)N * N * sizeof *W);
+    double          *eigs = malloc((size_t)N * sizeof *eigs);
+    double _Complex *evecs = malloc((size_t)N * N * sizeof *evecs);
+    if (!K || !W || !eigs || !evecs) {
+        free(R_arr); free(M); free(K); free(W); free(eigs); free(evecs);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    static const double EPS_PSD = 1e-10;
+    for (int a = 0; a < N; ++a)
+        M[a * N + a] += EPS_PSD;
+    if (cholesky_(N, M, K) != 0) {
+        free(R_arr); free(M); free(K); free(W); free(eigs); free(evecs);
+        irrep_set_error_("irrep_magnon_dispersion_noncollinear: M(k) not positive-definite "
+                          "at k=(%g, %g) — supplied n_α set may not be a stable ground state",
+                          kx, ky);
+        return IRREP_ERR_INVALID_ARG;
+    }
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j) {
+            double _Complex s = 0;
+            for (int l = 0; l < N; ++l) {
+                double sg = (l < n) ? +1.0 : -1.0;
+                s += sg * K[i * N + l] * conj(K[j * N + l]);
+            }
+            W[i * N + j] = s;
+        }
+    hermitian_eig_(N, W, eigs, evecs);
+    int count = 0;
+    for (int i = 0; i < N; ++i)
+        if (eigs[i] > 0)
+            omega_out[count++] = eigs[i];
+    while (count < n)
+        omega_out[count++] = 0.0;
+
+    free(R_arr); free(M); free(K); free(W); free(eigs); free(evecs);
+    return IRREP_OK;
+}
+
 /* 3D BdG matrix builder. Same as build_M_bdg_ but uses 3D primitive
  * vector a₃ and per-bond delta_z. */
 static void build_M_bdg_3d_(const irrep_magnon_lsw_t *L, const int *sublattice_signs,

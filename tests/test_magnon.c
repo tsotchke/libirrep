@@ -1317,6 +1317,41 @@ static void test_afm_zero_point_square(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (47) 3D non-collinear at kz=0 with delta_z=0 must reduce to 2D
+ * non-collinear. Same consistency check as the 3D AFM/FM versions.
+ * Use a STABLE non-collinear configuration: FM along x-axis (all
+ * n_α = x̂) — rotation-invariance of isotropic Heisenberg means this
+ * is a ground state with the same dispersion as FM along ẑ. */
+static void test_noncollinear_3d_reduces_to_2d(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    double a3[3] = {0.2, 0.5, 1.3};
+    /* Single-sublattice FM along x-axis, no DMI (DMI breaks rotation
+     * invariance and would make "FM along x" different from "FM along
+     * z"). */
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    double S = 0.5;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, S, a1, a2, 2, bonds, 0);
+
+    double n_vec[3] = {1.0, 0.0, 0.0}; /* FM along x */
+    double k_pts[3][2] = {{0.5, 0.3}, {1.5, -0.7}, {2.0, 1.0}};
+    for (int p = 0; p < 3; ++p) {
+        double omega_2d, omega_3d;
+        irrep_magnon_dispersion_noncollinear(L, n_vec, k_pts[p][0], k_pts[p][1],
+                                              &omega_2d);
+        irrep_magnon_dispersion_noncollinear_3d(L, n_vec, a3, k_pts[p][0], k_pts[p][1],
+                                                 0.0, &omega_3d);
+        ASSERT_NEAR(omega_3d, omega_2d, 1e-10,
+                    "3D non-collinear at kz=0 reduces to 2D");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
 /* (45) Non-collinear LSW reduces to FM when all n_α = +ẑ. Critical
  * sanity check on the local-frame HP machinery. */
 static void test_noncollinear_fm_recovery(void) {
@@ -1543,6 +1578,7 @@ int main(void) {
     test_3d_general_reduces_to_2d();
     test_noncollinear_fm_recovery();
     test_noncollinear_afm_recovery();
+    test_noncollinear_3d_reduces_to_2d();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

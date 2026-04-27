@@ -650,6 +650,34 @@ IRREP_API irrep_status_t irrep_magnon_dispersion_noncollinear(const irrep_magnon
                                                                 const double *n_vectors, double kx,
                                                                 double ky, double *omega_out);
 
+/** @brief 3D non-collinear LSW dispersion. Same as
+ *         `irrep_magnon_dispersion_noncollinear` but consumes a third
+ *         primitive vector a₃ and per-bond `delta_z`.
+ *
+ *  Closes the capability matrix:
+ *    - 2D FM:     `_dispersion`
+ *    - 2D AFM:    `_dispersion_general`
+ *    - 2D non-collinear: `_dispersion_noncollinear`
+ *    - 3D FM:     `_dispersion_3d`
+ *    - 3D AFM:    `_dispersion_general_3d`
+ *    - 3D non-collinear: `_dispersion_noncollinear_3d` (this function)
+ *
+ *  Real applications: B20 cubic chiral magnets MnSi/Cu₂OSeO₃/FeGe in
+ *  3D-helical-spiral phase, 3D pyrochlore AFM with non-collinear all-
+ *  in / all-out ordering, layered helimagnet stacks.
+ *
+ *  @param L                LSW handle
+ *  @param n_vectors        n_sub × 3 array of unit ground-state vectors
+ *  @param a3               third primitive vector (cartesian 3D)
+ *  @param kx, ky, kz       momentum (cartesian 3D)
+ *  @param omega_out        caller buffer of size n_sub doubles —
+ *                          magnon energies sorted ascending */
+IRREP_API irrep_status_t irrep_magnon_dispersion_noncollinear_3d(const irrep_magnon_lsw_t *L,
+                                                                   const double *n_vectors,
+                                                                   const double a3[3], double kx,
+                                                                   double ky, double kz,
+                                                                   double *omega_out);
+
 /** @brief 3D Bogoliubov-Colpa AFM dispersion. Same as
  *         `irrep_magnon_dispersion_general` but consumes a third
  *         primitive vector a₃ and per-bond `delta_z` to handle 3D

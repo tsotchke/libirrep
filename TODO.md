@@ -536,14 +536,22 @@ See the 1.3 CHANGELOG.
  Lu₂V₂O₇ (Onose 2010 / Hirschberger 2015 thermal Hall);
  `kagome_chiral_edge_modes.c` traces the counter-propagating L/R
  edge modes through the lower bulk gap as k_y winds across the BZ
- (Hatsugai bulk-boundary). Closes the loop from libirrep's
- algebraic layer (DMI bond list) to *three jointly measurable*
- observables — magnon spectrum ω(k) (INS), thermal Hall κ_xy(T)
- (transport), and chiral edge currents (boundary microwave or
- Brillouin scattering) — that independently fix the topological
- gap and Chern numbers. ABI refreshed to `b7846a47…` (8 new public
- symbols: `irrep_magnon_lsw_new`, `_free`, `_dispersion`, `_berry`,
- `_chern`, `_thermal_hall_kxy`, `_strip_dispersion`, `_num_bands`).
+ (Hatsugai bulk-boundary); `square_afm_magnons.c` reproduces the
+ Néel-square AFM dispersion ω = J·S·z·√(1−γ²) and shows the linear
+ Goldstone slope c_s = √2·J·S; `cubic_fm_magnons_3d.c` walks the
+ cubic BZ with quadratic Goldstone scaling. Closes the loop from
+ libirrep's algebraic layer (DMI bond list) to *six jointly
+ measurable* observables — magnon spectrum ω(k) (INS), Berry
+ curvature, Chern numbers, thermal Hall κ_xy(T) (transport), chiral
+ edge currents (boundary microwave / Brillouin), Wilson-loop
+ windings (Wannier-centre flow), and AFM Bogoliubov modes — across
+ 2D and 3D lattices, FM and Néel ground states.
+
+ ABI refreshed to `cbf9e061…` (11 new public symbols total since
+ the 1.3.1 baseline: `irrep_magnon_lsw_new`, `_free`, `_dispersion`,
+ `_dispersion_3d`, `_dispersion_general`, `_berry`, `_chern`,
+ `_thermal_hall_kxy`, `_strip_dispersion`, `_wilson_spectrum`,
+ `_num_bands`).
 
 ## Deferred past 1.3
 

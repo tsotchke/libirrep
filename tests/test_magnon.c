@@ -1357,6 +1357,84 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (64) Form-factor SF on a kagome FM: at q=Γ the e^{iq·r} = 1 and the
+ * result must equal _structure_factor (positions ignored). At finite q
+ * the result differs (lattice-specific redistribution of band weight). */
+static void test_form_factor_recovers_at_gamma(void) {
+    /* Kagome FM with 3 sublattices at distinct intra-cell positions. */
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * sqrt(3.0)};
+    double D = 0.15;
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 2, .delta_x = 0,  .delta_y = 0,  .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 2, .bj = 0, .delta_x = 0,  .delta_y = 0,  .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0,  .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1,  .J = -1.0, .D = {0, 0, -D}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, 1.0, a1, a2, 6, bonds, 0);
+    /* Sublattice positions: A=(0,0), B=(1/2, 0), C=(1/4, √3/4). */
+    double positions[3][2] = {{0.0, 0.0}, {0.5, 0.0}, {0.25, 0.25 * sqrt(3.0)}};
+    double omega_ff[3], S_ff[3];
+    double omega_no[3], S_no[3];
+    /* At Γ. */
+    irrep_magnon_structure_factor_with_form_factor(L, positions, 0.0, 0.0, omega_ff, S_ff);
+    irrep_magnon_structure_factor(L, 0.0, 0.0, omega_no, S_no);
+    int diff = 0;
+    for (int b = 0; b < 3; ++b)
+        if (fabs(S_ff[b] - S_no[b]) > 1e-10) ++diff;
+    ASSERT(diff == 0, "form factor at Γ matches no-form-factor (e^{iq·r} = 1)");
+
+    /* At finite q, the results SHOULD differ on a kagome (distinct r_α). */
+    irrep_magnon_structure_factor_with_form_factor(L, positions, 1.5, 0.5, omega_ff, S_ff);
+    irrep_magnon_structure_factor(L, 1.5, 0.5, omega_no, S_no);
+    int any_diff = 0;
+    for (int b = 0; b < 3; ++b)
+        if (fabs(S_ff[b] - S_no[b]) > 1e-6) any_diff = 1;
+    ASSERT(any_diff, "form factor differs from no-form-factor at finite q");
+    irrep_magnon_lsw_free(L);
+}
+
+/* (65) AFM-aware form-factor SF on a bipartite square AFM. At q=Γ
+ * (and any q where e^{iq·r} is unity for all α) match the no-form-
+ * factor result. The bipartite-square positions (0,0) and (1,0) make
+ * this hold at q in the magnetic-BZ Goldstone too. */
+static void test_form_factor_general_recovers_at_gamma(void) {
+    double a1[2] = {1.0, 1.0};
+    double a2[2] = {1.0, -1.0};
+    irrep_magnon_bond_t bonds[4] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, 0.5, a1, a2, 4, bonds, 0);
+    int signs[2]            = {+1, -1};
+    double positions[2][2]  = {{0.0, 0.0}, {1.0, 0.0}};
+    double omega_ff[2], S_ff[2], omega_no[2], S_no[2];
+    /* At a generic non-zero q (avoid Γ where the SF vanishes). */
+    irrep_magnon_structure_factor_general(L, signs, M_PI / 2, 0.0, omega_no, S_no);
+    /* Use positions = origin to recover original behaviour. */
+    double pos_origin[2][2] = {{0.0, 0.0}, {0.0, 0.0}};
+    irrep_magnon_structure_factor_general_with_form_factor(L, signs, pos_origin, M_PI / 2, 0.0,
+                                                             omega_ff, S_ff);
+    int diff = 0;
+    for (int b = 0; b < 2; ++b)
+        if (fabs(S_ff[b] - S_no[b]) > 1e-9) ++diff;
+    ASSERT(diff == 0, "form factor with positions=0 matches no-form-factor");
+
+    /* With non-trivial positions, results differ. */
+    irrep_magnon_structure_factor_general_with_form_factor(L, signs, positions, M_PI / 2, 0.0,
+                                                             omega_ff, S_ff);
+    int any_diff = 0;
+    for (int b = 0; b < 2; ++b)
+        if (fabs(S_ff[b] - S_no[b]) > 1e-6) any_diff = 1;
+    ASSERT(any_diff,
+           "AFM form factor with non-trivial positions differs from no-form-factor");
+    irrep_magnon_lsw_free(L);
+}
+
 /* (63) J-fitter: synthesise dispersion data with known J's, perturb
  * the initial guess, run the fitter, verify recovered J's. */
 static void test_fit_J_recovers_synthetic(void) {
@@ -2099,6 +2177,8 @@ int main(void) {
     test_detailed_balance();
     test_kinematic_damping_basic();
     test_fit_J_recovers_synthetic();
+    test_form_factor_recovers_at_gamma();
+    test_form_factor_general_recovers_at_gamma();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

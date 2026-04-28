@@ -995,6 +995,44 @@ IRREP_API irrep_status_t irrep_magnon_structure_factor(const irrep_magnon_lsw_t 
                                                         double qy, double *omega_out,
                                                         double *S_perp_out);
 
+/** @brief Compute the band-resolved transverse structure factor with
+ *         intra-cell INS form factor — proper q-dependent phases for
+ *         each sublattice's position within the unit cell.
+ *
+ *      S_⊥_b(q) = 2S · |Σ_α e^{i q·r_α} u_α^b(q)|²
+ *
+ *  This is the *full* INS-measurable spectral weight on a band: the
+ *  existing `_structure_factor` returns the Wannier-centred form
+ *  |Σ u|² (sublattice positions absorbed into the unit-cell origin),
+ *  while this function returns what neutron experiments actually see
+ *  at finite q — the intra-cell phase factor e^{iq·r_α} can swap
+ *  bright vs. dark bands at zone-boundary momenta.
+ *
+ *  At q = Γ (q = 0) the phase factor is unity for all α and this
+ *  reduces to `_structure_factor`. At finite q the difference is
+ *  band- and lattice-specific (kagome: pronounced; bipartite square:
+ *  absorbed into the existing magnetic-BZ folding).
+ *
+ *  Sum rule preserved: integrated over the BZ, Σ_b ⟨S_⊥_b(q)⟩ =
+ *  2S · n_sub (independent of positions).
+ *
+ *  @param L              LSW handle
+ *  @param positions      n_sub × 2 array of cartesian sublattice
+ *                        positions r_α inside the unit cell
+ *  @param qx, qy         momentum (cartesian)
+ *  @param omega_out      n_sub doubles — band energies sorted ascending
+ *  @param S_perp_out     n_sub doubles — band-resolved form-factor SF */
+IRREP_API irrep_status_t irrep_magnon_structure_factor_with_form_factor(
+    const irrep_magnon_lsw_t *L, const double (*positions)[2], double qx, double qy,
+    double *omega_out, double *S_perp_out);
+
+/** @brief AFM-aware version of `_structure_factor_with_form_factor`.
+ *         Uses the Bogoliubov-Colpa amplitudes (u, v) and applies the
+ *         intra-cell form factor exp(i q·r_α) before summing. */
+IRREP_API irrep_status_t irrep_magnon_structure_factor_general_with_form_factor(
+    const irrep_magnon_lsw_t *L, const int *sublattice_signs, const double (*positions)[2],
+    double qx, double qy, double *omega_out, double *S_perp_out);
+
 /** @brief Compute band Chern numbers on a 2D BZ slice at fixed k_z
  *         of a 3D LSW model. Useful for layered van der Waals magnets
  *         (CrI₃ stacks, kagome layer × c-axis), B20 chiral magnets in

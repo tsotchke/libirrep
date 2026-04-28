@@ -1604,6 +1604,41 @@ irrep_status_t irrep_magnon_structure_factor(const irrep_magnon_lsw_t *L, double
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_structure_factor_with_form_factor(const irrep_magnon_lsw_t *L,
+                                                                const double (*positions)[2],
+                                                                double qx, double qy,
+                                                                double *omega_out,
+                                                                double *S_perp_out) {
+    if (!L || !positions || !omega_out || !S_perp_out) return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    double _Complex *u = malloc((size_t)n * n * sizeof *u);
+    if (!u) return IRREP_ERR_OUT_OF_MEMORY;
+    irrep_status_t st = irrep_magnon_dispersion(L, qx, qy, omega_out, u);
+    if (st != IRREP_OK) {
+        free(u);
+        return st;
+    }
+    /* Pre-compute intra-cell phase factors. */
+    double _Complex *phases = malloc((size_t)n * sizeof *phases);
+    if (!phases) {
+        free(u);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    for (int a = 0; a < n; ++a) {
+        double arg = qx * positions[a][0] + qy * positions[a][1];
+        phases[a]  = cos(arg) + I * sin(arg);
+    }
+    for (int b = 0; b < n; ++b) {
+        double _Complex sum = 0;
+        for (int a = 0; a < n; ++a)
+            sum += phases[a] * u[b * n + a];
+        S_perp_out[b] = 2.0 * L->S * (creal(sum) * creal(sum) + cimag(sum) * cimag(sum));
+    }
+    free(u);
+    free(phases);
+    return IRREP_OK;
+}
+
 /* Build H(k) for the 3D extension: t = delta_x·a₁ + delta_y·a₂ +
  * delta_z·a₃. Otherwise identical to build_H_(). */
 static void build_H_3d_(const irrep_magnon_lsw_t *L, const double a3[3], double kx, double ky,
@@ -2546,6 +2581,85 @@ irrep_status_t irrep_magnon_structure_factor_general(const irrep_magnon_lsw_t *L
     }
 
     free(M); free(K); free(W); free(eigs); free(evecs); free(T_col);
+    return IRREP_OK;
+}
+
+irrep_status_t irrep_magnon_structure_factor_general_with_form_factor(
+    const irrep_magnon_lsw_t *L, const int *sublattice_signs, const double (*positions)[2],
+    double qx, double qy, double *omega_out, double *S_perp_out) {
+    if (!L || !sublattice_signs || !positions || !omega_out || !S_perp_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    int N = 2 * n;
+    for (int a = 0; a < n; ++a)
+        if (sublattice_signs[a] != +1 && sublattice_signs[a] != -1)
+            return IRREP_ERR_INVALID_ARG;
+
+    double _Complex *M = malloc((size_t)N * N * sizeof *M);
+    double _Complex *K = malloc((size_t)N * N * sizeof *K);
+    double _Complex *W = malloc((size_t)N * N * sizeof *W);
+    double          *eigs = malloc((size_t)N * sizeof *eigs);
+    double _Complex *evecs = malloc((size_t)N * N * sizeof *evecs);
+    double _Complex *T_col = malloc((size_t)N * sizeof *T_col);
+    double _Complex *phases = malloc((size_t)n * sizeof *phases);
+    if (!M || !K || !W || !eigs || !evecs || !T_col || !phases) {
+        free(M); free(K); free(W); free(eigs); free(evecs); free(T_col); free(phases);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    static const double EPS_PSD = 1e-10;
+
+    build_M_bdg_(L, sublattice_signs, qx, qy, M);
+    for (int a = 0; a < N; ++a)
+        M[a * N + a] += EPS_PSD;
+    if (cholesky_(N, M, K) != 0) {
+        free(M); free(K); free(W); free(eigs); free(evecs); free(T_col); free(phases);
+        irrep_set_error_("structure_factor_general_with_form_factor: M(k) not positive-definite");
+        return IRREP_ERR_INVALID_ARG;
+    }
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j) {
+            double _Complex s = 0;
+            for (int l = 0; l < N; ++l) {
+                double sg = (l < n) ? +1.0 : -1.0;
+                s += sg * K[i * N + l] * conj(K[j * N + l]);
+            }
+            W[i * N + j] = s;
+        }
+    hermitian_eig_(N, W, eigs, evecs);
+
+    for (int a = 0; a < n; ++a) {
+        double arg = qx * positions[a][0] + qy * positions[a][1];
+        phases[a]  = cos(arg) + I * sin(arg);
+    }
+
+    int count = 0;
+    for (int idx = 0; idx < N; ++idx) {
+        if (eigs[idx] <= 0) continue;
+        for (int i = N - 1; i >= 0; --i) {
+            double _Complex sum = evecs[idx * N + i];
+            for (int kk = i + 1; kk < N; ++kk)
+                sum -= K[i * N + kk] * T_col[kk];
+            T_col[i] = sum / K[i * N + i];
+        }
+        double _Complex amp = 0;
+        for (int a = 0; a < n; ++a) {
+            int idx_u = (sublattice_signs[a] == +1) ? a : (a + n);
+            int idx_v = (sublattice_signs[a] == +1) ? (a + n) : a;
+            amp += phases[a] * (T_col[idx_u] + T_col[idx_v]);
+        }
+        double mag2       = creal(amp) * creal(amp) + cimag(amp) * cimag(amp);
+        double abs_lambda = fabs(eigs[idx]);
+        S_perp_out[count] = 2.0 * L->S * abs_lambda * mag2;
+        omega_out[count]  = eigs[idx];
+        ++count;
+    }
+    while (count < n) {
+        omega_out[count]  = 0;
+        S_perp_out[count] = 0;
+        ++count;
+    }
+
+    free(M); free(K); free(W); free(eigs); free(evecs); free(T_col); free(phases);
     return IRREP_OK;
 }
 

@@ -2026,6 +2026,90 @@ irrep_status_t irrep_magnon_structure_factor(const irrep_magnon_lsw_t *L, double
     return IRREP_OK;
 }
 
+/* Build rotation matrix R that maps local ẑ to n_hat (cartesian
+ * 3-vector). Matches the convention in rotate_zhat_to_n_ used by
+ * the non-collinear LSW path. R is row-major 3×3. */
+static void rotate_zhat_to_n_pol_(const double n[3], double R[9]) {
+    double nx = n[0], ny = n[1], nz = n[2];
+    double r  = sqrt(nx * nx + ny * ny);
+    if (r < 1e-12) {
+        if (nz > 0) {
+            R[0] = 1; R[1] = 0; R[2] = 0;
+            R[3] = 0; R[4] = 1; R[5] = 0;
+            R[6] = 0; R[7] = 0; R[8] = 1;
+        } else {
+            R[0] = 1; R[1] = 0; R[2] = 0;
+            R[3] = 0; R[4] = -1; R[5] = 0;
+            R[6] = 0; R[7] = 0; R[8] = -1;
+        }
+        return;
+    }
+    double sinθ = r;
+    double cosθ = nz;
+    double cosφ = nx / r;
+    double sinφ = ny / r;
+    /* R = R_z(φ) R_y(θ): rotates ẑ_local to (sinθ cosφ, sinθ sinφ, cosθ). */
+    R[0] = cosθ * cosφ;  R[1] = -sinφ;  R[2] = sinθ * cosφ;
+    R[3] = cosθ * sinφ;  R[4] = cosφ;   R[5] = sinθ * sinφ;
+    R[6] = -sinθ;        R[7] = 0;      R[8] = cosθ;
+}
+
+irrep_status_t irrep_magnon_polarized_structure_factor(const irrep_magnon_lsw_t *L,
+                                                         const double (*n_hat)[3], double qx,
+                                                         double qy, double *omega_out,
+                                                         double *Sxx_out, double *Syy_out,
+                                                         double *Szz_out) {
+    if (!L || !omega_out || !Sxx_out || !Syy_out || !Szz_out) return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    double _Complex *u = malloc((size_t)n * n * sizeof *u);
+    double          *R_all = malloc((size_t)n * 9 * sizeof *R_all);
+    if (!u || !R_all) {
+        free(u);
+        free(R_all);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    irrep_status_t st = irrep_magnon_dispersion(L, qx, qy, omega_out, u);
+    if (st != IRREP_OK) {
+        free(u);
+        free(R_all);
+        return st;
+    }
+    /* Build rotation matrices: identity if n_hat=NULL (collinear ẑ default). */
+    for (int a = 0; a < n; ++a) {
+        if (n_hat) {
+            rotate_zhat_to_n_pol_(n_hat[a], R_all + a * 9);
+        } else {
+            for (int i = 0; i < 9; ++i) R_all[a * 9 + i] = (i % 4 == 0) ? 1.0 : 0.0;
+        }
+    }
+    for (int b = 0; b < n; ++b) {
+        double _Complex sx = 0, sy = 0, sz = 0;
+        for (int a = 0; a < n; ++a) {
+            /* c_α^a = R_α[a, X] - i R_α[a, Y].
+             * R is row-major 3×3 with R[3*row + col]: row = lab axis,
+             * col = local axis (X=0, Y=1, Z=2). */
+            double Rxx = R_all[a * 9 + 0], Rxy = R_all[a * 9 + 1];
+            double Ryx = R_all[a * 9 + 3], Ryy = R_all[a * 9 + 4];
+            double Rzx = R_all[a * 9 + 6], Rzy = R_all[a * 9 + 7];
+            double _Complex cx = Rxx - I * Rxy;
+            double _Complex cy = Ryx - I * Ryy;
+            double _Complex cz = Rzx - I * Rzy;
+            sx += cx * u[b * n + a];
+            sy += cy * u[b * n + a];
+            sz += cz * u[b * n + a];
+        }
+        double half_S      = 0.5 * L->S;
+        /* S^aa_b = (S/2) · |Σ_α c_α^a · u_α^b|², from |⟨b|S^a|0⟩|² with
+         * S^x = (S^+ + S^-)/2 etc. — half the transverse |⟨b|S^-|0⟩|². */
+        Sxx_out[b]         = half_S * (creal(sx) * creal(sx) + cimag(sx) * cimag(sx));
+        Syy_out[b]         = half_S * (creal(sy) * creal(sy) + cimag(sy) * cimag(sy));
+        Szz_out[b]         = half_S * (creal(sz) * creal(sz) + cimag(sz) * cimag(sz));
+    }
+    free(u);
+    free(R_all);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_structure_factor_with_form_factor(const irrep_magnon_lsw_t *L,
                                                                 const double (*positions)[2],
                                                                 double qx, double qy,

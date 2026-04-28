@@ -1177,6 +1177,43 @@ IRREP_API irrep_status_t irrep_magnon_structure_factor_with_form_factor(
     const irrep_magnon_lsw_t *L, const double (*positions)[2], double qx, double qy,
     double *omega_out, double *S_perp_out);
 
+/** @brief Polarisation-resolved 1-magnon structure factors —
+ *         S^xx_b(q), S^yy_b(q), S^zz_b(q) per band, separately.
+ *
+ *  Polarised INS experiments measure these channels directly via
+ *  spin-flip / non-spin-flip discrimination. For a collinear FM
+ *  along ẑ at T=0:
+ *
+ *      S^xx_b(q) = S^yy_b(q) = ½ · 2S · |Σ_α u_α^b(q)|² = ½ S_⊥_b
+ *      S^zz_b(q) = 0   (longitudinal — no 1-magnon weight)
+ *
+ *  For non-collinear ground states (specified by sublattice direction
+ *  vectors `n_hat`) the rotation matrices R_α mix the channels:
+ *
+ *      S^aa_b(q) = (S/2) · |Σ_α c_α^a · u_α^b(q)|²
+ *      with c_α^a = R_α[a, X] - i R_α[a, Y]
+ *
+ *  All three channels can carry 1-magnon weight in the non-collinear
+ *  case — including the longitudinal S^zz_b(q) which vanishes only
+ *  in the collinear limit.
+ *
+ *  Pass `n_hat = NULL` for the collinear-FM-along-ẑ default.
+ *
+ *  @param L           LSW handle
+ *  @param n_hat       n_sub × 3 ground-state directions, or NULL
+ *  @param qx, qy      momentum
+ *  @param omega_out   n_sub doubles — band energies (asc)
+ *  @param Sxx_out     n_sub doubles — S^xx per band
+ *  @param Syy_out     n_sub doubles — S^yy per band
+ *  @param Szz_out     n_sub doubles — S^zz per band */
+IRREP_API irrep_status_t irrep_magnon_polarized_structure_factor(const irrep_magnon_lsw_t *L,
+                                                                   const double (*n_hat)[3],
+                                                                   double qx, double qy,
+                                                                   double *omega_out,
+                                                                   double *Sxx_out,
+                                                                   double *Syy_out,
+                                                                   double *Szz_out);
+
 /** @brief AFM-aware version of `_structure_factor_with_form_factor`.
  *         Uses the Bogoliubov-Colpa amplitudes (u, v) and applies the
  *         intra-cell form factor exp(i q·r_α) before summing. */

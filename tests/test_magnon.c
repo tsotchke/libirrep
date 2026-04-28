@@ -1357,6 +1357,45 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (71) Polarised SF on a collinear FM along ẑ: S^xx = S^yy by symmetry,
+ * S^zz = 0 (longitudinal — no 1-magnon weight). At T=0. */
+static void test_polarized_sf_collinear_FM(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double omega[1], Sxx[1], Syy[1], Szz[1];
+    /* n_hat = NULL → assume ẑ. */
+    irrep_magnon_polarized_structure_factor(L, NULL, M_PI / 2, M_PI / 2, omega, Sxx, Syy, Szz);
+    ASSERT(fabs(Sxx[0] - Syy[0]) < 1e-12, "S^xx = S^yy on collinear FM along ẑ");
+    ASSERT(Szz[0] < 1e-12, "S^zz = 0 on collinear FM (longitudinal channel empty)");
+    irrep_magnon_lsw_free(L);
+}
+
+/* (72) Polarised SF sum rule: S^xx + S^yy + S^zz = ½ (S^+- + S^-+) +
+ * S^zz. For collinear FM at T=0, S^-+ = 0, so S^xx + S^yy = ½ S_⊥
+ * = S_⊥/2 (where S_⊥ is the existing _structure_factor output =
+ * |⟨b|S^-|0⟩|²). Verifies the prefactor. */
+static void test_polarized_sf_relates_to_S_perp(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double omega[1], Sxx[1], Syy[1], Szz[1], S_perp[1];
+    irrep_magnon_polarized_structure_factor(L, NULL, M_PI, 0.0, omega, Sxx, Syy, Szz);
+    irrep_magnon_structure_factor(L, M_PI, 0.0, omega, S_perp);
+    /* S^xx + S^yy = ½ S_⊥. */
+    ASSERT(fabs((Sxx[0] + Syy[0]) - 0.5 * S_perp[0]) < 1e-9,
+           "S^xx + S^yy = ½ S_⊥ on collinear FM");
+    irrep_magnon_lsw_free(L);
+}
+
 /* (70) Born decay-rate harness: with |V_3|² ≡ 1 the result should
  * agree with _kinematic_damping (which is π · D^(2)(k, ω_b(k)) ≡
  * π · accum with V² = 1). */
@@ -2412,6 +2451,8 @@ int main(void) {
     test_three_magnon_qomega_general_basic();
     test_born_decay_rate_recovers_kinematic();
     test_born_decay_rate_zero_vertex();
+    test_polarized_sf_collinear_FM();
+    test_polarized_sf_relates_to_S_perp();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

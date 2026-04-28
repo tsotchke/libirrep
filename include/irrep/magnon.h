@@ -701,12 +701,31 @@ typedef double (*irrep_magnon_cubic_vertex_fn)(int b, int b1, int b2, double kx,
  *      (1e-9 precision)
  *    - Γ_b(k) ≥ 0 per band (unitarity)
  *
- *  Quantitative caveat: absolute magnitude on Goldstone-having models
- *  depends on the regularization scale (eps_psd = η). For matching
- *  specific published linewidth maps (e.g., Mourigal-Chernyshev PRL
- *  2013 for kagome 120° Néel), use a model with explicitly gapped
- *  Goldstones (single-ion anisotropy, applied field) where the
- *  regularization-dependent contribution vanishes.
+ *  IMPORTANT — quantitative limitation on Goldstone-having models:
+ *  the absolute magnitude of Γ on models with gapless modes (kagome
+ *  120° Néel, triangular AFM, helical magnets) is dominated by
+ *  Goldstone-amplitude contributions to the BZ integral that scale
+ *  with the regularization parameter eps_psd. Empirically,
+ *  Γ_full / Γ_kin ~ 100-500× on the kagome 120° Néel at eta=0.1,
+ *  whereas the physical ratio should be O(|V_3|²/J²) ~ 1. The
+ *  symmetry validations (Γ ≡ 0 with U(1) preserved, Γ(k) = Γ(-k),
+ *  bond-reversal invariance) all pass, so the implementation is
+ *  ALGORITHMICALLY correct in the symmetry sense; but the absolute
+ *  magnitudes are not physically meaningful on Goldstone-having
+ *  models without further treatment.
+ *
+ *  For QUANTITATIVE materials work the recommended workflow is:
+ *  (i) use a model with explicitly gapped Goldstones (single-ion
+ *  anisotropy, applied field — extending libirrep's API may be
+ *  required), or (ii) compose `_kinematic_damping` (matrix-element-
+ *  stripped phase space) with a model-specific `_born_decay_rate`
+ *  callback containing your validated cubic-vertex |V_3|².
+ *
+ *  This function provides a symmetry-correct framework demonstrating
+ *  the cubic-vertex Born self-energy machinery; matching specific
+ *  published linewidth maps (e.g., Mourigal-Chernyshev PRL 2013)
+ *  requires the cubic vertex to be carried out with proper Goldstone
+ *  subtraction or gapping, which is a separate research effort.
  *
  *  Implements the Born self-energy
  *

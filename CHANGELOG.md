@@ -153,12 +153,19 @@ factor). New public functions in `irrep/magnon.h`:
       (1e-9 precision)
     * Γ_b(k) ≥ 0 per band (unitarity)
 
-  Quantitative caveat: absolute magnitude on Goldstone-having models
-  depends on the regularization scale; for matching specific published
-  linewidth maps (e.g., Mourigal-Chernyshev PRL 2013 for kagome 120°
-  Néel) use models with explicitly gapped Goldstones (single-ion
-  anisotropy, applied field) where the regularization-dependent
-  contribution vanishes.
+  Quantitative limitation: empirically, Γ_full / Γ_kin ~ 100-500× on
+  the kagome 120° Néel at η=0.1, dominated by Goldstone-amplitude
+  contributions to the BZ integral that scale with the regularization
+  parameter eps_psd. The implementation is algorithmically correct in
+  the symmetry sense (the validations above all pass), but absolute
+  magnitudes on Goldstone-having models are not physically meaningful
+  without further treatment. For quantitative materials work, compose
+  `_kinematic_damping` with a model-specific `_born_decay_rate`
+  callback containing a validated cubic vertex, or use a model with
+  explicitly gapped Goldstones (single-ion anisotropy, applied field).
+  Matching specific published linewidth maps (e.g., Mourigal-Chernyshev
+  PRL 2013 for kagome 120° Néel) requires Goldstone subtraction or
+  gapping, which is a separate research effort.
 
 - New examples for the damping stack: `kagome_kinematic_damping`,
   `born_damping_demo`.

@@ -1233,6 +1233,76 @@ irrep_status_t irrep_magnon_two_magnon_qomega(const irrep_magnon_lsw_t *L,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_three_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, int Ny,
+                                               double omega_min, double omega_max, int n_bins,
+                                               double *dos_out) {
+    if (!L || Nx <= 0 || Ny <= 0 || n_bins <= 0 || omega_max <= omega_min || !dos_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    memset(dos_out, 0, (size_t)n_bins * sizeof *dos_out);
+    double bin_w = (omega_max - omega_min) / n_bins;
+
+    int N_grid = Nx * Ny;
+    double *omega_grid = malloc((size_t)N_grid * n * sizeof *omega_grid);
+    double _Complex *u_dummy = malloc((size_t)n * n * sizeof *u_dummy);
+    if (!omega_grid || !u_dummy) {
+        free(omega_grid);
+        free(u_dummy);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = (double)ix / Nx;
+            double fy = (double)iy / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            irrep_magnon_dispersion(L, kx, ky, omega_grid + (iy * Nx + ix) * n, u_dummy);
+        }
+
+    /* For each (p1, p2): k3 = -(k1 + k2) (mod G) → fractional coords,
+     * find nearest grid point. Histogram ω_b1 + ω_b2 + ω_b3 over all
+     * (b1, b2, b3). */
+    double det = L->b1[0] * L->b2[1] - L->b1[1] * L->b2[0];
+    for (int p1 = 0; p1 < N_grid; ++p1) {
+        int    ix1 = p1 % Nx, iy1 = p1 / Nx;
+        double fx1 = (double)ix1 / Nx, fy1 = (double)iy1 / Ny;
+        double kx1 = fx1 * L->b1[0] + fy1 * L->b2[0];
+        double ky1 = fx1 * L->b1[1] + fy1 * L->b2[1];
+        for (int p2 = 0; p2 < N_grid; ++p2) {
+            int    ix2 = p2 % Nx, iy2 = p2 / Nx;
+            double fx2 = (double)ix2 / Nx, fy2 = (double)iy2 / Ny;
+            double kx2 = fx2 * L->b1[0] + fy2 * L->b2[0];
+            double ky2 = fx2 * L->b1[1] + fy2 * L->b2[1];
+            double k3x = -(kx1 + kx2);
+            double k3y = -(ky1 + ky2);
+            double f3x = (k3x * L->b2[1] - k3y * L->b2[0]) / det;
+            double f3y = (-k3x * L->b1[1] + k3y * L->b1[0]) / det;
+            f3x = f3x - floor(f3x);
+            f3y = f3y - floor(f3y);
+            int ix3 = (int)(f3x * Nx + 0.5) % Nx;
+            int iy3 = (int)(f3y * Ny + 0.5) % Ny;
+            int p3  = iy3 * Nx + ix3;
+            for (int b1 = 0; b1 < n; ++b1)
+                for (int b2 = 0; b2 < n; ++b2)
+                    for (int b3 = 0; b3 < n; ++b3) {
+                        double w_sum = omega_grid[p1 * n + b1] + omega_grid[p2 * n + b2] +
+                                       omega_grid[p3 * n + b3];
+                        int idx = (int)((w_sum - omega_min) / bin_w);
+                        if (idx >= 0 && idx < n_bins) dos_out[idx] += 1.0;
+                    }
+        }
+    }
+    /* Normalise so ∫ D^(3)(ω) dω = n_sub³. Bin sum is N_grid² · n³;
+     * dividing by N_grid² · bin_w gives ∫ = (total count)/(N_grid² · bin_w) · bin_w =
+     * (n³ · N_grid²)/(N_grid²) = n³. */
+    double norm = 1.0 / ((double)N_grid * (double)N_grid * bin_w);
+    for (int i = 0; i < n_bins; ++i) dos_out[i] *= norm;
+
+    free(omega_grid);
+    free(u_dummy);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_two_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, int Ny,
                                             double omega_min, double omega_max, int n_bins,
                                             double *dos_out) {

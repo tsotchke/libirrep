@@ -571,6 +571,34 @@ IRREP_API irrep_status_t irrep_magnon_fit_J_and_DMI(
     const double *omega_obs, const int *band_obs, int n_obs, int max_iter, double tol,
     double *chi2_out);
 
+/** @brief Three-magnon density of states D^(3)(ω) — spectral support
+ *         for the 3-magnon continuum.
+ *
+ *      D^(3)(ω) = (1/N²) Σ_{k1,k2,b1,b2,b3} δ(ω − ω_{b1}(k1) − ω_{b2}(k2) − ω_{b3}(k3))
+ *
+ *  with momentum conservation k1 + k2 + k3 = 0 (k3 is determined).
+ *  Like the 2-magnon DOS but one more convolution. The 3-magnon
+ *  continuum extends to 3·ω_max and provides the spectral support
+ *  for high-energy INS continuum features above the 2-magnon
+ *  band-top ≈ 2·ω_max.
+ *
+ *  Sum rule:   ∫ D^(3)(ω) dω = n_sub³
+ *
+ *  Cost is O(Nx² · Ny² · n_sub³) — quadratic in the BZ grid (one
+ *  order more than the 2-magnon DOS), so use modest Nx, Ny (≤ 32)
+ *  unless you have time to spare.
+ *
+ *  @param L              LSW handle
+ *  @param Nx, Ny         BZ grid (typical 16-32; quartic in cost)
+ *  @param omega_min      lower edge of histogram window
+ *  @param omega_max      upper edge (typical 3·ω_max of 1-magnon)
+ *  @param n_bins         number of energy bins
+ *  @param dos_out        caller buffer of n_bins doubles. */
+IRREP_API irrep_status_t irrep_magnon_three_magnon_dos(const irrep_magnon_lsw_t *L, int Nx,
+                                                         int Ny, double omega_min,
+                                                         double omega_max, int n_bins,
+                                                         double *dos_out);
+
 /** @brief Kinematic upper bound on magnon decay rate Γ_kin(k, b) —
  *         the 2-magnon phase-space estimate of the linewidth.
  *

@@ -1357,6 +1357,32 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (67) Three-magnon DOS sum rule: ∫ D^(3)(ω) dω = n_sub³ (= 1 for
+ * a single-sublattice FM). Verifies the convolution machinery is
+ * correctly normalised. */
+static void test_three_magnon_dos_sum_rule(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    int n_bins = 50;
+    double w_max = 12.5;     /* 3 × FM bandwidth (= 4) plus margin */
+    double dw = w_max / n_bins;
+    double *dos = malloc((size_t)n_bins * sizeof *dos);
+    irrep_magnon_three_magnon_dos(L, 16, 16, 0.0, w_max, n_bins, dos);
+    double sum = 0;
+    for (int i = 0; i < n_bins; ++i) sum += dos[i] * dw;
+    /* For n_sub = 1: sum rule = 1.0. */
+    ASSERT(fabs(sum - 1.0) < 0.05, "3-magnon DOS sum rule = n_sub³ = 1");
+    /* DOS support: should be near-zero below ω = 0 and above 3·ω_max ≈ 12. */
+    ASSERT(dos[n_bins - 1] < 0.05, "3-magnon DOS near-zero at upper edge");
+    free(dos);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (66) DMI-aware fitter: synthesise dispersion data for a kagome FM
  * with NN J = -1, Dz = ±0.15 on alternating triangles; corrupt the
  * initial J/D guesses, run the fitter, verify recovery on the upper
@@ -2266,6 +2292,7 @@ int main(void) {
     test_form_factor_recovers_at_gamma();
     test_form_factor_general_recovers_at_gamma();
     test_fit_J_and_DMI_recovers_kagome_DMI();
+    test_three_magnon_dos_sum_rule();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

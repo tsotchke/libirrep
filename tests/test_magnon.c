@@ -1563,7 +1563,9 @@ static void test_heisenberg_decay_rate_noncollinear_finite(void) {
  * Nx, Ny → ∞ — the discrete BZ sum is well-behaved at fixed IR
  * regularization. This tests the function's numerical stability
  * separately from the gap_floor → 0 limit (which is genuinely
- * IR-divergent on Goldstone-having models). */
+ * IR-divergent on Goldstone-having models). Tests at three
+ * k-points (zone-interior, M-point, K-point) and verifies
+ * convergence at N=32 vs N=48. */
 static void test_heisenberg_decay_rate_grid_convergence(void) {
     double a1[2] = {1.0, 0.0};
     double a2[2] = {0.5, 0.5 * sqrt(3.0)};
@@ -1577,15 +1579,49 @@ static void test_heisenberg_decay_rate_grid_convergence(void) {
     };
     irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, 0.5, a1, a2, 6, bonds, 0);
     double n_vecs[9] = {1.0, 0, 0, -0.5, 0.5*sqrt(3.0), 0, -0.5, -0.5*sqrt(3.0), 0};
+    double k_set[3][2] = {{1.5, 0.7}, {M_PI, M_PI/sqrt(3.0)}, {4*M_PI/3, 0}};
+    for (int q = 0; q < 3; ++q) {
+        double k_one[1][2] = {{k_set[q][0], k_set[q][1]}};
+        double gam_32[3], gam_48[3];
+        irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_one, 1, 32, 32, 0.1, 0.1, gam_32);
+        irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_one, 1, 48, 48, 0.1, 0.1, gam_48);
+        for (int b = 0; b < 3; ++b) {
+            double rel = fabs(gam_32[b] - gam_48[b]) /
+                         (fabs(gam_32[b]) + fabs(gam_48[b]) + 1e-12);
+            ASSERT(rel < 0.05,
+                   "Γ stable to 5% under grid refinement N=32 → N=48 at fixed gap_floor");
+        }
+    }
+    irrep_magnon_lsw_free(L);
+}
+
+/* (79) gap_floor IR divergence: on a Goldstone-having model, Γ
+ * should diverge as gap_floor → 0. This validates that the
+ * regularization is doing what it physically should — the
+ * non-convergence is THE signature of the gapless mode contribution
+ * to Born self-energy, not a bug. */
+static void test_heisenberg_decay_rate_gap_floor_divergence(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * sqrt(3.0)};
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 2, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 0, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1,  .J = +1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, 0.5, a1, a2, 6, bonds, 0);
+    double n_vecs[9] = {1.0, 0, 0, -0.5, 0.5*sqrt(3.0), 0, -0.5, -0.5*sqrt(3.0), 0};
     double k_pts[1][2] = {{1.5, 0.7}};
-    double gam_24[3], gam_32[3];
-    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts, 1, 24, 24, 0.1, 0.1, gam_24);
-    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts, 1, 32, 32, 0.1, 0.1, gam_32);
-    /* Grid convergence: 24 vs 32 should agree to within a few percent. */
+    double gam_loose[3], gam_tight[3];
+    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts, 1, 24, 24, 0.1, 0.5, gam_loose);
+    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts, 1, 24, 24, 0.1, 0.05, gam_tight);
+    /* On any Goldstone-having model, tightening gap_floor by 10× should
+     * grow Γ by at least 10× (the IR divergence is at least linear). */
     for (int b = 0; b < 3; ++b) {
-        double rel = fabs(gam_24[b] - gam_32[b]) /
-                     (fabs(gam_24[b]) + fabs(gam_32[b]) + 1e-12);
-        ASSERT(rel < 0.10, "Γ stable to 10% under grid refinement N=24 → N=32");
+        ASSERT(gam_tight[b] > 10.0 * gam_loose[b],
+               "Γ grows by ≥10× when gap_floor decreases by 10× (Goldstone IR divergence)");
     }
     irrep_magnon_lsw_free(L);
 }
@@ -2723,6 +2759,7 @@ int main(void) {
     test_heisenberg_decay_rate_collinear_zero();
     test_heisenberg_decay_rate_noncollinear_finite();
     test_heisenberg_decay_rate_grid_convergence();
+    test_heisenberg_decay_rate_gap_floor_divergence();
     test_heisenberg_decay_rate_bond_orientation_invariance();
     test_heisenberg_decay_rate_TR_symmetry();
     test_decay_rate_DMI_cubic_terms();

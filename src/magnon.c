@@ -1086,6 +1086,11 @@ irrep_status_t irrep_magnon_fit_J_and_DMI(int n_sub, double S, const double a1[2
 
 /* Forward declarations for non-collinear-LSW internals defined later. */
 static void rotate_zhat_to_n_(const double n[3], double R[9]);
+static irrep_status_t dispersion_noncoll_full_eps_(const irrep_magnon_lsw_t *L,
+                                                     const double *n_vectors, double kx,
+                                                     double ky, double eps_psd,
+                                                     double *omega_out,
+                                                     double _Complex *bogoliubov_uv);
 
 irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
                                                     const double *n_vectors,
@@ -1125,17 +1130,27 @@ irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
                 M[3 * i + j] = sum;
             }
     }
-    /* Pre-compute (ω, u, v) on a half-shifted BZ grid via the new
-     * `_dispersion_noncollinear_full` API. */
+    /* Pre-compute (ω, u, v) on a TR-SYMMETRIC BZ grid (no half-shift):
+     * q = (i/Nx) b1 + (j/Ny) b2 for i ∈ {-Nx/2, ..., Nx/2-1} (even Nx assumed).
+     * The grid includes Goldstone (q=0) but with eps_reg ~ η below, the
+     * Bogoliubov amplitudes are regularized. The TR-symmetric grid
+     * ensures Γ(k) = Γ(-k) holds to discretization precision rather
+     * than to half-shift-asymmetry. */
     for (int iy = 0; iy < Ny; ++iy)
         for (int ix = 0; ix < Nx; ++ix) {
-            double fx = ((double)ix + 0.5) / Nx;
-            double fy = ((double)iy + 0.5) / Ny;
+            int    ix_c = (ix < Nx / 2) ? ix : ix - Nx;
+            int    iy_c = (iy < Ny / 2) ? iy : iy - Ny;
+            double fx = (double)ix_c / Nx;
+            double fy = (double)iy_c / Ny;
             double qx = fx * L->b1[0] + fy * L->b2[0];
             double qy = fx * L->b1[1] + fy * L->b2[1];
             int    p = iy * Nx + ix;
-            irrep_status_t st = irrep_magnon_dispersion_noncollinear_full(
-                L, n_vectors, qx, qy, omega_grid + p * n, uv_grid + p * n * N_BdG);
+            /* Regularize Bogoliubov amplitudes near Goldstone modes by using
+             * eps_psd ~ η. This prevents (u, v) blow-up that contaminates
+             * the BZ integral on Goldstone-having models. */
+            double eps_reg = eta;
+            irrep_status_t st = dispersion_noncoll_full_eps_(
+                L, n_vectors, qx, qy, eps_reg, omega_grid + p * n, uv_grid + p * n * N_BdG);
             if (st != IRREP_OK) {
                 free(R_all); free(bond_M); free(omega_grid); free(uv_grid);
                 free(omega_k); free(uv_k);
@@ -1149,8 +1164,9 @@ irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
     for (int ik = 0; ik < n_k; ++ik) {
         double kx = kpath[ik][0];
         double ky = kpath[ik][1];
-        irrep_status_t st = irrep_magnon_dispersion_noncollinear_full(L, n_vectors, kx, ky,
-                                                                       omega_k, uv_k);
+        double eps_reg_k = eta;
+        irrep_status_t st = dispersion_noncoll_full_eps_(L, n_vectors, kx, ky, eps_reg_k,
+                                                          omega_k, uv_k);
         if (st != IRREP_OK) {
             free(R_all); free(bond_M); free(omega_grid); free(uv_grid); free(omega_k);
             free(uv_k);
@@ -1161,19 +1177,26 @@ irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
             double accum    = 0.0;
             for (int p1 = 0; p1 < N_grid; ++p1) {
                 int    ix1 = p1 % Nx, iy1 = p1 / Nx;
-                double fx1 = ((double)ix1 + 0.5) / Nx;
-                double fy1 = ((double)iy1 + 0.5) / Ny;
+                int    ix1_c = (ix1 < Nx / 2) ? ix1 : ix1 - Nx;
+                int    iy1_c = (iy1 < Ny / 2) ? iy1 : iy1 - Ny;
+                double fx1 = (double)ix1_c / Nx;
+                double fy1 = (double)iy1_c / Ny;
                 double k1x = fx1 * L->b1[0] + fy1 * L->b2[0];
                 double k1y = fx1 * L->b1[1] + fy1 * L->b2[1];
                 double k2x = kx - k1x;
                 double k2y = ky - k1y;
+                /* Map k2 back into the centered grid: solve f2 such that
+                 * k2 = f2x b1 + f2y b2, then wrap f2 ∈ [-1/2, 1/2). */
                 double f2x = (k2x * L->b2[1] - k2y * L->b2[0]) / det;
                 double f2y = (-k2x * L->b1[1] + k2y * L->b1[0]) / det;
-                f2x        = f2x - floor(f2x);
-                f2y        = f2y - floor(f2y);
-                int ix2    = (int)(f2x * Nx + 0.5) % Nx;
-                int iy2    = (int)(f2y * Ny + 0.5) % Ny;
-                int p2     = iy2 * Nx + ix2;
+                f2x        = f2x - floor(f2x + 0.5);
+                f2y        = f2y - floor(f2y + 0.5);
+                /* Round to centered-grid integers. */
+                int ix2_c = (int)round(f2x * Nx);
+                int iy2_c = (int)round(f2y * Ny);
+                int ix2   = ((ix2_c % Nx) + Nx) % Nx;
+                int iy2   = ((iy2_c % Ny) + Ny) % Ny;
+                int p2    = iy2 * Nx + ix2;
 
                 for (int b1 = 0; b1 < n; ++b1)
                     for (int b2 = 0; b2 < n; ++b2) {
@@ -2828,10 +2851,16 @@ irrep_status_t irrep_magnon_dispersion_noncollinear(const irrep_magnon_lsw_t *L,
     return IRREP_OK;
 }
 
-irrep_status_t irrep_magnon_dispersion_noncollinear_full(const irrep_magnon_lsw_t *L,
-                                                            const double *n_vectors, double kx,
-                                                            double ky, double *omega_out,
-                                                            double _Complex *bogoliubov_uv) {
+/* Internal helper: same as _dispersion_noncollinear_full but with the
+ * Cholesky regularization parameter eps_psd as an explicit argument.
+ * The public function uses eps_psd = 1e-10 (machine-precision floor);
+ * the cubic-vertex code uses a larger eps to regularize Bogoliubov
+ * amplitudes near Goldstone modes. */
+static irrep_status_t dispersion_noncoll_full_eps_(const irrep_magnon_lsw_t *L,
+                                                     const double *n_vectors, double kx,
+                                                     double ky, double eps_psd,
+                                                     double *omega_out,
+                                                     double _Complex *bogoliubov_uv) {
     if (!L || !n_vectors || !omega_out || !bogoliubov_uv) return IRREP_ERR_INVALID_ARG;
     int n = L->n_sub;
     int N = 2 * n;
@@ -2884,14 +2913,13 @@ irrep_status_t irrep_magnon_dispersion_noncollinear_full(const irrep_magnon_lsw_
         free(R_arr); free(M); free(K); free(W); free(eigs); free(evecs); free(T_col);
         return IRREP_ERR_OUT_OF_MEMORY;
     }
-    static const double EPS_PSD = 1e-10;
-    for (int a = 0; a < N; ++a) M[a * N + a] += EPS_PSD;
+    for (int a = 0; a < N; ++a) M[a * N + a] += eps_psd;
     if (cholesky_(N, M, K) != 0) {
         free(R_arr); free(M); free(K); free(W); free(eigs); free(evecs); free(T_col);
         irrep_set_error_(
-            "irrep_magnon_dispersion_noncollinear_full: M(k) not positive-definite "
-            "at k=(%g, %g) — supplied n_α set may not be a stable ground state",
-            kx, ky);
+            "dispersion_noncoll_full_eps_: M(k) not positive-definite at k=(%g, %g) "
+            "with eps_psd=%g — supplied n_α set may not be a stable ground state",
+            kx, ky, eps_psd);
         return IRREP_ERR_INVALID_ARG;
     }
     for (int i = 0; i < N; ++i)
@@ -2926,6 +2954,13 @@ irrep_status_t irrep_magnon_dispersion_noncollinear_full(const irrep_magnon_lsw_
     }
     free(R_arr); free(M); free(K); free(W); free(eigs); free(evecs); free(T_col);
     return IRREP_OK;
+}
+
+irrep_status_t irrep_magnon_dispersion_noncollinear_full(const irrep_magnon_lsw_t *L,
+                                                            const double *n_vectors, double kx,
+                                                            double ky, double *omega_out,
+                                                            double _Complex *bogoliubov_uv) {
+    return dispersion_noncoll_full_eps_(L, n_vectors, kx, ky, 1e-10, omega_out, bogoliubov_uv);
 }
 
 irrep_status_t irrep_magnon_dispersion_noncollinear_3d(const irrep_magnon_lsw_t *L,

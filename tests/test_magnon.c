@@ -1384,6 +1384,44 @@ static void test_heisenberg_decay_rate_collinear_zero(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (77) Time-reversal symmetry: for a Heisenberg-only model (no DMI)
+ * the LSW Hamiltonian is invariant under k → -k, and the cubic
+ * vertex inherits this symmetry. Therefore Γ_b(k) = Γ_b(-k) per band.
+ *
+ * This catches errors in:
+ *   - phase factor sign conventions e^{±i k·t}
+ *   - asymmetric handling of (k1, k2) vs (k-k1, k-k2)
+ *   - asymmetric treatment of u(k) vs v(k) under k inversion */
+static void test_heisenberg_decay_rate_TR_symmetry(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * sqrt(3.0)};
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 2, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 0, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1,  .J = +1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, 0.5, a1, a2, 6, bonds, 0);
+    double n_vecs[9] = {
+        1.0,           0.0,            0.0,
+       -0.5,           0.5 * sqrt(3.0), 0.0,
+       -0.5,          -0.5 * sqrt(3.0), 0.0,
+    };
+    double k_pts_pos[1][2] = {{1.5, 0.7}};
+    double k_pts_neg[1][2] = {{-1.5, -0.7}};
+    double gamma_pos[3], gamma_neg[3];
+    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts_pos, 1, 12, 12, 0.1, gamma_pos);
+    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts_neg, 1, 12, 12, 0.1, gamma_neg);
+    for (int b = 0; b < 3; ++b) {
+        double rel = fabs(gamma_pos[b] - gamma_neg[b]) /
+                     (fabs(gamma_pos[b]) + fabs(gamma_neg[b]) + 1e-12);
+        ASSERT(rel < 1e-9, "Γ_b(k) = Γ_b(-k) (TR symmetry)");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
 /* (76) Bond-orientation invariance of _heisenberg_decay_rate. The
  * physical bond ⟨α, β⟩ at translation t is the same physical bond as
  * ⟨β, α⟩ at translation -t. The library iterates BOTH orientations
@@ -2613,6 +2651,7 @@ int main(void) {
     test_heisenberg_decay_rate_collinear_zero();
     test_heisenberg_decay_rate_noncollinear_finite();
     test_heisenberg_decay_rate_bond_orientation_invariance();
+    test_heisenberg_decay_rate_TR_symmetry();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

@@ -1180,54 +1180,148 @@ irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
                         double _Complex M_amp = 0;
                         for (int bdi = 0; bdi < nb; ++bdi) {
                             const irrep_magnon_bond_t *bd = &L->bonds[bdi];
-                            double tx = bd->delta_x * L->a1[0] + bd->delta_y * L->a2[0];
-                            double ty = bd->delta_x * L->a1[1] + bd->delta_y * L->a2[1];
+                            double tx_base = bd->delta_x * L->a1[0] + bd->delta_y * L->a2[0];
+                            double ty_base = bd->delta_x * L->a1[1] + bd->delta_y * L->a2[1];
                             double *MM = bond_M + 9 * bdi;
-                            int    alpha = bd->bi;
-                            int    beta  = bd->bj;
                             double Mxz = MM[2], Myz = MM[5], Mzx = MM[6], Mzy = MM[7];
-                            double _Complex A = Mxz + I * Myz;
-                            double _Complex B = Mzx + I * Mzy;
-                            /* Iterate over both bond orientations: (α, β, t) as
-                             * given, and (β, α, -t). For the reversed orientation
-                             * M' = M^T, so A' = M[ZX] + i M[ZY] and B' = M[XZ] + i M[YZ]. */
+                            int    alpha_base = bd->bi;
+                            int    beta_base  = bd->bj;
+                            /* Iterate over both bond orientations: (α, β, t) as given,
+                             * and (β, α, -t). Under reversal, M_αβ → M_βα = M_αβ^T,
+                             * so [XZ]↔[ZX] and [YZ]↔[ZY]. */
                             for (int orient = 0; orient < 2; ++orient) {
-                                int    a_in_C = beta, a_in_D = alpha;
-                                int    a_out_alpha = alpha, a_out_beta = beta;
-                                double tx_or = tx, ty_or = ty;
-                                double _Complex A_or = A, B_or = B;
-                                if (orient == 1) {
-                                    a_in_C       = alpha;
-                                    a_in_D       = beta;
-                                    a_out_alpha  = beta;
-                                    a_out_beta   = alpha;
-                                    tx_or        = -tx;
-                                    ty_or        = -ty;
-                                    A_or         = Mzx + I * Mzy;
-                                    B_or         = Mxz + I * Myz;
-                                }
-                                /* Channel C: incoming a_in_C, outgoing a_out_alpha at k1,
-                                 * a_out_beta at k2. Phase e^{+i k1 · t}. */
-                                double phase_C = k1x * tx_or + k1y * ty_or;
-                                double _Complex eikt_C = cos(phase_C) + I * sin(phase_C);
-                                double _Complex u_in_C  = uv_k[b * N_BdG + a_in_C];
-                                double _Complex u1_C    =
-                                    uv_grid[p1 * n * N_BdG + b1 * N_BdG + a_out_alpha];
-                                double _Complex u2_C    =
-                                    uv_grid[p2 * n * N_BdG + b2 * N_BdG + a_out_beta];
-                                M_amp += -bd->J * prefactor * A_or * eikt_C * conj(u1_C) *
-                                         conj(u2_C) * u_in_C;
-                                /* Channel D: incoming a_in_D, outgoing a_out_alpha at k1,
-                                 * a_out_beta at k2. Phase e^{-i k2 · t}. */
-                                double phase_D = -(k2x * tx_or + k2y * ty_or);
-                                double _Complex eikt_D = cos(phase_D) + I * sin(phase_D);
-                                double _Complex u_in_D  = uv_k[b * N_BdG + a_in_D];
-                                double _Complex u1_D    =
-                                    uv_grid[p1 * n * N_BdG + b1 * N_BdG + a_out_alpha];
-                                double _Complex u2_D    =
-                                    uv_grid[p2 * n * N_BdG + b2 * N_BdG + a_out_beta];
-                                M_amp += -bd->J * prefactor * B_or * eikt_D * conj(u1_D) *
-                                         conj(u2_D) * u_in_D;
+                                int alpha = (orient == 0) ? alpha_base : beta_base;
+                                int beta  = (orient == 0) ? beta_base : alpha_base;
+                                double tx = (orient == 0) ? tx_base : -tx_base;
+                                double ty = (orient == 0) ? ty_base : -ty_base;
+                                double Mxz_or = (orient == 0) ? Mxz : Mzx;
+                                double Myz_or = (orient == 0) ? Myz : Mzy;
+                                double Mzx_or = (orient == 0) ? Mzx : Mxz;
+                                double Mzy_or = (orient == 0) ? Mzy : Myz;
+                                double _Complex A_plus  = Mxz_or + I * Myz_or;
+                                double _Complex A_minus = Mxz_or - I * Myz_or;
+                                double _Complex B_plus  = Mzx_or + I * Mzy_or;
+                                double _Complex B_minus = Mzx_or - I * Mzy_or;
+                                double _Complex C_2 = -bd->J * prefactor * A_plus;
+                                double _Complex C_1 = -bd->J * prefactor * A_minus;
+                                double _Complex C_4 = -bd->J * prefactor * B_plus;
+                                double _Complex C_3 = -bd->J * prefactor * B_minus;
+                                /* Phase shorthands (all relative to translation t). */
+                                double pk1 = k1x * tx + k1y * ty;
+                                double pk2 = k2x * tx + k2y * ty;
+                                double pk  = kx  * tx + ky  * ty;
+                                double _Complex e_pk1   = cos(pk1)  + I * sin(pk1);
+                                double _Complex e_mpk1  = cos(pk1)  - I * sin(pk1);
+                                double _Complex e_pk2   = cos(pk2)  + I * sin(pk2);
+                                double _Complex e_mpk2  = cos(pk2)  - I * sin(pk2);
+                                double _Complex e_pk    = cos(pk)   + I * sin(pk);
+                                double _Complex e_mpk   = cos(pk)   - I * sin(pk);
+                                /* (u, v) amplitude shorthands. U/V at outgoing momenta
+                                 * (grid index p1 or p2) and incoming k. */
+                                #define U1(b_, a_)  (uv_grid[p1 * n * N_BdG + (b_) * N_BdG + (a_)])
+                                #define V1(b_, a_)  (uv_grid[p1 * n * N_BdG + (b_) * N_BdG + ((a_) + n)])
+                                #define U2(b_, a_)  (uv_grid[p2 * n * N_BdG + (b_) * N_BdG + (a_)])
+                                #define V2x(b_, a_) (uv_grid[p2 * n * N_BdG + (b_) * N_BdG + ((a_) + n)])
+                                #define UK(b_, a_)  (uv_k[(b_) * N_BdG + (a_)])
+                                #define VK(b_, a_)  (uv_k[(b_) * N_BdG + ((a_) + n)])
+                                /* TYPE 2 (a_α†·a_β†·a_β; coeff C_2; phase e^{+ip1·t}):
+                                 * 6 γ†γ†γ sub-cases. */
+                                /* [2-a]: out α@k1, out β@k2, in β@k. p1=k1, p2=k2, p3=k. */
+                                M_amp += C_2 * e_pk1 * conj(U1(b1, alpha)) *
+                                         conj(U2(b2, beta)) * UK(b, beta);
+                                /* [2-a']: out α@k2, out β@k1, in β@k. p1=k2, p2=k1, p3=k. */
+                                M_amp += C_2 * e_pk2 * conj(U2(b2, alpha)) *
+                                         conj(U1(b1, beta)) * UK(b, beta);
+                                /* [2-b1a]: flip(1,3); in α@k via op1-v; out β@k1 via op3-v;
+                                 * out β@k2 via op2-u. p1=-k, p2=k2, p3=-k1. Phase e^{-ik·t}. */
+                                M_amp += C_2 * e_mpk * conj(V1(b1, beta)) *
+                                         conj(U2(b2, beta)) * VK(b, alpha);
+                                /* [2-b1b]: swap of [2-b1a]. p1=-k, p2=k1, p3=-k2. */
+                                M_amp += C_2 * e_mpk * conj(V2x(b2, beta)) *
+                                         conj(U1(b1, beta)) * VK(b, alpha);
+                                /* [2-b2a]: flip(2,3); in β@k via op2-v; out α@k1 via op1-u;
+                                 * out β@k2 via op3-v. p1=k1, p2=-k, p3=-k2. Phase e^{+ik1·t}. */
+                                M_amp += C_2 * e_pk1 * conj(U1(b1, alpha)) *
+                                         conj(V2x(b2, beta)) * VK(b, beta);
+                                /* [2-b2b]: swap of [2-b2a]. p1=k2, p2=-k, p3=-k1. */
+                                M_amp += C_2 * e_pk2 * conj(U2(b2, alpha)) *
+                                         conj(V1(b1, beta)) * VK(b, beta);
+                                /* TYPE 1 (a_α·a_β†·a_β; coeff C_1; phase e^{-ip1·t}):
+                                 * 6 γ†γ†γ sub-cases. */
+                                /* [1-A1]: flip(1); out α@k1 via op1-v; out β@k2 via op2-u;
+                                 * in β@k via op3-u. p1=-k1. Phase e^{+ik1·t}. */
+                                M_amp += C_1 * e_pk1 * conj(V1(b1, alpha)) *
+                                         conj(U2(b2, beta)) * UK(b, beta);
+                                /* [1-A2]: swap. p1=-k2. Phase e^{+ik2·t}. */
+                                M_amp += C_1 * e_pk2 * conj(V2x(b2, alpha)) *
+                                         conj(U1(b1, beta)) * UK(b, beta);
+                                /* [1-B1]: flip(3); out β@k1 via op3-v; out β@k2 via op2-u;
+                                 * in α@k via op1-u. p1=k. Phase e^{-ik·t}. */
+                                M_amp += C_1 * e_mpk * UK(b, alpha) *
+                                         conj(U2(b2, beta)) * conj(V1(b1, beta));
+                                /* [1-B2]: swap. */
+                                M_amp += C_1 * e_mpk * UK(b, alpha) *
+                                         conj(U1(b1, beta)) * conj(V2x(b2, beta));
+                                /* [1-C1]: flip(1,2,3); all v. out α@k1 via op1-v;
+                                 * in β@k via op2-v; out β@k2 via op3-v. p1=-k1, p2=-k, p3=-k2.
+                                 * Phase e^{+ik1·t}. */
+                                M_amp += C_1 * e_pk1 * conj(V1(b1, alpha)) *
+                                         VK(b, beta) * conj(V2x(b2, beta));
+                                /* [1-C2]: swap. */
+                                M_amp += C_1 * e_pk2 * conj(V2x(b2, alpha)) *
+                                         VK(b, beta) * conj(V1(b1, beta));
+                                /* TYPE 4 (a_α†·a_α·a_β†; coeff C_4; phase e^{-ip3·t}):
+                                 * 6 γ†γ†γ sub-cases. */
+                                /* [4-a]: out α@k1, in α@k, out β@k2. p1=k1, p2=k, p3=k2.
+                                 * Phase e^{-ik2·t}. */
+                                M_amp += C_4 * e_mpk2 * conj(U1(b1, alpha)) *
+                                         UK(b, alpha) * conj(U2(b2, beta));
+                                /* [4-a']: swap. p1=k2, p2=k, p3=k1. Phase e^{-ik1·t}. */
+                                M_amp += C_4 * e_mpk1 * conj(U2(b2, alpha)) *
+                                         UK(b, alpha) * conj(U1(b1, beta));
+                                /* [4-b1a]: flip(1,2); in α@k via op1-v; out α@k1 via op2-v;
+                                 * out β@k2 via op3-u. p1=-k, p2=-k1, p3=k2. Phase e^{-ik2·t}. */
+                                M_amp += C_4 * e_mpk2 * VK(b, alpha) *
+                                         conj(V1(b1, alpha)) * conj(U2(b2, beta));
+                                /* [4-b1b]: swap. p1=-k, p2=-k2, p3=k1. */
+                                M_amp += C_4 * e_mpk1 * VK(b, alpha) *
+                                         conj(V2x(b2, alpha)) * conj(U1(b1, beta));
+                                /* [4-b2a]: flip(2,3); out α@k1 via op1-u; out α@k2 via op2-v;
+                                 * in β@k via op3-v. p1=k1, p2=-k2, p3=-k. Phase e^{+ik·t}. */
+                                M_amp += C_4 * e_pk * conj(U1(b1, alpha)) *
+                                         conj(V2x(b2, alpha)) * VK(b, beta);
+                                /* [4-b2b]: swap. */
+                                M_amp += C_4 * e_pk * conj(U2(b2, alpha)) *
+                                         conj(V1(b1, alpha)) * VK(b, beta);
+                                /* TYPE 3 (a_α†·a_α·a_β; coeff C_3; phase e^{+ip3·t}):
+                                 * 6 γ†γ†γ sub-cases. */
+                                /* [3-A1]: flip(2); out α@k1 via op1-u; out α@k2 via op2-v;
+                                 * in β@k via op3-u. p3=k. Phase e^{+ik·t}. */
+                                M_amp += C_3 * e_pk * conj(U1(b1, alpha)) *
+                                         conj(V2x(b2, alpha)) * UK(b, beta);
+                                /* [3-A2]: swap. */
+                                M_amp += C_3 * e_pk * conj(U2(b2, alpha)) *
+                                         conj(V1(b1, alpha)) * UK(b, beta);
+                                /* [3-B1]: flip(3); out α@k1 via op1-u; in α@k via op2-u;
+                                 * out β@k2 via op3-v. p3=-k2. Phase e^{-ik2·t}. */
+                                M_amp += C_3 * e_mpk2 * conj(U1(b1, alpha)) *
+                                         UK(b, alpha) * conj(V2x(b2, beta));
+                                /* [3-B2]: swap. */
+                                M_amp += C_3 * e_mpk1 * conj(U2(b2, alpha)) *
+                                         UK(b, alpha) * conj(V1(b1, beta));
+                                /* [3-C1]: flip(1,2,3); in α@k via op1-v; out α@k1 via op2-v;
+                                 * out β@k2 via op3-v. p3=-k2. Phase e^{-ik2·t}. */
+                                M_amp += C_3 * e_mpk2 * VK(b, alpha) *
+                                         conj(V1(b1, alpha)) * conj(V2x(b2, beta));
+                                /* [3-C2]: swap. */
+                                M_amp += C_3 * e_mpk1 * VK(b, alpha) *
+                                         conj(V2x(b2, alpha)) * conj(V1(b1, beta));
+                                #undef U1
+                                #undef V1
+                                #undef U2
+                                #undef V2x
+                                #undef UK
+                                #undef VK
                             }
                         }
                         double V2 = creal(M_amp) * creal(M_amp) +

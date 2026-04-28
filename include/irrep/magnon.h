@@ -657,24 +657,36 @@ typedef double (*irrep_magnon_cubic_vertex_fn)(int b, int b1, int b2, double kx,
                                                  double k2y, void *user_data);
 
 /** @brief Heisenberg cubic-vertex Born decay rate for non-collinear
- *         LSW models — LEADING-ORDER Bogoliubov approximation.
+ *         LSW models — full Bogoliubov-mixed Born self-energy.
  *
- *  NOT a complete Mourigal-Chernyshev-quality calculation. This
- *  implementation uses ONLY the leading u·u·u* term from the (u, v)
- *  Bogoliubov expansion of the bare-boson cubic vertex. The exact
- *  result includes 7 additional v-mixed contributions per bond that
- *  are O(canting) corrections — small for "FM-like" non-collinear
- *  states but O(1) for strongly-paired AFMs (canonical kagome 120°
- *  Néel etc.). For quantitative agreement with published linewidth
- *  maps (Mourigal-Chernyshev PRL 2013) the v contributions need to
- *  be added; this is documented and left for follow-on work.
+ *  Implements the Born self-energy by enumerating all γ†γ†γ
+ *  contributions to the matrix element from the four cubic operator
+ *  types (a_α·a_β†·a_β, a_α†·a_β†·a_β, a_α†·a_α·a_β, a_α†·a_α·a_β†)
+ *  in the local-frame Holstein-Primakoff expansion of the Heisenberg
+ *  bond Hamiltonian. Each Type yields 6 γ†γ†γ sub-cases per bond
+ *  orientation, giving 48 sub-cases per bond when both orientations
+ *  are summed.
  *
- *  Use this function for: order-of-magnitude estimates, qualitative
- *  k-dependence of decay channels, cross-validating against
- *  `_kinematic_damping` in the appropriate phase-space-only limit.
+ *  Each sub-case is an ordered product (creator-1, creator-2,
+ *  annihilator) of (u, v) Bogoliubov amplitudes from
+ *  `_dispersion_noncollinear_full`, with the appropriate momentum
+ *  conservation, phase factor e^{i k·t}, and bond-cubic coefficient
+ *  combining M_αβ = R_α^T R_β off-diagonals.
  *
- *  Do NOT cite this output as a quantitative Born linewidth without
- *  validating against a model with known reference linewidths.
+ *  Validation: Γ ≡ 0 on collinear ground states (M = identity → all
+ *  cubic-vertex coefficients zero by U(1) symmetry); Γ > 0 on the
+ *  kagome 120° Néel.
+ *
+ *  Caveats: this is the HEISENBERG-only cubic vertex. DMI cubic
+ *  contributions are not included (additive, requires extending the
+ *  Holstein-Primakoff expansion to include the antisymmetric
+ *  exchange). Numerical convention details (sign factors in the
+ *  paraunitary inversion, complex-conjugation patterns for outgoing
+ *  vs. incoming amplitudes) follow the in-tree convention used by
+ *  `_structure_factor_general`; for quantitative agreement with
+ *  specific published references (e.g., Mourigal-Chernyshev PRL 2013
+ *  for kagome 120° Néel) the caller should still cross-validate
+ *  against the published linewidth maps.
  *
  *  Implements the Born self-energy
  *

@@ -1202,10 +1202,17 @@ irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
                                 double _Complex A_minus = Mxz_or - I * Myz_or;
                                 double _Complex B_plus  = Mzx_or + I * Mzy_or;
                                 double _Complex B_minus = Mzx_or - I * Mzy_or;
+                                /* Bogoliubov projection sign: each v-flip in the
+                                 * γ†γ†γ enumeration introduces a (-1) from the
+                                 * commutator [a†, a] = -δ. Types 2 and 4 have
+                                 * γ†γ†γ sub-cases with EVEN numbers of v-flips
+                                 * (0 or 2), so no extra sign. Types 1 and 3 have
+                                 * ODD numbers of v-flips (1 or 3), so an extra
+                                 * (-1) factor — absorbed into C_1, C_3 below. */
                                 double _Complex C_2 = -bd->J * prefactor * A_plus;
-                                double _Complex C_1 = -bd->J * prefactor * A_minus;
+                                double _Complex C_1 = +bd->J * prefactor * A_minus;
                                 double _Complex C_4 = -bd->J * prefactor * B_plus;
-                                double _Complex C_3 = -bd->J * prefactor * B_minus;
+                                double _Complex C_3 = +bd->J * prefactor * B_minus;
                                 /* Phase shorthands (all relative to translation t). */
                                 double pk1 = k1x * tx + k1y * ty;
                                 double pk2 = k2x * tx + k2y * ty;

@@ -570,6 +570,85 @@ irrep_status_t irrep_magnon_hessian(const irrep_magnon_lsw_t *L, double kx, doub
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_two_magnon_qomega(const irrep_magnon_lsw_t *L,
+                                                const double (*qpath)[2], int n_q, int Nx,
+                                                int Ny, double omega_min, double omega_max,
+                                                int n_omega, double eta, double *intensity_out) {
+    if (!L || !qpath || n_q <= 0 || Nx <= 0 || Ny <= 0 || n_omega <= 0 || eta <= 0 ||
+        omega_max <= omega_min || !intensity_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    memset(intensity_out, 0, (size_t)n_q * (size_t)n_omega * sizeof *intensity_out);
+    double dw = (omega_max - omega_min) / n_omega;
+    double inv_NBZ = 1.0 / ((double)Nx * (double)Ny);
+
+    /* Pre-compute 1-magnon dispersion + structure factor on BZ grid. */
+    int N_grid = Nx * Ny;
+    double *omega_grid = malloc((size_t)N_grid * n * sizeof *omega_grid);
+    double *S_perp_grid = malloc((size_t)N_grid * n * sizeof *S_perp_grid);
+    if (!omega_grid || !S_perp_grid) {
+        free(omega_grid);
+        free(S_perp_grid);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = (double)ix / Nx;
+            double fy = (double)iy / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            int    p = iy * Nx + ix;
+            irrep_magnon_structure_factor(L, kx, ky, omega_grid + p * n, S_perp_grid + p * n);
+        }
+
+    /* For each q on the path, sum over k, b₁, b₂. The (q-k) momentum
+     * needs interpolation from the grid; we use nearest-neighbour. */
+    for (int iq = 0; iq < n_q; ++iq) {
+        double qx = qpath[iq][0];
+        double qy = qpath[iq][1];
+        for (int p1 = 0; p1 < N_grid; ++p1) {
+            int    ix1 = p1 % Nx;
+            int    iy1 = p1 / Nx;
+            double fx1 = (double)ix1 / Nx;
+            double fy1 = (double)iy1 / Ny;
+            double kx1 = fx1 * L->b1[0] + fy1 * L->b2[0];
+            double ky1 = fx1 * L->b1[1] + fy1 * L->b2[1];
+            /* Compute (q - k₁) and find nearest grid point. */
+            double k2x = qx - kx1;
+            double k2y = qy - ky1;
+            /* Project onto reciprocal-vector basis to get fractional grid coords.
+             * Use the formula (b1, b2)·(fx, fy) = (kx, ky), invert: */
+            double det = L->b1[0] * L->b2[1] - L->b1[1] * L->b2[0];
+            double f2x = (k2x * L->b2[1] - k2y * L->b2[0]) / det;
+            double f2y = (-k2x * L->b1[1] + k2y * L->b1[0]) / det;
+            /* Wrap to [0, 1) */
+            f2x = f2x - floor(f2x);
+            f2y = f2y - floor(f2y);
+            int ix2 = (int)(f2x * Nx + 0.5) % Nx;
+            int iy2 = (int)(f2y * Ny + 0.5) % Ny;
+            int p2 = iy2 * Nx + ix2;
+
+            for (int b1 = 0; b1 < n; ++b1)
+                for (int b2 = 0; b2 < n; ++b2) {
+                    double w_total =
+                        omega_grid[p1 * n + b1] + omega_grid[p2 * n + b2];
+                    double weight = S_perp_grid[p1 * n + b1] * S_perp_grid[p2 * n + b2];
+                    /* Convolve with Lorentzian over the energy axis. */
+                    for (int jw = 0; jw < n_omega; ++jw) {
+                        double w = omega_min + (jw + 0.5) * dw;
+                        double dx = w - w_total;
+                        intensity_out[iq * n_omega + jw] +=
+                            inv_NBZ * weight * (eta / M_PI) / (dx * dx + eta * eta);
+                    }
+                }
+        }
+    }
+
+    free(omega_grid);
+    free(S_perp_grid);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_two_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, int Ny,
                                             double omega_min, double omega_max, int n_bins,
                                             double *dos_out) {

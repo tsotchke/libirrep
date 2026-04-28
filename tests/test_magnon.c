@@ -1317,6 +1317,47 @@ static void test_afm_zero_point_square(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (50) Two-magnon S⁽²⁾(q, ω) sanity: peak position should be at the
+ * convolution-of-dispersion energy, and the spectrum should be
+ * non-zero in the 2-magnon energy band [0, 2·ω_max]. */
+static void test_two_magnon_qomega(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+
+    /* At q = (0, 0) (Γ), 2-magnon = ω_b₁(k) + ω_b₂(-k). For 1-band,
+     * k₂ = -k₁, ω₂(-k) = ω(-k) = ω(k) (inversion symmetry).
+     * So peak at 2·ω(k_max) = 2·4 = 8 by convolution.
+     * But the DOS shape of the convolution peaks somewhere in the
+     * middle, not at the edges. Verify peak in (0, 8). */
+    double q_pts[1][2] = {{0.0, 0.0}};
+    int n_omega = 100;
+    double w_min = 0, w_max = 8.0;
+    double *I_qw = malloc((size_t)n_omega * sizeof *I_qw);
+    irrep_magnon_two_magnon_qomega(L, q_pts, 1, 24, 24, w_min, w_max, n_omega, 0.1, I_qw);
+
+    /* Should have non-zero intensity. (Renamed local to `weight_sum`
+     * to avoid shadowing the global `total` used by ASSERT macros.) */
+    double weight_sum = 0;
+    int peak = 0;
+    for (int i = 0; i < n_omega; ++i) {
+        weight_sum += I_qw[i];
+        if (I_qw[i] > I_qw[peak]) peak = i;
+    }
+    ASSERT(weight_sum > 0, "2-magnon S⁽²⁾(q=Γ, ω) has non-zero spectral weight");
+    ASSERT(peak > 5 && peak < n_omega - 5,
+           "2-magnon S⁽²⁾ peak in interior (not at energy edges)");
+
+    free(I_qw);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (49) Two-magnon DOS sum rule: ∫ D⁽²⁾(ω) dω = n_sub². For the 1-band
  * square FM (n_sub = 1), should give exactly 1. */
 static void test_two_magnon_dos(void) {
@@ -1652,6 +1693,7 @@ int main(void) {
     test_noncollinear_3d_reduces_to_2d();
     test_hartree_renormalisation();
     test_two_magnon_dos();
+    test_two_magnon_qomega();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

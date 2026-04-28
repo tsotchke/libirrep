@@ -308,6 +308,44 @@ IRREP_API irrep_status_t irrep_magnon_hessian(const irrep_magnon_lsw_t *L, doubl
                                                double h, double *hxx_out, double *hyy_out,
                                                double *hxy_out);
 
+/** @brief Two-magnon dynamical structure factor S⁽²⁾(q, ω) — the
+ *         q-resolved 2-magnon continuum, a real beyond-1-magnon
+ *         INS observable.
+ *
+ *      S⁽²⁾(q, ω) = (1/N) Σ_{k, b₁, b₂}
+ *                   |M_{b₁}(k)|² · |M_{b₂}(q−k)|²
+ *                   · L(ω − ω_{b₁}(k) − ω_{b₂}(q−k); η)
+ *
+ *  with M_b(k) = Σ_α u_b(k)_α (the uniform-mode form factor used in
+ *  the 1-magnon `_structure_factor`).
+ *
+ *  Goes beyond 1-magnon LSW: this is a TWO-PARTICLE observable
+ *  computed at the tree level. Combined with 1-magnon
+ *  `_neutron_qomega_map`, gives the full INS prediction for
+ *  comparison with high-energy continuum data above the 1-magnon
+ *  band-top.
+ *
+ *  For cuprates: above the 1-magnon ω_max ≈ 2J·S, INS data shows
+ *  a continuum extending to 4J·S — this 2-magnon S⁽²⁾(q, ω) is
+ *  what fits that continuum.
+ *
+ *  Output is row-major n_q × n_omega; same format as
+ *  `_neutron_qomega_map`.
+ *
+ *  @param L              LSW handle
+ *  @param qpath          n_q × 2 array of (qx, qy) momenta
+ *  @param n_q            number of q-points
+ *  @param Nx, Ny         BZ integration grid (cost is quadratic)
+ *  @param omega_min,max  energy axis bounds
+ *  @param n_omega        energy bins
+ *  @param eta            Lorentzian half-width
+ *  @param intensity_out  caller buffer of size n_q × n_omega doubles. */
+IRREP_API irrep_status_t irrep_magnon_two_magnon_qomega(const irrep_magnon_lsw_t *L,
+                                                          const double (*qpath)[2], int n_q,
+                                                          int Nx, int Ny, double omega_min,
+                                                          double omega_max, int n_omega,
+                                                          double eta, double *intensity_out);
+
 /** @brief Two-magnon density of states D⁽²⁾(ω) — spectral support
  *         for the 2-magnon continuum.
  *

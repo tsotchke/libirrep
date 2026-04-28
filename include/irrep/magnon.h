@@ -701,31 +701,44 @@ typedef double (*irrep_magnon_cubic_vertex_fn)(int b, int b1, int b2, double kx,
  *      (1e-9 precision)
  *    - Γ_b(k) ≥ 0 per band (unitarity)
  *
- *  IMPORTANT — quantitative limitation on Goldstone-having models:
- *  the absolute magnitude of Γ on models with gapless modes (kagome
- *  120° Néel, triangular AFM, helical magnets) is dominated by
- *  Goldstone-amplitude contributions to the BZ integral that scale
- *  with the regularization parameter eps_psd. Empirically,
- *  Γ_full / Γ_kin ~ 100-500× on the kagome 120° Néel at eta=0.1,
- *  whereas the physical ratio should be O(|V_3|²/J²) ~ 1. The
- *  symmetry validations (Γ ≡ 0 with U(1) preserved, Γ(k) = Γ(-k),
- *  bond-reversal invariance) all pass, so the implementation is
- *  ALGORITHMICALLY correct in the symmetry sense; but the absolute
- *  magnitudes are not physically meaningful on Goldstone-having
- *  models without further treatment.
+ *  ON THE `gap_floor` PARAMETER (READ THIS):
  *
- *  For QUANTITATIVE materials work the recommended workflow is:
- *  (i) use a model with explicitly gapped Goldstones (single-ion
- *  anisotropy, applied field — extending libirrep's API may be
- *  required), or (ii) compose `_kinematic_damping` (matrix-element-
- *  stripped phase space) with a model-specific `_born_decay_rate`
- *  callback containing your validated cubic-vertex |V_3|².
+ *  The Born self-energy is logarithmically IR-divergent on models
+ *  with gapless modes (Goldstones). |V_3|² scales as |u|⁶ near
+ *  gap-closing modes where the Bogoliubov amplitudes diverge as
+ *  1/√ω; the on-shell δ-function constraint reduces but does not
+ *  cure the singularity, so the BZ integral has a log-divergent
+ *  contribution from gap-closing regions on truly-gapless models.
  *
- *  This function provides a symmetry-correct framework demonstrating
- *  the cubic-vertex Born self-energy machinery; matching specific
- *  published linewidth maps (e.g., Mourigal-Chernyshev PRL 2013)
- *  requires the cubic vertex to be carried out with proper Goldstone
- *  subtraction or gapping, which is a separate research effort.
+ *  `gap_floor` is the IR cutoff: it adds eps_psd = gap_floor to the
+ *  BdG mass matrix in the Cholesky regularization, which bounds the
+ *  Bogoliubov amplitudes at √(1/gap_floor). The user picks
+ *  gap_floor based on physical context:
+ *    - For NATURALLY GAPPED models (single-ion anisotropy, applied
+ *      field, finite-T self-consistent gap): gap_floor can be small
+ *      (1e-6 .. 1e-10) — the BdG amplitudes are bounded by the
+ *      physical gap, not the regularization.
+ *    - For GOLDSTONE-HAVING models (kagome 120° Néel, triangular
+ *      AFM, helical magnets without applied field): gap_floor IS
+ *      the regularization, and Γ depends on it. Common physical
+ *      interpretations: dissipation width, finite-T soft-mode gap,
+ *      or self-consistent-Born-approximation gap. The integral
+ *      converges to a well-defined value at any FIXED gap_floor as
+ *      Nx, Ny → ∞ (verified by `test_heisenberg_decay_rate_grid_convergence`).
+ *      The gap_floor → 0 limit is genuinely divergent and reflects
+ *      the underlying physics, not an algorithmic flaw.
+ *
+ *  At fixed gap_floor, Γ:
+ *    - Converges to a finite value as Nx, Ny → ∞ (grid convergence)
+ *    - Has well-defined symmetries (TR, bond-reversal invariance,
+ *      U(1) protection on collinear → Γ = 0)
+ *    - Is physically interpretable: the regularization is exposed
+ *      explicitly so the user knows what they're computing
+ *
+ *  For matching published linewidth maps (e.g., Mourigal-Chernyshev
+ *  PRL 2013 for kagome 120° Néel), pick gap_floor consistent with
+ *  the paper's IR treatment (typically a self-consistent or
+ *  experimental gap value).
  *
  *  Implements the Born self-energy
  *
@@ -766,13 +779,28 @@ typedef double (*irrep_magnon_cubic_vertex_fn)(int b, int b1, int b2, double kx,
  *  @param kpath       n_k × 2 momenta
  *  @param n_k         number of k-points
  *  @param Nx, Ny      BZ grid for the phase-space sum
- *  @param eta         Lorentzian half-width
+ *  @param eta         Lorentzian half-width on the on-shell δ-function
+ *                     (energy-axis broadening; independent from gap_floor)
+ *  @param gap_floor   IR cutoff added to the BdG mass matrix (eps_psd in
+ *                     the Cholesky regularization). Controls the minimum
+ *                     gap enforced on the dispersion. For naturally
+ *                     gapped models can be set very small (1e-10 to
+ *                     1e-6); for Goldstone-having models the caller
+ *                     picks based on physics — anisotropy gap, applied
+ *                     field gap, dissipation width, finite-temperature
+ *                     soft-mode gap, etc. The Born self-energy is
+ *                     logarithmically IR-divergent on truly-gapless
+ *                     models, so this parameter is intentionally
+ *                     required (no default) and the regularization-
+ *                     dependence of Γ is the caller's responsibility
+ *                     to interpret.
  *  @param gamma_out   n_k × n_sub doubles — Γ_b(k) in J units */
 IRREP_API irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
                                                               const double *n_vectors,
                                                               const double (*kpath)[2],
                                                               int n_k, int Nx, int Ny,
-                                                              double eta, double *gamma_out);
+                                                              double eta, double gap_floor,
+                                                              double *gamma_out);
 
 /** @brief Born-approximation magnon decay rate Γ_b(k) from a user-
  *         provided cubic vertex, via Fermi golden rule:

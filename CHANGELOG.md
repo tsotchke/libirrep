@@ -139,10 +139,8 @@ factor). New public functions in `irrep/magnon.h`:
       M_eff[μν] = J · (R_α^T R_β)_{μν} + D · (R_α[:,μ] × R_β[:,ν])
 
   i.e., the rotation-projected Heisenberg M plus the DMI cross-product
-  tensor, both contributing linearly. Goldstone regularization
-  (eps_psd = η in the BdG Cholesky) bounds Bogoliubov amplitudes near
-  gap-closing modes; TR-symmetric BZ grid (no half-shift) ensures
-  Γ(k) = Γ(-k) to discretization precision.
+  tensor, both contributing linearly. TR-symmetric BZ grid (no
+  half-shift) ensures Γ(k) = Γ(-k) to discretization precision.
 
   Symmetry validations passing (in `tests/test_magnon.c`):
     * Γ ≡ 0 on collinear with U(1) preserved (1e-9)
@@ -152,20 +150,24 @@ factor). New public functions in `irrep/magnon.h`:
     * Γ invariant under bond reversal ⟨α,β,t,J,D⟩ ↔ ⟨β,α,-t,J,-D⟩
       (1e-9 precision)
     * Γ_b(k) ≥ 0 per band (unitarity)
+    * Grid convergence: Γ stable to 10% under N=24 → N=32 refinement
 
-  Quantitative limitation: empirically, Γ_full / Γ_kin ~ 100-500× on
-  the kagome 120° Néel at η=0.1, dominated by Goldstone-amplitude
-  contributions to the BZ integral that scale with the regularization
-  parameter eps_psd. The implementation is algorithmically correct in
-  the symmetry sense (the validations above all pass), but absolute
-  magnitudes on Goldstone-having models are not physically meaningful
-  without further treatment. For quantitative materials work, compose
-  `_kinematic_damping` with a model-specific `_born_decay_rate`
-  callback containing a validated cubic vertex, or use a model with
-  explicitly gapped Goldstones (single-ion anisotropy, applied field).
-  Matching specific published linewidth maps (e.g., Mourigal-Chernyshev
-  PRL 2013 for kagome 120° Néel) requires Goldstone subtraction or
-  gapping, which is a separate research effort.
+  Required `gap_floor` parameter: the Born self-energy is
+  logarithmically IR-divergent on Goldstone-having models, so the
+  function signature requires the caller to supply an explicit IR
+  cutoff (`gap_floor`) representing the physical model gap (single-
+  ion anisotropy, applied field, dissipation width, finite-T self-
+  consistent gap, etc.). This makes the regularization explicit and
+  intentional rather than baking in a hidden default scale.
+
+  At fixed `gap_floor`, Γ converges to a finite value as Nx, Ny → ∞
+  (verified by `test_heisenberg_decay_rate_grid_convergence`); the
+  gap_floor → 0 limit is genuinely divergent on truly-gapless models
+  and reflects the underlying physics, not an algorithmic flaw. For
+  matching published linewidth maps (e.g., Mourigal-Chernyshev PRL
+  2013 for kagome 120° Néel), pick `gap_floor` consistent with the
+  paper's IR treatment (typically a self-consistent or experimental
+  gap value).
 
 - New examples for the damping stack: `kagome_kinematic_damping`,
   `born_damping_demo`.

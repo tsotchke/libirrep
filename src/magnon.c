@@ -1095,9 +1095,10 @@ static irrep_status_t dispersion_noncoll_full_eps_(const irrep_magnon_lsw_t *L,
 irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
                                                     const double *n_vectors,
                                                     const double (*kpath)[2], int n_k, int Nx,
-                                                    int Ny, double eta, double *gamma_out) {
+                                                    int Ny, double eta, double gap_floor,
+                                                    double *gamma_out) {
     if (!L || !n_vectors || !kpath || n_k <= 0 || Nx <= 0 || Ny <= 0 || eta <= 0 ||
-        !gamma_out)
+        gap_floor <= 0 || !gamma_out)
         return IRREP_ERR_INVALID_ARG;
     int n     = L->n_sub;
     int N_BdG = 2 * n;
@@ -1159,12 +1160,12 @@ irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
             double qx = fx * L->b1[0] + fy * L->b2[0];
             double qy = fx * L->b1[1] + fy * L->b2[1];
             int    p = iy * Nx + ix;
-            /* Regularize Bogoliubov amplitudes near Goldstone modes by using
-             * eps_psd ~ η. This prevents (u, v) blow-up that contaminates
-             * the BZ integral on Goldstone-having models. */
-            double eps_reg = eta;
+            /* User-supplied gap_floor controls the IR regularization of
+             * the BdG amplitudes near gap-closing modes. Independent
+             * from η (energy-axis broadening). */
             irrep_status_t st = dispersion_noncoll_full_eps_(
-                L, n_vectors, qx, qy, eps_reg, omega_grid + p * n, uv_grid + p * n * N_BdG);
+                L, n_vectors, qx, qy, gap_floor,
+                omega_grid + p * n, uv_grid + p * n * N_BdG);
             if (st != IRREP_OK) {
                 free(R_all); free(bond_M); free(omega_grid); free(uv_grid);
                 free(omega_k); free(uv_k);
@@ -1178,8 +1179,7 @@ irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
     for (int ik = 0; ik < n_k; ++ik) {
         double kx = kpath[ik][0];
         double ky = kpath[ik][1];
-        double eps_reg_k = eta;
-        irrep_status_t st = dispersion_noncoll_full_eps_(L, n_vectors, kx, ky, eps_reg_k,
+        irrep_status_t st = dispersion_noncoll_full_eps_(L, n_vectors, kx, ky, gap_floor,
                                                           omega_k, uv_k);
         if (st != IRREP_OK) {
             free(R_all); free(bond_M); free(omega_grid); free(uv_grid); free(omega_k);

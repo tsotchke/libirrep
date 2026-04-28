@@ -1378,7 +1378,7 @@ static void test_heisenberg_decay_rate_collinear_zero(void) {
     double k_pts[1][2] = {{M_PI / 2, M_PI / 2}};
     double gamma_out;
     irrep_status_t st = irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts, 1, 12, 12, 0.1,
-                                                            &gamma_out);
+                                                            0.1, &gamma_out);
     ASSERT(st == IRREP_OK, "heisenberg_decay_rate on collinear FM returns OK");
     ASSERT(fabs(gamma_out) < 1e-9, "Γ ≈ 0 on collinear FM (M = identity, no cubic)");
     irrep_magnon_lsw_free(L);
@@ -1409,9 +1409,9 @@ static void test_decay_rate_DMI_cubic_terms(void) {
     double k_pts[1][2] = {{M_PI / 2, M_PI / 2}};
     double gamma_Dz, gamma_Dx;
     irrep_status_t st_z =
-        irrep_magnon_heisenberg_decay_rate(L_Dz, n_vec_z, k_pts, 1, 12, 12, 0.1, &gamma_Dz);
+        irrep_magnon_heisenberg_decay_rate(L_Dz, n_vec_z, k_pts, 1, 12, 12, 0.1, 0.1, &gamma_Dz);
     irrep_status_t st_x =
-        irrep_magnon_heisenberg_decay_rate(L_Dx, n_vec_z, k_pts, 1, 12, 12, 0.1, &gamma_Dx);
+        irrep_magnon_heisenberg_decay_rate(L_Dx, n_vec_z, k_pts, 1, 12, 12, 0.1, 0.1, &gamma_Dx);
     ASSERT(st_z == IRREP_OK, "Γ on collinear FM + Dz returns OK");
     ASSERT(st_x == IRREP_OK, "Γ on collinear FM + Dx returns OK");
     /* D_z preserves U(1)_z → no cubic vertex → Γ ≈ 0. */
@@ -1452,8 +1452,8 @@ static void test_heisenberg_decay_rate_TR_symmetry(void) {
     double k_pts_pos[1][2] = {{1.5, 0.7}};
     double k_pts_neg[1][2] = {{-1.5, -0.7}};
     double gamma_pos[3], gamma_neg[3];
-    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts_pos, 1, 12, 12, 0.1, gamma_pos);
-    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts_neg, 1, 12, 12, 0.1, gamma_neg);
+    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts_pos, 1, 12, 12, 0.1, 0.1, gamma_pos);
+    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts_neg, 1, 12, 12, 0.1, 0.1, gamma_neg);
     for (int b = 0; b < 3; ++b) {
         double rel = fabs(gamma_pos[b] - gamma_neg[b]) /
                      (fabs(gamma_pos[b]) + fabs(gamma_neg[b]) + 1e-12);
@@ -1506,9 +1506,9 @@ static void test_heisenberg_decay_rate_bond_orientation_invariance(void) {
     double k_pts[1][2] = {{1.5, 0.7}};
     double gamma_AB[3], gamma_BA[3];
     irrep_status_t st1 =
-        irrep_magnon_heisenberg_decay_rate(L_AB, n_vecs, k_pts, 1, 12, 12, 0.1, gamma_AB);
+        irrep_magnon_heisenberg_decay_rate(L_AB, n_vecs, k_pts, 1, 12, 12, 0.1, 0.1, gamma_AB);
     irrep_status_t st2 =
-        irrep_magnon_heisenberg_decay_rate(L_BA, n_vecs, k_pts, 1, 12, 12, 0.1, gamma_BA);
+        irrep_magnon_heisenberg_decay_rate(L_BA, n_vecs, k_pts, 1, 12, 12, 0.1, 0.1, gamma_BA);
     ASSERT(st1 == IRREP_OK, "Γ on bonds_AB returns OK");
     ASSERT(st2 == IRREP_OK, "Γ on bonds_BA (reversed) returns OK");
     /* Γ_b should agree per-band to high precision under bond reversal. */
@@ -1547,7 +1547,7 @@ static void test_heisenberg_decay_rate_noncollinear_finite(void) {
     double k_pts[1][2] = {{1.5, 0.7}};
     double gamma_out[3];
     irrep_status_t st = irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts, 1, 12, 12, 0.1,
-                                                            gamma_out);
+                                                            0.1, gamma_out);
     ASSERT(st == IRREP_OK, "heisenberg_decay_rate on kagome 120° Néel returns OK");
     int any_finite = (gamma_out[0] > 1e-4) || (gamma_out[1] > 1e-4) || (gamma_out[2] > 1e-4);
     ASSERT(any_finite, "Γ > 0 on kagome 120° Néel (non-trivial cubic vertex)");
@@ -1555,6 +1555,38 @@ static void test_heisenberg_decay_rate_noncollinear_finite(void) {
     int all_nonneg = 1;
     for (int b = 0; b < 3; ++b) if (gamma_out[b] < -1e-9) all_nonneg = 0;
     ASSERT(all_nonneg, "Γ_b(k) ≥ 0 for all bands");
+    irrep_magnon_lsw_free(L);
+}
+
+/* (78) Grid convergence test for _heisenberg_decay_rate. At a fixed
+ * (η, gap_floor), Γ_b(k) should converge to a finite value as
+ * Nx, Ny → ∞ — the discrete BZ sum is well-behaved at fixed IR
+ * regularization. This tests the function's numerical stability
+ * separately from the gap_floor → 0 limit (which is genuinely
+ * IR-divergent on Goldstone-having models). */
+static void test_heisenberg_decay_rate_grid_convergence(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * sqrt(3.0)};
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 2, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 0, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1,  .J = +1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, 0.5, a1, a2, 6, bonds, 0);
+    double n_vecs[9] = {1.0, 0, 0, -0.5, 0.5*sqrt(3.0), 0, -0.5, -0.5*sqrt(3.0), 0};
+    double k_pts[1][2] = {{1.5, 0.7}};
+    double gam_24[3], gam_32[3];
+    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts, 1, 24, 24, 0.1, 0.1, gam_24);
+    irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts, 1, 32, 32, 0.1, 0.1, gam_32);
+    /* Grid convergence: 24 vs 32 should agree to within a few percent. */
+    for (int b = 0; b < 3; ++b) {
+        double rel = fabs(gam_24[b] - gam_32[b]) /
+                     (fabs(gam_24[b]) + fabs(gam_32[b]) + 1e-12);
+        ASSERT(rel < 0.10, "Γ stable to 10% under grid refinement N=24 → N=32");
+    }
     irrep_magnon_lsw_free(L);
 }
 
@@ -2690,6 +2722,7 @@ int main(void) {
     test_dispersion_noncollinear_full_recovers_omega();
     test_heisenberg_decay_rate_collinear_zero();
     test_heisenberg_decay_rate_noncollinear_finite();
+    test_heisenberg_decay_rate_grid_convergence();
     test_heisenberg_decay_rate_bond_orientation_invariance();
     test_heisenberg_decay_rate_TR_symmetry();
     test_decay_rate_DMI_cubic_terms();

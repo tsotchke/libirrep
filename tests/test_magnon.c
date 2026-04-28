@@ -1317,6 +1317,38 @@ static void test_afm_zero_point_square(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (49) Two-magnon DOS sum rule: ∫ D⁽²⁾(ω) dω = n_sub². For the 1-band
+ * square FM (n_sub = 1), should give exactly 1. */
+static void test_two_magnon_dos(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    int n_bins = 50;
+    double *dos = malloc((size_t)n_bins * sizeof *dos);
+    /* 1-magnon ω ∈ [0, 4]; 2-magnon ∈ [0, 8]. */
+    irrep_magnon_two_magnon_dos(L, 24, 24, 0.0, 8.001, n_bins, dos);
+    double bin_w = 8.001 / n_bins;
+    double sum = 0;
+    for (int i = 0; i < n_bins; ++i)
+        sum += dos[i] * bin_w;
+    /* Sum rule: 1 (= n_sub² = 1²). */
+    ASSERT_NEAR(sum, 1.0, 1e-6, "1-band 2-magnon DOS sum = n_sub² = 1");
+    /* Should have non-zero weight in middle of range, not at edges. */
+    int peak = 0;
+    for (int i = 1; i < n_bins; ++i)
+        if (dos[i] > dos[peak]) peak = i;
+    ASSERT(peak > 5 && peak < n_bins - 5,
+           "2-magnon DOS peak is in interior of energy range");
+    free(dos);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (48) Hartree-Fock thermal renormalisation factor Z(T) — leading
  * 1/S correction beyond LSW. Verifies:
  *   T → 0:    Z → 1 (no correction; recovers LSW)
@@ -1619,6 +1651,7 @@ int main(void) {
     test_noncollinear_afm_recovery();
     test_noncollinear_3d_reduces_to_2d();
     test_hartree_renormalisation();
+    test_two_magnon_dos();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

@@ -308,6 +308,40 @@ IRREP_API irrep_status_t irrep_magnon_hessian(const irrep_magnon_lsw_t *L, doubl
                                                double h, double *hxx_out, double *hyy_out,
                                                double *hxy_out);
 
+/** @brief Two-magnon density of states D⁽²⁾(ω) — spectral support
+ *         for the 2-magnon continuum.
+ *
+ *      D⁽²⁾(ω) = (1/N²) Σ_{k₁, k₂, b₁, b₂} δ(ω − ω_{b₁}(k₁) − ω_{b₂}(k₂))
+ *
+ *  The 2-magnon DOS gives the energy range where 2-magnon scattering
+ *  has spectral support — a real observable in INS spectra as the
+ *  "continuum shoulder" above the sharp 1-magnon peak. For example,
+ *  in cuprate INS data above the 2J·S band-top, intensity persists
+ *  due to the 2-magnon continuum extending up to 4J·S = 2·ω_max.
+ *
+ *  Goes beyond simple 1-magnon LSW: this is a TWO-PARTICLE observable
+ *  that requires summing over pairs (k₁, k₂) of magnons. Even at the
+ *  tree level (no 1/S corrections), 2-magnon DOS reveals features
+ *  invisible to 1-magnon DOS:
+ *    - Total bandwidth doubled (2·ω_max)
+ *    - Peak shifted from middle of 1-magnon DOS
+ *    - Convolution suppresses van-Hove singularities
+ *
+ *  Sum rule:   ∫ D⁽²⁾(ω) dω = n_sub²
+ *
+ *  Implementation: histogram the energy sums ω(k₁) + ω(k₂) over all
+ *  Nx² × Ny² pairs of BZ points.
+ *
+ *  @param L         LSW handle
+ *  @param Nx, Ny    BZ grid (typical 32-64; quadratic in cost)
+ *  @param omega_min lower bound of energy histogram
+ *  @param omega_max upper bound (typical 2·ω_max of 1-magnon)
+ *  @param n_bins    number of energy bins
+ *  @param dos_out   caller buffer of n_bins doubles. */
+IRREP_API irrep_status_t irrep_magnon_two_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, int Ny,
+                                                      double omega_min, double omega_max,
+                                                      int n_bins, double *dos_out);
+
 /** @brief Hartree-Fock-renormalised magnon dispersion at finite T —
  *         the leading 1/S correction beyond LSW.
  *

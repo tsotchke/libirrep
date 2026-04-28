@@ -570,6 +570,61 @@ irrep_status_t irrep_magnon_hessian(const irrep_magnon_lsw_t *L, double kx, doub
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_two_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, int Ny,
+                                            double omega_min, double omega_max, int n_bins,
+                                            double *dos_out) {
+    if (!L || Nx <= 0 || Ny <= 0 || n_bins <= 0 || omega_max <= omega_min || !dos_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    memset(dos_out, 0, (size_t)n_bins * sizeof *dos_out);
+    double bin_w = (omega_max - omega_min) / n_bins;
+
+    /* Pre-compute 1-magnon dispersion on the BZ grid. Avoids redundant
+     * diagonalisation inside the (k₁, k₂) double loop. */
+    int N_grid = Nx * Ny;
+    double *omega_grid = malloc((size_t)N_grid * n * sizeof *omega_grid);
+    double _Complex *u_grid = malloc((size_t)N_grid * n * n * sizeof *u_grid);
+    if (!omega_grid || !u_grid) {
+        free(omega_grid);
+        free(u_grid);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = (double)ix / Nx;
+            double fy = (double)iy / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            int    p = iy * Nx + ix;
+            irrep_magnon_dispersion(L, kx, ky, omega_grid + p * n, u_grid + p * n * n);
+        }
+
+    /* Convolve: for each pair (p1, p2) and each (b1, b2), histogram
+     * ω(k₁, b₁) + ω(k₂, b₂) into the 2-magnon DOS. */
+    for (int p1 = 0; p1 < N_grid; ++p1)
+        for (int p2 = 0; p2 < N_grid; ++p2)
+            for (int b1 = 0; b1 < n; ++b1)
+                for (int b2 = 0; b2 < n; ++b2) {
+                    double w_sum = omega_grid[p1 * n + b1] + omega_grid[p2 * n + b2];
+                    int    idx = (int)((w_sum - omega_min) / bin_w);
+                    if (idx >= 0 && idx < n_bins)
+                        dos_out[idx] += 1.0;
+                }
+
+    /* Normalise so ∫ D⁽²⁾(ω) dω = n_sub². Bin sum is N_grid² · n²;
+     * after dividing by N_grid² and bin_w, integral = n²·bin_w·n_bins
+     * (if all bins occupied) — actually we need ∫ D dω = n_sub², so:
+     * D bin = (count) / (N_grid² · bin_w) gives ∫ = (total count) / (N_grid² · bin_w) · bin_w
+     *       = total count / N_grid² = n². */
+    double norm = 1.0 / ((double)N_grid * (double)N_grid * bin_w);
+    for (int i = 0; i < n_bins; ++i)
+        dos_out[i] *= norm;
+
+    free(omega_grid);
+    free(u_grid);
+    return IRREP_OK;
+}
+
 double irrep_magnon_hartree_renormalisation(const irrep_magnon_lsw_t *L, double T, int Nx,
                                               int Ny) {
     if (!L || T <= 0 || Nx <= 0 || Ny <= 0) {

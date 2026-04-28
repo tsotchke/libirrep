@@ -1357,6 +1357,39 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (73) _dispersion_noncollinear_full: ω_out should match what
+ * _dispersion_noncollinear returns; the additional Bogoliubov
+ * uv_out is non-zero and contains finite finite amplitudes. */
+static void test_dispersion_noncollinear_full_recovers_omega(void) {
+    double a1[2] = {1.0, 1.0};
+    double a2[2] = {1.0, -1.0};
+    irrep_magnon_bond_t bonds[4] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, 0.5, a1, a2, 4, bonds, 0);
+    /* Néel-canted-x AFM (sublattice 0 → +x, sublattice 1 → -x): a true
+     * non-collinear case where the ground state is in the x-direction. */
+    double n_vecs[6] = {1, 0, 0, -1, 0, 0};
+    double omega_basic[2], omega_full[2];
+    double _Complex uv_out[2 * 4];   /* n_sub × 2·n_sub = 2 × 4 */
+    irrep_magnon_dispersion_noncollinear(L, n_vecs, M_PI / 2, M_PI / 3, omega_basic);
+    irrep_magnon_dispersion_noncollinear_full(L, n_vecs, M_PI / 2, M_PI / 3, omega_full,
+                                                uv_out);
+    for (int b = 0; b < 2; ++b)
+        ASSERT(fabs(omega_full[b] - omega_basic[b]) < 1e-9 * (omega_basic[b] + 1.0),
+               "ω_full agrees with ω_basic");
+    /* uv_out should not be all zeros — at least the lowest band's
+     * eigenvector has finite amplitudes. */
+    double uv_norm = 0;
+    for (int i = 0; i < 4; ++i)
+        uv_norm += creal(uv_out[i]) * creal(uv_out[i]) + cimag(uv_out[i]) * cimag(uv_out[i]);
+    ASSERT(uv_norm > 1e-3, "Bogoliubov uv_out has finite amplitudes");
+    irrep_magnon_lsw_free(L);
+}
+
 /* (71) Polarised SF on a collinear FM along ẑ: S^xx = S^yy by symmetry,
  * S^zz = 0 (longitudinal — no 1-magnon weight). At T=0. */
 static void test_polarized_sf_collinear_FM(void) {
@@ -2453,6 +2486,7 @@ int main(void) {
     test_born_decay_rate_zero_vertex();
     test_polarized_sf_collinear_FM();
     test_polarized_sf_relates_to_S_perp();
+    test_dispersion_noncollinear_full_recovers_omega();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

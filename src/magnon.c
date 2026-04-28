@@ -2567,6 +2567,106 @@ irrep_status_t irrep_magnon_dispersion_noncollinear(const irrep_magnon_lsw_t *L,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_dispersion_noncollinear_full(const irrep_magnon_lsw_t *L,
+                                                            const double *n_vectors, double kx,
+                                                            double ky, double *omega_out,
+                                                            double _Complex *bogoliubov_uv) {
+    if (!L || !n_vectors || !omega_out || !bogoliubov_uv) return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    int N = 2 * n;
+    double *R_arr = malloc((size_t)n * 9 * sizeof *R_arr);
+    if (!R_arr) return IRREP_ERR_OUT_OF_MEMORY;
+    for (int a = 0; a < n; ++a)
+        rotate_zhat_to_n_(n_vectors + 3 * a, R_arr + 9 * a);
+    double _Complex *M = calloc((size_t)N * N, sizeof *M);
+    if (!M) {
+        free(R_arr);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    double S = L->S;
+    for (int a = 0; a < n; ++a) {
+        M[a * N + a] += 2.0 * L->Kz * S;
+        M[(a + n) * N + (a + n)] += 2.0 * L->Kz * S;
+    }
+    for (int b = 0; b < L->n_bonds; ++b) {
+        const irrep_magnon_bond_t *bd = &L->bonds[b];
+        int    i = bd->bi, j = bd->bj;
+        double tx = bd->delta_x * L->a1[0] + bd->delta_y * L->a2[0];
+        double ty = bd->delta_x * L->a1[1] + bd->delta_y * L->a2[1];
+        double phase = kx * tx + ky * ty;
+        double _Complex eikt = cos(phase) + I * sin(phase);
+        double c[9];
+        bond_c_matrix_(R_arr + 9 * i, R_arr + 9 * j, bd->J, bd->D, c);
+        double c_xx = c[3 * 0 + 0], c_xy = c[3 * 0 + 1], c_yx = c[3 * 1 + 0],
+               c_yy = c[3 * 1 + 1], c_zz = c[3 * 2 + 2];
+        double _Complex alpha_A = 0.5 * S * (c_xx + c_yy) - 0.5 * I * S * (c_xy - c_yx);
+        double _Complex alpha_B = 0.5 * S * (c_xx - c_yy) - 0.5 * I * S * (c_xy + c_yx);
+        M[i * N + i] += -c_zz * S;
+        M[j * N + j] += -c_zz * S;
+        M[(i + n) * N + (i + n)] += -c_zz * S;
+        M[(j + n) * N + (j + n)] += -c_zz * S;
+        M[i * N + j] += alpha_A * eikt;
+        M[j * N + i] += conj(alpha_A * eikt);
+        M[(i + n) * N + (j + n)] += conj(alpha_A) * eikt;
+        M[(j + n) * N + (i + n)] += alpha_A * conj(eikt);
+        M[i * N + (j + n)] += alpha_B * eikt;
+        M[j * N + (i + n)] += alpha_B * conj(eikt);
+        M[(j + n) * N + i] += conj(alpha_B * eikt);
+        M[(i + n) * N + j] += conj(alpha_B * conj(eikt));
+    }
+    double _Complex *K = malloc((size_t)N * N * sizeof *K);
+    double _Complex *W = malloc((size_t)N * N * sizeof *W);
+    double          *eigs = malloc((size_t)N * sizeof *eigs);
+    double _Complex *evecs = malloc((size_t)N * N * sizeof *evecs);
+    double _Complex *T_col = malloc((size_t)N * sizeof *T_col);
+    if (!K || !W || !eigs || !evecs || !T_col) {
+        free(R_arr); free(M); free(K); free(W); free(eigs); free(evecs); free(T_col);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    static const double EPS_PSD = 1e-10;
+    for (int a = 0; a < N; ++a) M[a * N + a] += EPS_PSD;
+    if (cholesky_(N, M, K) != 0) {
+        free(R_arr); free(M); free(K); free(W); free(eigs); free(evecs); free(T_col);
+        irrep_set_error_(
+            "irrep_magnon_dispersion_noncollinear_full: M(k) not positive-definite "
+            "at k=(%g, %g) — supplied n_α set may not be a stable ground state",
+            kx, ky);
+        return IRREP_ERR_INVALID_ARG;
+    }
+    for (int i = 0; i < N; ++i)
+        for (int j = 0; j < N; ++j) {
+            double _Complex s = 0;
+            for (int l = 0; l < N; ++l) {
+                double sg = (l < n) ? +1.0 : -1.0;
+                s += sg * K[i * N + l] * conj(K[j * N + l]);
+            }
+            W[i * N + j] = s;
+        }
+    hermitian_eig_(N, W, eigs, evecs);
+    /* For each positive eigenvalue (band b), back-substitute T_b = K^{-1} ψ_b
+     * to get the Bogoliubov amplitudes in the (a, a†) basis. The first n
+     * entries of T_b are the u-amplitudes, the next n are the v-amplitudes. */
+    int count = 0;
+    for (int idx = 0; idx < N; ++idx) {
+        if (eigs[idx] <= 0) continue;
+        for (int i = N - 1; i >= 0; --i) {
+            double _Complex sum = evecs[idx * N + i];
+            for (int kk = i + 1; kk < N; ++kk) sum -= K[i * N + kk] * T_col[kk];
+            T_col[i] = sum / K[i * N + i];
+        }
+        omega_out[count] = eigs[idx];
+        for (int i = 0; i < N; ++i) bogoliubov_uv[count * N + i] = T_col[i];
+        ++count;
+    }
+    while (count < n) {
+        omega_out[count] = 0;
+        for (int i = 0; i < N; ++i) bogoliubov_uv[count * N + i] = 0;
+        ++count;
+    }
+    free(R_arr); free(M); free(K); free(W); free(eigs); free(evecs); free(T_col);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_dispersion_noncollinear_3d(const irrep_magnon_lsw_t *L,
                                                          const double *n_vectors,
                                                          const double a3[3], double kx, double ky,

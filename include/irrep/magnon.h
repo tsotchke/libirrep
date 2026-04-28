@@ -1282,6 +1282,32 @@ IRREP_API irrep_status_t irrep_magnon_dispersion_noncollinear(const irrep_magnon
                                                                 const double *n_vectors, double kx,
                                                                 double ky, double *omega_out);
 
+/** @brief Non-collinear LSW dispersion AND Bogoliubov amplitudes.
+ *         Same as `_dispersion_noncollinear` but additionally returns
+ *         the (u, v) BdG eigenvectors per band — required infrastructure
+ *         for cubic-vertex calculations and other beyond-LSW work that
+ *         needs the full Bogoliubov transformation explicitly.
+ *
+ *  Output `bogoliubov_uv` is row-major n_sub × 2·n_sub complex.
+ *  Row b is the BdG eigenvector for band b: the first n_sub entries
+ *  are the u-amplitudes (one per sublattice), the next n_sub are
+ *  the v-amplitudes. Magnon-creation operator γ_b†(k) is then
+ *
+ *      γ_b†(k) = Σ_α [u_α^b(k) · a_α†(k) + v_α^b(k) · a_α(-k)]
+ *
+ *  Bands are sorted ascending by ω.
+ *
+ *  @param L              non-collinear LSW handle (built via the
+ *                        `_dispersion_noncollinear` route)
+ *  @param n_vectors      flat 3·n_sub doubles — local ẑ direction
+ *                        per sublattice (cartesian)
+ *  @param kx, ky         momentum
+ *  @param omega_out      n_sub doubles — band energies (asc)
+ *  @param bogoliubov_uv  n_sub × 2·n_sub complex — BdG eigenvectors */
+IRREP_API irrep_status_t irrep_magnon_dispersion_noncollinear_full(
+    const irrep_magnon_lsw_t *L, const double *n_vectors, double kx, double ky,
+    double *omega_out, double _Complex *bogoliubov_uv);
+
 /** @brief 3D non-collinear LSW dispersion. Same as
  *         `irrep_magnon_dispersion_noncollinear` but consumes a third
  *         primitive vector a₃ and per-bond `delta_z`.

@@ -416,6 +416,44 @@ IRREP_API irrep_status_t irrep_magnon_one_magnon_qomega_general(const irrep_magn
                                                                   double eta,
                                                                   double *intensity_out);
 
+/** @brief Total dynamical structure factor S(q, ω) = S⁽¹⁾ + S⁽²⁾
+ *         on a q-path — the full LSW prediction for inelastic neutron
+ *         scattering intensity in (q, ω) space.
+ *
+ *      S(q, ω) = Σ_b S_⊥_b(q) · (η/π) / ((ω − ω_b(q))² + η²)         [1-magnon]
+ *              + (1/N_BZ) Σ_{k, b₁, b₂} S_⊥_{b₁}(k) · S_⊥_{b₂}(q−k)
+ *                            · (η/π) / ((ω − ω_{b₁}(k) − ω_{b₂}(q−k))² + η²)   [2-magnon]
+ *
+ *  Equivalent to calling `_one_magnon_qomega` and `_two_magnon_qomega`
+ *  separately and summing — provided as a single call for the common
+ *  case where the full (1 + 2)-magnon prediction is wanted.
+ *
+ *  For AFM/ferri ground states use `_dynamical_structure_factor_general`.
+ *
+ *  @param L              LSW handle
+ *  @param qpath          n_q × 2 array of (qx, qy) momenta
+ *  @param n_q            number of q-points
+ *  @param Nx, Ny         BZ grid for 2-magnon convolution
+ *  @param omega_min,max  energy axis bounds
+ *  @param n_omega        energy bins
+ *  @param eta            Lorentzian half-width
+ *  @param intensity_out  caller buffer of size n_q × n_omega doubles. */
+IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor(const irrep_magnon_lsw_t *L,
+                                                                   const double (*qpath)[2],
+                                                                   int n_q, int Nx, int Ny,
+                                                                   double omega_min,
+                                                                   double omega_max, int n_omega,
+                                                                   double eta,
+                                                                   double *intensity_out);
+
+/** @brief AFM-aware total S(q, ω) — same as `_dynamical_structure_factor`
+ *         but uses Bogoliubov-aware structure factors for both 1- and
+ *         2-magnon contributions. Required for AFM/ferri materials. */
+IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor_general(
+    const irrep_magnon_lsw_t *L, const int *sublattice_signs, const double (*qpath)[2], int n_q,
+    int Nx, int Ny, double omega_min, double omega_max, int n_omega, double eta,
+    double *intensity_out);
+
 /** @brief Two-magnon density of states D⁽²⁾(ω) — spectral support
  *         for the 2-magnon continuum.
  *

@@ -1388,6 +1388,40 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (57) Total S(q, ω) = S^(1) + S^(2) — verify the wrapper equals the
+ * sum of independent calls. */
+static void test_dynamical_structure_factor_sum(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double q_pts[1][2] = {{M_PI / 2, 0.0}};
+    int n_omega = 50;
+    double w_max = 5.0;
+    double eta = 0.1;
+    int Nx = 16, Ny = 16;
+
+    double *I1   = malloc((size_t)n_omega * sizeof *I1);
+    double *I2   = malloc((size_t)n_omega * sizeof *I2);
+    double *Itot = malloc((size_t)n_omega * sizeof *Itot);
+    irrep_magnon_one_magnon_qomega(L, q_pts, 1, 0.0, w_max, n_omega, eta, I1);
+    irrep_magnon_two_magnon_qomega(L, q_pts, 1, Nx, Ny, 0.0, w_max, n_omega, eta, I2);
+    irrep_magnon_dynamical_structure_factor(L, q_pts, 1, Nx, Ny, 0.0, w_max, n_omega, eta, Itot);
+    int diff = 0;
+    for (int j = 0; j < n_omega; ++j) {
+        double expected = I1[j] + I2[j];
+        if (fabs(Itot[j] - expected) > 1e-9 * (fabs(expected) + 1)) ++diff;
+    }
+    ASSERT(diff == 0, "S(q, ω) wrapper = S^(1) + S^(2) bin-by-bin");
+    free(I1);
+    free(I2);
+    free(Itot);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (55) FM powder spectrum: sum rule ∫ S_powder dω = 2S·n_sub = 1.0
  * for the square FM (S=1/2, n_sub=1). Single-band coverage of the
  * full bandwidth ω ∈ [0, 4·J·S] = [0, 2]. */
@@ -1893,6 +1927,7 @@ int main(void) {
     test_one_magnon_qomega_general();
     test_powder_spectrum_fm();
     test_powder_spectrum_general_afm();
+    test_dynamical_structure_factor_sum();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

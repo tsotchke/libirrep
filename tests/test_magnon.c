@@ -1384,6 +1384,46 @@ static void test_heisenberg_decay_rate_collinear_zero(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (78) DMI cubic terms: validate that the cubic-vertex code includes
+ * DMI contributions correctly. On a collinear FM along ẑ:
+ *   - With ONLY out-of-plane DMI (D_z), U(1)_z is preserved → cubic
+ *     vertex is zero → Γ = 0.
+ *   - With in-plane DMI (D_x), U(1)_z is broken → cubic vertex is
+ *     non-zero → Γ > 0. */
+static void test_decay_rate_DMI_cubic_terms(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    /* Collinear FM along ẑ with NN J = -1 and DMI D_z = 0.3. */
+    irrep_magnon_bond_t bonds_Dz[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0.3}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0.3}},
+    };
+    irrep_magnon_lsw_t *L_Dz = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds_Dz, 0);
+    /* Same model but with in-plane DMI D_x = 0.3 instead. */
+    irrep_magnon_bond_t bonds_Dx[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0.3,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0.3,0,0}},
+    };
+    irrep_magnon_lsw_t *L_Dx = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds_Dx, 0);
+    double n_vec_z[3] = {0, 0, 1};
+    double k_pts[1][2] = {{M_PI / 2, M_PI / 2}};
+    double gamma_Dz, gamma_Dx;
+    irrep_status_t st_z =
+        irrep_magnon_heisenberg_decay_rate(L_Dz, n_vec_z, k_pts, 1, 12, 12, 0.1, &gamma_Dz);
+    irrep_status_t st_x =
+        irrep_magnon_heisenberg_decay_rate(L_Dx, n_vec_z, k_pts, 1, 12, 12, 0.1, &gamma_Dx);
+    ASSERT(st_z == IRREP_OK, "Γ on collinear FM + Dz returns OK");
+    ASSERT(st_x == IRREP_OK, "Γ on collinear FM + Dx returns OK");
+    /* D_z preserves U(1)_z → no cubic vertex → Γ ≈ 0. */
+    ASSERT(fabs(gamma_Dz) < 1e-9,
+           "Γ ≈ 0 with out-of-plane DMI on collinear-ẑ FM (U(1)_z preserved)");
+    /* D_x breaks U(1)_z → cubic vertex active → Γ > 0. */
+    ASSERT(gamma_Dx > 1e-3,
+           "Γ > 0 with in-plane DMI on collinear-ẑ FM (U(1)_z broken)");
+    irrep_magnon_lsw_free(L_Dz);
+    irrep_magnon_lsw_free(L_Dx);
+}
+
 /* (77) Time-reversal symmetry: for a Heisenberg-only model (no DMI)
  * the LSW Hamiltonian is invariant under k → -k, and the cubic
  * vertex inherits this symmetry. Therefore Γ_b(k) = Γ_b(-k) per band.
@@ -2652,6 +2692,7 @@ int main(void) {
     test_heisenberg_decay_rate_noncollinear_finite();
     test_heisenberg_decay_rate_bond_orientation_invariance();
     test_heisenberg_decay_rate_TR_symmetry();
+    test_decay_rate_DMI_cubic_terms();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

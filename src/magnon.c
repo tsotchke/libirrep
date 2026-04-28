@@ -1116,7 +1116,12 @@ irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
         free(R_all); free(bond_M); free(omega_grid); free(uv_grid); free(omega_k); free(uv_k);
         return IRREP_ERR_OUT_OF_MEMORY;
     }
-    /* Rotation matrices per sublattice and M_αβ per bond. M_αβ = R_α^T · R_β. */
+    /* Rotation matrices per sublattice and per-bond effective M tensor.
+     * The Heisenberg part contributes M_Heis[μν] = J · (R_α^T R_β)_{μν}.
+     * The DMI part contributes T_DMI[μν] = D · (R_α[:,μ] × R_β[:,ν]) for
+     * each component pair (μ, ν); bond_M stores the full effective
+     * M_eff[μν] = M_Heis[μν] + T_DMI[μν] which is what enters the cubic
+     * vertex coefficients. */
     for (int a = 0; a < n; ++a) rotate_zhat_to_n_(n_vectors + 3 * a, R_all + 9 * a);
     for (int b = 0; b < nb; ++b) {
         const irrep_magnon_bond_t *bd = &L->bonds[b];
@@ -1125,9 +1130,18 @@ irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
         double *M  = bond_M + 9 * b;
         for (int i = 0; i < 3; ++i)
             for (int j = 0; j < 3; ++j) {
-                double sum = 0;
-                for (int k = 0; k < 3; ++k) sum += Ra[3 * k + i] * Rb[3 * k + j];
-                M[3 * i + j] = sum;
+                /* Heisenberg part: J · (R_α^T R_β)_{ij}. R_α[k][i] = Ra[3k+i] (column i). */
+                double mh = 0;
+                for (int k = 0; k < 3; ++k) mh += Ra[3 * k + i] * Rb[3 * k + j];
+                /* DMI part: D · (R_α[:,i] × R_β[:,j]).
+                 * R_α[:,i] = (Ra[i], Ra[3+i], Ra[6+i]); same for R_β[:,j]. */
+                double a0 = Ra[i], a1 = Ra[3 + i], a2 = Ra[6 + i];
+                double b0 = Rb[j], b1 = Rb[3 + j], b2 = Rb[6 + j];
+                double cx = a1 * b2 - a2 * b1;
+                double cy = a2 * b0 - a0 * b2;
+                double cz = a0 * b1 - a1 * b0;
+                double tdmi = bd->D[0] * cx + bd->D[1] * cy + bd->D[2] * cz;
+                M[3 * i + j] = bd->J * mh + tdmi;
             }
     }
     /* Pre-compute (ω, u, v) on a TR-SYMMETRIC BZ grid (no half-shift):
@@ -1231,11 +1245,14 @@ irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
                                  * γ†γ†γ sub-cases with EVEN numbers of v-flips
                                  * (0 or 2), so no extra sign. Types 1 and 3 have
                                  * ODD numbers of v-flips (1 or 3), so an extra
-                                 * (-1) factor — absorbed into C_1, C_3 below. */
-                                double _Complex C_2 = -bd->J * prefactor * A_plus;
-                                double _Complex C_1 = +bd->J * prefactor * A_minus;
-                                double _Complex C_4 = -bd->J * prefactor * B_plus;
-                                double _Complex C_3 = +bd->J * prefactor * B_minus;
+                                 * (-1) factor — absorbed into C_1, C_3 below.
+                                 *
+                                 * Note: bond_M already encodes M_eff = J·M_Heis +
+                                 * T_DMI, so no separate bd->J factor is multiplied. */
+                                double _Complex C_2 = -prefactor * A_plus;
+                                double _Complex C_1 = +prefactor * A_minus;
+                                double _Complex C_4 = -prefactor * B_plus;
+                                double _Complex C_3 = +prefactor * B_minus;
                                 /* Phase shorthands (all relative to translation t). */
                                 double pk1 = k1x * tx + k1y * ty;
                                 double pk2 = k2x * tx + k2y * ty;

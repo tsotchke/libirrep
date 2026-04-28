@@ -539,6 +539,38 @@ IRREP_API irrep_status_t irrep_magnon_fit_J(int n_sub, double S, const double a1
                                               int n_obs, int max_iter, double tol,
                                               double *chi2_out);
 
+/** @brief Fit Heisenberg J + DMI D[3] for every bond simultaneously.
+ *         Same gradient-descent / backtracking algorithm as `_fit_J`,
+ *         but with 4× the parameters: each bond contributes one J
+ *         and three DMI components (D[0], D[1], D[2]) to the fit.
+ *
+ *  Use this when the dispersion data has enough q-coverage to
+ *  constrain the antisymmetric exchange: typically requires INS
+ *  data along a path that crosses the DMI-induced gap or band
+ *  splitting (e.g., near zone-boundary K-points on a kagome FM).
+ *
+ *  Parameters and convergence behaviour identical to `_fit_J`.
+ *
+ *  @param n_sub        number of magnetic sublattices
+ *  @param S            spin per site
+ *  @param a1, a2       primitive vectors
+ *  @param bonds        bond list — J and D's are starting guesses, overwritten with fit
+ *  @param n_bonds      number of bonds
+ *  @param Kz           uniaxial anisotropy (held fixed)
+ *  @param q_obs        n_obs × 2 momenta of observations
+ *  @param omega_obs    n_obs observed energies
+ *  @param band_obs     n_obs band indices
+ *  @param n_obs        number of observations
+ *  @param max_iter     maximum iterations
+ *  @param tol          convergence tolerance on |Δχ²|
+ *  @param chi2_out     final χ² (caller may pass NULL)
+ *  @return IRREP_OK on success. */
+IRREP_API irrep_status_t irrep_magnon_fit_J_and_DMI(
+    int n_sub, double S, const double a1[2], const double a2[2],
+    irrep_magnon_bond_t *bonds, int n_bonds, double Kz, const double (*q_obs)[2],
+    const double *omega_obs, const int *band_obs, int n_obs, int max_iter, double tol,
+    double *chi2_out);
+
 /** @brief Kinematic upper bound on magnon decay rate Γ_kin(k, b) —
  *         the 2-magnon phase-space estimate of the linewidth.
  *

@@ -981,6 +981,109 @@ irrep_status_t irrep_magnon_fit_J(int n_sub, double S, const double a1[2], const
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_fit_J_and_DMI(int n_sub, double S, const double a1[2],
+                                            const double a2[2], irrep_magnon_bond_t *bonds,
+                                            int n_bonds, double Kz,
+                                            const double (*q_obs)[2], const double *omega_obs,
+                                            const int *band_obs, int n_obs, int max_iter,
+                                            double tol, double *chi2_out) {
+    if (!bonds || !q_obs || !omega_obs || !band_obs || n_bonds <= 0 || n_obs <= 0 ||
+        max_iter <= 0 || tol < 0)
+        return IRREP_ERR_INVALID_ARG;
+    /* 4 parameters per bond: J + 3 DMI components. */
+    int P = n_bonds * 4;
+    double *omega = malloc((size_t)n_sub * sizeof *omega);
+    double _Complex *u = malloc((size_t)n_sub * n_sub * sizeof *u);
+    double *grad = malloc((size_t)P * sizeof *grad);
+    double *p_save = malloc((size_t)P * sizeof *p_save);
+    if (!omega || !u || !grad || !p_save) {
+        free(omega);
+        free(u);
+        free(grad);
+        free(p_save);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    /* Helper macros to project a parameter index to (bond, field). */
+    #define PARAM_BOND(p)  ((p) / 4)
+    #define PARAM_FIELD(p) ((p) % 4)
+    #define PARAM_GET(b, f, bd) ((f) == 0 ? (bd)->J : (bd)->D[(f) - 1])
+    #define PARAM_SET(b, f, bd, val) do {                                                          \
+        if ((f) == 0) (bd)->J = (val); else (bd)->D[(f) - 1] = (val);                              \
+    } while (0)
+
+    double chi2_curr = fit_chi2_(n_sub, S, a1, a2, bonds, n_bonds, Kz, q_obs, omega_obs,
+                                  band_obs, n_obs, omega, u);
+    if (!isfinite(chi2_curr)) {
+        free(omega);
+        free(u);
+        free(grad);
+        free(p_save);
+        return IRREP_ERR_INVALID_ARG;
+    }
+    double eps = 1e-4;
+    double alpha = 0.01;
+
+    for (int iter = 0; iter < max_iter; ++iter) {
+        for (int p = 0; p < P; ++p) {
+            int b = PARAM_BOND(p);
+            int f = PARAM_FIELD(p);
+            p_save[p] = PARAM_GET(b, f, &bonds[b]);
+        }
+
+        for (int p = 0; p < P; ++p) {
+            int b = PARAM_BOND(p);
+            int f = PARAM_FIELD(p);
+            PARAM_SET(b, f, &bonds[b], p_save[p] + eps);
+            double chi2_plus = fit_chi2_(n_sub, S, a1, a2, bonds, n_bonds, Kz, q_obs, omega_obs,
+                                          band_obs, n_obs, omega, u);
+            PARAM_SET(b, f, &bonds[b], p_save[p]);
+            grad[p] = (chi2_plus - chi2_curr) / eps;
+        }
+
+        double chi2_new = chi2_curr;
+        int    accepted = 0;
+        for (int bt = 0; bt < 30; ++bt) {
+            for (int p = 0; p < P; ++p) {
+                int b = PARAM_BOND(p);
+                int f = PARAM_FIELD(p);
+                PARAM_SET(b, f, &bonds[b], p_save[p] - alpha * grad[p]);
+            }
+            chi2_new = fit_chi2_(n_sub, S, a1, a2, bonds, n_bonds, Kz, q_obs, omega_obs,
+                                  band_obs, n_obs, omega, u);
+            if (isfinite(chi2_new) && chi2_new < chi2_curr) {
+                alpha *= 1.1;
+                accepted = 1;
+                break;
+            }
+            alpha *= 0.5;
+        }
+        if (!accepted) {
+            for (int p = 0; p < P; ++p) {
+                int b = PARAM_BOND(p);
+                int f = PARAM_FIELD(p);
+                PARAM_SET(b, f, &bonds[b], p_save[p]);
+            }
+            break;
+        }
+        if (fabs(chi2_curr - chi2_new) < tol) {
+            chi2_curr = chi2_new;
+            break;
+        }
+        chi2_curr = chi2_new;
+    }
+
+    if (chi2_out) *chi2_out = chi2_curr;
+    free(omega);
+    free(u);
+    free(grad);
+    free(p_save);
+    #undef PARAM_BOND
+    #undef PARAM_FIELD
+    #undef PARAM_GET
+    #undef PARAM_SET
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_kinematic_damping(const irrep_magnon_lsw_t *L,
                                                 const double (*kpath)[2], int n_k, int Nx,
                                                 int Ny, double eta, double *gamma_out) {

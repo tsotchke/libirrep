@@ -367,6 +367,55 @@ IRREP_API irrep_status_t irrep_magnon_two_magnon_qomega(const irrep_magnon_lsw_t
                                                           double omega_max, int n_omega,
                                                           double eta, double *intensity_out);
 
+/** @brief One-magnon dynamical structure factor S⁽¹⁾(q, ω) on a
+ *         q-path — Lorentzian-broadened band-resolved spectral
+ *         function in (q, ω) space.
+ *
+ *      S⁽¹⁾(q, ω) = Σ_b S_⊥_b(q) · (η/π) / ((ω − ω_b(q))² + η²)
+ *
+ *  This is the FM-track 1-magnon spectral density measurable directly
+ *  by inelastic neutron scattering. Together with `_two_magnon_qomega`
+ *  it gives the full LSW prediction S(q, ω) = S⁽¹⁾ + S⁽²⁾ for the
+ *  unpolarised INS intensity at fixed q.
+ *
+ *  For AFM/ferri ground states use `_one_magnon_qomega_general`,
+ *  which uses the Bogoliubov-aware structure factor for the spectral
+ *  weight.
+ *
+ *  Output is row-major n_q × n_omega.
+ *
+ *  Sum rule (per q): ∫ S⁽¹⁾(q, ω) dω = Σ_b S_⊥_b(q) = 2S · n_sub.
+ *
+ *  @param L              LSW handle
+ *  @param qpath          n_q × 2 array of (qx, qy) momenta
+ *  @param n_q            number of q-points
+ *  @param omega_min,max  energy axis bounds
+ *  @param n_omega        energy bins
+ *  @param eta            Lorentzian half-width
+ *  @param intensity_out  caller buffer of size n_q × n_omega doubles. */
+IRREP_API irrep_status_t irrep_magnon_one_magnon_qomega(const irrep_magnon_lsw_t *L,
+                                                         const double (*qpath)[2], int n_q,
+                                                         double omega_min, double omega_max,
+                                                         int n_omega, double eta,
+                                                         double *intensity_out);
+
+/** @brief AFM-aware one-magnon S⁽¹⁾(q, ω) — Bogoliubov-Colpa
+ *         structure factor in the (u, v) basis. Same parameters as
+ *         `_one_magnon_qomega` plus `sublattice_signs` (σ_α ∈
+ *         {+1, -1}).
+ *
+ *  Required for AFM materials where the Bogoliubov pairing controls
+ *  the spectral weight (cuprate La₂CuO₄, kagome 120° Néel, ferri).
+ *
+ *  Sum rule: same — ∫ S⁽¹⁾(q, ω) dω = 2S · n_sub. */
+IRREP_API irrep_status_t irrep_magnon_one_magnon_qomega_general(const irrep_magnon_lsw_t *L,
+                                                                  const int *sublattice_signs,
+                                                                  const double (*qpath)[2],
+                                                                  int n_q, double omega_min,
+                                                                  double omega_max, int n_omega,
+                                                                  double eta,
+                                                                  double *intensity_out);
+
 /** @brief Two-magnon density of states D⁽²⁾(ω) — spectral support
  *         for the 2-magnon continuum.
  *

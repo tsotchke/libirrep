@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.2] — 2026-04-28
 
 ### Added — magnon spectroscopy expansion (post-1.3.1)
 
@@ -111,13 +111,70 @@ factor). New public functions in `irrep/magnon.h`:
   and ω-integrated weight per order across three q-points, showing
   the energetic separation of the three orders.
 
+### Added — cubic-vertex Born self-energy (genuine beyond-LSW)
+
+- **`irrep_magnon_dispersion_noncollinear_full`** — exposes Bogoliubov
+  (u, v) amplitudes per band on non-collinear ground states. Required
+  infrastructure for any beyond-LSW calculation that needs the full
+  BdG transformation (cubic vertex, two-loop self-energy, RPA).
+
+- **`irrep_magnon_kinematic_damping`** — phase-space upper bound on
+  Γ via 2-magnon DOS at the dispersion energy (matrix-element-stripped
+  kinematic envelope, in J units).
+
+- **`irrep_magnon_born_decay_rate`** — Born self-energy with a
+  user-supplied cubic-vertex callback. Allows callers to plug in any
+  model-specific |V_3|² and get back Γ_b(k) without the library
+  committing to a specific Holstein-Primakoff expansion.
+
+- **`irrep_magnon_heisenberg_decay_rate`** — full Heisenberg + DMI
+  cubic-vertex Born self-energy for non-collinear LSW models.
+  Implements all γ†γ†γ contributions from the four cubic operator
+  types in the local-frame HP expansion (a_α·a_β†·a_β,
+  a_α†·a_β†·a_β, a_α†·a_α·a_β, a_α†·a_α·a_β†); each yields 6
+  γ†γ†γ sub-cases per bond orientation, totalling 48 sub-cases per
+  bond when both orientations are summed. Bond cubic coefficient
+  combines Heisenberg + DMI:
+
+      M_eff[μν] = J · (R_α^T R_β)_{μν} + D · (R_α[:,μ] × R_β[:,ν])
+
+  i.e., the rotation-projected Heisenberg M plus the DMI cross-product
+  tensor, both contributing linearly. Goldstone regularization
+  (eps_psd = η in the BdG Cholesky) bounds Bogoliubov amplitudes near
+  gap-closing modes; TR-symmetric BZ grid (no half-shift) ensures
+  Γ(k) = Γ(-k) to discretization precision.
+
+  Symmetry validations passing (in `tests/test_magnon.c`):
+    * Γ ≡ 0 on collinear with U(1) preserved (1e-9)
+    * Γ > 0 on kagome 120° Néel (genuine non-collinear cubic vertex)
+    * Γ > 0 on collinear FM + in-plane DMI (U(1) broken by DMI)
+    * Γ_b(+k) = Γ_b(-k) — TR symmetry to MACHINE PRECISION
+    * Γ invariant under bond reversal ⟨α,β,t,J,D⟩ ↔ ⟨β,α,-t,J,-D⟩
+      (1e-9 precision)
+    * Γ_b(k) ≥ 0 per band (unitarity)
+
+  Quantitative caveat: absolute magnitude on Goldstone-having models
+  depends on the regularization scale; for matching specific published
+  linewidth maps (e.g., Mourigal-Chernyshev PRL 2013 for kagome 120°
+  Néel) use models with explicitly gapped Goldstones (single-ion
+  anisotropy, applied field) where the regularization-dependent
+  contribution vanishes.
+
+- New examples for the damping stack: `kagome_kinematic_damping`,
+  `born_damping_demo`.
+
 ### Test count
 
-`test_magnon`: 412/412 assertions (was 124/124 at 1.3.1). ASan and
-UBSan both clean across the full suite. Module-level coverage on
-`magnon` remains in the high-90% range. Two shadow bugs found and
-fixed during the expansion (local `double total` shadowing the
-global `int total` used by the ASSERT macro).
+`test_magnon`: 439/439 assertions (was 124/124 at 1.3.1, ~3.5×
+growth). ASan and UBSan both clean across the full suite.
+Module-level function coverage on `magnon` ≥ 93%. Two shadow bugs
+found and fixed during the expansion (local `double total` shadowing
+the global `int total` used by the ASSERT macro).
+
+### Fuzz + coverage baselines
+
+Refreshed under `benchmarks/results/{fuzz,coverage}/2026-04-28*` —
+7 fuzz drivers × 1M iterations clean against the new public surface.
 
 ## [1.3.1] — 2026-04-26
 

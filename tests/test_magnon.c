@@ -1384,6 +1384,65 @@ static void test_heisenberg_decay_rate_collinear_zero(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (76) Bond-orientation invariance of _heisenberg_decay_rate. The
+ * physical bond ⟨α, β⟩ at translation t is the same physical bond as
+ * ⟨β, α⟩ at translation -t. The library iterates BOTH orientations
+ * internally to capture the full cubic vertex contribution, so a
+ * bond list given in one orientation must produce the SAME Γ as the
+ * same list with each bond reversed.
+ *
+ * This is a non-trivial validation: errors in the (u, v) convention,
+ * the coefficient sign for v-flip sub-cases, or the M-matrix
+ * transposition under orientation reversal all break this symmetry.
+ */
+static void test_heisenberg_decay_rate_bond_orientation_invariance(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * sqrt(3.0)};
+    /* Two equivalent kagome bond lists: one with bonds going A→B,
+     * the other with the same bonds going B→A. The cubic-vertex
+     * code should give identical Γ for both. */
+    irrep_magnon_bond_t bonds_AB[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 2, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 0, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1,  .J = +1.0, .D = {0,0,0}},
+    };
+    /* Reverse each bond: bi↔bj, delta_x→-delta_x, delta_y→-delta_y. */
+    irrep_magnon_bond_t bonds_BA[6];
+    for (int i = 0; i < 6; ++i) {
+        bonds_BA[i] = bonds_AB[i];
+        bonds_BA[i].bi = bonds_AB[i].bj;
+        bonds_BA[i].bj = bonds_AB[i].bi;
+        bonds_BA[i].delta_x = -bonds_AB[i].delta_x;
+        bonds_BA[i].delta_y = -bonds_AB[i].delta_y;
+    }
+    irrep_magnon_lsw_t *L_AB = irrep_magnon_lsw_new(3, 0.5, a1, a2, 6, bonds_AB, 0);
+    irrep_magnon_lsw_t *L_BA = irrep_magnon_lsw_new(3, 0.5, a1, a2, 6, bonds_BA, 0);
+    double n_vecs[9] = {
+        1.0,           0.0,            0.0,
+       -0.5,           0.5 * sqrt(3.0), 0.0,
+       -0.5,          -0.5 * sqrt(3.0), 0.0,
+    };
+    double k_pts[1][2] = {{1.5, 0.7}};
+    double gamma_AB[3], gamma_BA[3];
+    irrep_status_t st1 =
+        irrep_magnon_heisenberg_decay_rate(L_AB, n_vecs, k_pts, 1, 12, 12, 0.1, gamma_AB);
+    irrep_status_t st2 =
+        irrep_magnon_heisenberg_decay_rate(L_BA, n_vecs, k_pts, 1, 12, 12, 0.1, gamma_BA);
+    ASSERT(st1 == IRREP_OK, "Γ on bonds_AB returns OK");
+    ASSERT(st2 == IRREP_OK, "Γ on bonds_BA (reversed) returns OK");
+    /* Γ_b should agree per-band to high precision under bond reversal. */
+    for (int b = 0; b < 3; ++b) {
+        double rel = fabs(gamma_AB[b] - gamma_BA[b]) /
+                     (fabs(gamma_AB[b]) + fabs(gamma_BA[b]) + 1e-12);
+        ASSERT(rel < 1e-9, "Γ invariant under bond orientation reversal");
+    }
+    irrep_magnon_lsw_free(L_AB);
+    irrep_magnon_lsw_free(L_BA);
+}
+
 /* (75) On the kagome 120° Néel — a genuinely stable classical
  * non-collinear ground state — the cubic vertex is finite and Γ > 0
  * on at least one band at a generic k away from Γ. */
@@ -2553,6 +2612,7 @@ int main(void) {
     test_dispersion_noncollinear_full_recovers_omega();
     test_heisenberg_decay_rate_collinear_zero();
     test_heisenberg_decay_rate_noncollinear_finite();
+    test_heisenberg_decay_rate_bond_orientation_invariance();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

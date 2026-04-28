@@ -140,17 +140,24 @@ int main(void) {
     printf("  - Γ_kin > 0 marks regions with kinematic decay phase space.\n");
     printf("    These bands have *available* 1→2 channels, but the actual\n");
     printf("    linewidth needs the cubic vertex too: Γ = Γ_kin · |V_3|².\n");
-    printf("  - For collinear FM with U(1) symmetry V_3 = 0 by symmetry,\n");
-    printf("    so the *real* damping is zero. With DMI breaking U(1),\n");
-    printf("    V_3 ~ D, so Γ_real ~ (D/J)² · Γ_kin.\n");
-    printf("  - For our D/J = 0.15 model, an upper bound on Γ_real is\n");
-    printf("    therefore (0.15)² · Γ_kin_max = %.4f · J. The acoustic\n",
-           0.15 * 0.15 * g_max);
-    printf("    band is gapless at Γ → no decay there; the upper bands\n");
-    printf("    have finite linewidths peaked near zone-boundary q.\n");
-    printf("  - Note: Γ_kin > 0 even on the lowest (Goldstone) band away\n");
-    printf("    from Γ — the band can decay into two acoustic phonons\n");
-    printf("    when ω_1(k) is above the 2-magnon band-bottom 2·ω_min.\n\n");
+    printf("  - This particular model (collinear FM along ẑ with out-of-\n");
+    printf("    plane DMI ẑ) RETAINS U(1)_ẑ symmetry — DMI ẑ commutes\n");
+    printf("    with spin rotations around ẑ. So V_3 = 0 by symmetry and\n");
+    printf("    the real linewidth is identically zero, despite the finite\n");
+    printf("    kinematic phase space shown above. The kinematic estimate\n");
+    printf("    is an UPPER BOUND, not the actual linewidth.\n");
+    printf("  - To get non-zero V_3 on the kagome FM one needs U(1)\n");
+    printf("    breaking: in-plane DMI components, single-ion anisotropy\n");
+    printf("    K_x or K_y, an external in-plane field, or a non-collinear\n");
+    printf("    ground state (canted, spiral, 120° kagome AFM).\n");
+    printf("  - For materials with in-plane DMI Dxy ≪ Dz (e.g., Cu(1,3-bdc)\n");
+    printf("    where in-plane components are weak), Γ_real ~ (Dxy/J)² ·\n");
+    printf("    Γ_kin. Upper bound for Dxy = 0.15: (0.15)² · Γ_kin_max\n");
+    printf("    = %.4f · J for the most-damped band/k.\n", 0.15 * 0.15 * g_max);
+    printf("  - This example demonstrates the kinematic *infrastructure*;\n");
+    printf("    real damping prediction needs the matrix-element side as\n");
+    printf("    well, which is model-specific and not yet built into the\n");
+    printf("    library.\n\n");
 
     free(kpath);
     free(t_axis);

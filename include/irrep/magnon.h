@@ -657,8 +657,24 @@ typedef double (*irrep_magnon_cubic_vertex_fn)(int b, int b1, int b2, double kx,
                                                  double k2y, void *user_data);
 
 /** @brief Heisenberg cubic-vertex Born decay rate for non-collinear
- *         LSW models — turns the user's ground-state direction set
- *         and bond list into Γ_b(k) directly, no callback required.
+ *         LSW models — LEADING-ORDER Bogoliubov approximation.
+ *
+ *  NOT a complete Mourigal-Chernyshev-quality calculation. This
+ *  implementation uses ONLY the leading u·u·u* term from the (u, v)
+ *  Bogoliubov expansion of the bare-boson cubic vertex. The exact
+ *  result includes 7 additional v-mixed contributions per bond that
+ *  are O(canting) corrections — small for "FM-like" non-collinear
+ *  states but O(1) for strongly-paired AFMs (canonical kagome 120°
+ *  Néel etc.). For quantitative agreement with published linewidth
+ *  maps (Mourigal-Chernyshev PRL 2013) the v contributions need to
+ *  be added; this is documented and left for follow-on work.
+ *
+ *  Use this function for: order-of-magnitude estimates, qualitative
+ *  k-dependence of decay channels, cross-validating against
+ *  `_kinematic_damping` in the appropriate phase-space-only limit.
+ *
+ *  Do NOT cite this output as a quantitative Born linewidth without
+ *  validating against a model with known reference linewidths.
  *
  *  Implements the Born self-energy
  *

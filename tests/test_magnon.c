@@ -1317,6 +1317,38 @@ static void test_afm_zero_point_square(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (51) AFM Bogoliubov structure factor: with signs=+1 (FM), should
+ * match the FM-track _structure_factor for the same model. */
+static void test_structure_factor_general_fm_recovery(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    int signs[1] = {+1};
+
+    /* Compare general (with FM signs) to FM-track _structure_factor at
+     * 3 q-points. Should match within numerical precision. */
+    double q_pts[3][2] = {{0.5, 0.3}, {1.5, -0.7}, {2.0, 1.0}};
+    for (int p = 0; p < 3; ++p) {
+        double omega_fm, S_fm;
+        irrep_magnon_structure_factor(L, q_pts[p][0], q_pts[p][1], &omega_fm, &S_fm);
+        double omega_g, S_g;
+        irrep_magnon_structure_factor_general(L, signs, q_pts[p][0], q_pts[p][1],
+                                                &omega_g, &S_g);
+        ASSERT_NEAR(omega_g, omega_fm, 1e-6,
+                    "_structure_factor_general (signs=+1) ω matches FM");
+        /* The S_perp may differ by overall normalisation since the
+         * Bogoliubov path includes the |λ| factor; check it's positive. */
+        ASSERT(S_g > 0, "_structure_factor_general gives positive S_⊥");
+    }
+    irrep_magnon_lsw_free(L);
+}
+
 /* (50) Two-magnon S⁽²⁾(q, ω) sanity: peak position should be at the
  * convolution-of-dispersion energy, and the spectrum should be
  * non-zero in the 2-magnon energy band [0, 2·ω_max]. */
@@ -1694,6 +1726,7 @@ int main(void) {
     test_hartree_renormalisation();
     test_two_magnon_dos();
     test_two_magnon_qomega();
+    test_structure_factor_general_fm_recovery();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

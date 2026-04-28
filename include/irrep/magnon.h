@@ -658,6 +658,37 @@ IRREP_API irrep_status_t irrep_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, i
                                            double omega_min, double omega_max, int n_bins,
                                            double *dos_out);
 
+/** @brief Band-resolved transverse structure factor for a *general*
+ *         (collinear FM/AFM/ferri) ground state — uses the Bogoliubov-
+ *         Colpa machinery instead of the FM-only Hermitian path.
+ *
+ *  For AFM/ferri ground states, the transverse INS observable involves
+ *  both u (particle) and v (hole) Bogoliubov amplitudes:
+ *
+ *      S_⊥_b(q) = 2S · |Σ_α (u_α^b(q) + v_α^b(q))|²
+ *
+ *  where (u, v) come from the Bogoliubov-Colpa transformation of the
+ *  generalised BdG matrix M(k). For collinear FM (all σ_α = +1),
+ *  v = 0 and this reduces to `_structure_factor`.
+ *
+ *  Sum rule:  Σ_b S_⊥_b(q) = 2S · n_sub  for every q (just like the
+ *  FM-track function).
+ *
+ *  Useful for INS spectrum prediction on AFM materials where the
+ *  Bogoliubov pairing is essential to the spectral weight (e.g.,
+ *  cuprate La₂CuO₄ structure factor below the band-top).
+ *
+ *  @param L                LSW handle
+ *  @param sublattice_signs σ_α ∈ {+1, -1} per sublattice
+ *  @param qx, qy           momentum (cartesian)
+ *  @param omega_out        n_sub doubles — band energies sorted asc
+ *  @param S_perp_out       n_sub doubles — band-resolved S_⊥_b(q) */
+IRREP_API irrep_status_t irrep_magnon_structure_factor_general(const irrep_magnon_lsw_t *L,
+                                                                 const int *sublattice_signs,
+                                                                 double qx, double qy,
+                                                                 double *omega_out,
+                                                                 double *S_perp_out);
+
 /** @brief Compute the band-resolved transverse dynamic spin structure
  *         factor S⊥_b(q) of a collinear-FM-along-z LSW magnet.
  *

@@ -1,0 +1,14 @@
+## build/bin/fuzz_cg_driver
+fuzz-driver: 1000000 iterations ok
+## build/bin/fuzz_lattice_build_driver
+fuzz-driver: 1000000 iterations ok
+## build/bin/fuzz_multiset_parse_driver
+fuzz-driver: 1000000 iterations ok
+## build/bin/fuzz_nequip_apply_forces_driver
+fuzz-driver: 1000000 iterations ok
+## build/bin/fuzz_nequip_from_spec_driver
+fuzz-driver: 1000000 iterations ok
+## build/bin/fuzz_pg_project_driver
+fuzz-driver: 1000000 iterations ok
+## build/bin/fuzz_tp_apply_driver
+fuzz-driver: 1000000 iterations ok

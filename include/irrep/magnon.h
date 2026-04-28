@@ -308,6 +308,45 @@ IRREP_API irrep_status_t irrep_magnon_hessian(const irrep_magnon_lsw_t *L, doubl
                                                double h, double *hxx_out, double *hyy_out,
                                                double *hxy_out);
 
+/** @brief Hartree-Fock-renormalised magnon dispersion at finite T —
+ *         the leading 1/S correction beyond LSW.
+ *
+ *  LSW (linear spin-wave theory) keeps only bilinear-in-bosons terms
+ *  in the Holstein-Primakoff expansion. The next term is QUARTIC,
+ *  encoding magnon-magnon scattering. Hartree-Fock decoupling of
+ *  these quartic terms gives a finite-T renormalised dispersion:
+ *
+ *      ω_HF(k, T) = ω_LSW(k) · Z(T)
+ *
+ *  where Z(T) = 1 − ⟨n⟩(T)/S is the standard Bloch-Dyson factor,
+ *  with ⟨n⟩(T) = (1/N_BZ) Σ_b ∫ n_BE(ω_LSW/T) d²k the average
+ *  thermal magnon population per cell.
+ *
+ *  Limits:
+ *    - T → 0:           Z → 1 (no correction; recover LSW)
+ *    - T → T_c (= O(JS)): Z → 0 (bands collapse, LSW breakdown signal)
+ *
+ *  At T < ~T_c/3, Z is within a few percent of 1 and LSW is
+ *  quantitatively reliable. Near T_c, Z becomes O(1) and full
+ *  beyond-LSW (Schwinger-boson MF, classical MC) is needed.
+ *
+ *  This function returns the scalar Z(T); the caller multiplies any
+ *  LSW dispersion to get the HF-renormalised one. Useful as both a
+ *  beyond-LSW correction AND a *diagnostic* for LSW validity:
+ *  Z >> 0.7 means LSW is fine; Z < 0.5 means breakdown.
+ *
+ *  References:
+ *    - Bloch (1930): T^{3/2} magnetisation law
+ *    - Dyson (1956): leading 1/S spin-wave theory beyond LSW
+ *    - Holstein-Primakoff (1940): the bosonisation
+ *
+ *  @param L      LSW handle
+ *  @param T      temperature (same units as ω)
+ *  @param Nx, Ny BZ grid (typical 32-128)
+ *  @return       Z(T) ∈ [0, 1] (or NaN on error). */
+IRREP_API double irrep_magnon_hartree_renormalisation(const irrep_magnon_lsw_t *L, double T,
+                                                       int Nx, int Ny);
+
 /** @brief Compute the magnon group velocity v_g(k) = ∇_k ω_b(k) for
  *         each band at a single k point via central finite difference.
  *

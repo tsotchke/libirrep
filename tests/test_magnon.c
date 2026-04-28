@@ -1317,6 +1317,45 @@ static void test_afm_zero_point_square(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (48) Hartree-Fock thermal renormalisation factor Z(T) — leading
+ * 1/S correction beyond LSW. Verifies:
+ *   T → 0:    Z → 1 (no correction; recovers LSW)
+ *   T → ∞:    Z → 0 (LSW breakdown signal)
+ *   monotonic decrease in T */
+static void test_hartree_renormalisation(void) {
+    /* Gapped FM (so Z is finite at modest T): Kz = 0.05 makes
+     * Goldstone gap finite. */
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .delta_z = 0,
+         .J = -1.0, .D = {0, 0, 0}},
+    };
+    double S = 0.5;
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, S, a1, a2, 2, bonds, /*Kz=*/0.05);
+
+    /* Test within LSW-valid regime where Z is monotonically in (0, 1).
+     * For S=½ gapped FM with bandwidth ≈ 4: LSW reliable for T ≤ 0.5
+     * (in units of |J|). At higher T, Z saturates to 0 (LSW breakdown). */
+    double Z_low = irrep_magnon_hartree_renormalisation(L, 0.01, 32, 32);
+    double Z_mid = irrep_magnon_hartree_renormalisation(L, 0.05, 32, 32);
+    double Z_higher = irrep_magnon_hartree_renormalisation(L, 0.10, 32, 32);
+    double Z_breakdown = irrep_magnon_hartree_renormalisation(L, 100.0, 32, 32);
+
+    ASSERT(Z_low > 0.99,
+           "Z(T → 0) → 1 (no thermal renormalisation; LSW recovered)");
+    ASSERT(Z_breakdown <= 0.001,
+           "Z(T → ∞) → 0 (LSW breakdown signal — clamp engages)");
+    ASSERT(Z_low > Z_mid && Z_mid > Z_higher,
+           "Z(T) monotonically decreases within LSW-valid range");
+    ASSERT(Z_low <= 1.0 && Z_low >= 0.0, "Z(low) ∈ [0, 1]");
+    ASSERT(Z_higher > 0 && Z_higher < Z_low, "Z(higher) ∈ (0, 1) within LSW");
+
+    irrep_magnon_lsw_free(L);
+}
+
 /* (47) 3D non-collinear at kz=0 with delta_z=0 must reduce to 2D
  * non-collinear. Same consistency check as the 3D AFM/FM versions.
  * Use a STABLE non-collinear configuration: FM along x-axis (all
@@ -1579,6 +1618,7 @@ int main(void) {
     test_noncollinear_fm_recovery();
     test_noncollinear_afm_recovery();
     test_noncollinear_3d_reduces_to_2d();
+    test_hartree_renormalisation();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

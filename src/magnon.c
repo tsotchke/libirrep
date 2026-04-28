@@ -570,6 +570,53 @@ irrep_status_t irrep_magnon_hessian(const irrep_magnon_lsw_t *L, double kx, doub
     return IRREP_OK;
 }
 
+double irrep_magnon_hartree_renormalisation(const irrep_magnon_lsw_t *L, double T, int Nx,
+                                              int Ny) {
+    if (!L || T <= 0 || Nx <= 0 || Ny <= 0) {
+        irrep_set_error_("irrep_magnon_hartree_renormalisation: invalid arguments");
+        return NAN;
+    }
+    int     n = L->n_sub;
+    double *omega = malloc((size_t)n * sizeof *omega);
+    double _Complex *u = malloc((size_t)n * n * sizeof *u);
+    if (!omega || !u) {
+        free(omega);
+        free(u);
+        return NAN;
+    }
+    /* ⟨n⟩(T) = (1/N_BZ) · Σ_b Σ_k n_BE(ω_LSW(k, b)/T)
+     * (per cell — sum over bands AND momentum, divided by N_BZ only). */
+    double accum = 0;
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = (double)ix / Nx;
+            double fy = (double)iy / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            irrep_magnon_dispersion(L, kx, ky, omega, u);
+            for (int b = 0; b < n; ++b) {
+                double w = omega[b];
+                if (w < 1e-10)
+                    continue;
+                double x = w / T;
+                if (x > 700)
+                    continue;
+                accum += 1.0 / (exp(x) - 1.0);
+            }
+        }
+    free(omega);
+    free(u);
+    /* Per cell, normalised to N_BZ; <n>/S is the dimensionless
+     * "thermal magnon density relative to the maximum (S)". */
+    double n_avg = accum / ((double)Nx * (double)Ny);
+    double Z = 1.0 - n_avg / L->S;
+    /* Clamp to [0, 1]: at extreme temperatures the formula gives
+     * Z < 0 which is unphysical (LSW has broken down completely). */
+    if (Z < 0) Z = 0;
+    if (Z > 1) Z = 1;
+    return Z;
+}
+
 irrep_status_t irrep_magnon_group_velocity(const irrep_magnon_lsw_t *L, double kx, double ky,
                                             double h, double *vx_out, double *vy_out) {
     if (!L || !vx_out || !vy_out || h <= 0)

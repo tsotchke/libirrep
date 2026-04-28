@@ -881,6 +881,106 @@ irrep_status_t irrep_magnon_dynamical_structure_factor_general(
     return IRREP_OK;
 }
 
+/* Internal helper: build LSW handle, evaluate χ² over the observation
+ * set, free handle. Returns +∞ if construction fails. */
+static double fit_chi2_(int n_sub, double S, const double a1[2], const double a2[2],
+                         irrep_magnon_bond_t *bonds, int n_bonds, double Kz,
+                         const double (*q_obs)[2], const double *omega_obs,
+                         const int *band_obs, int n_obs, double *omega_buf,
+                         double _Complex *u_buf) {
+    irrep_magnon_lsw_t *Lh = irrep_magnon_lsw_new(n_sub, S, a1, a2, n_bonds, bonds, Kz);
+    if (!Lh) return INFINITY;
+    double chi2 = 0;
+    for (int i = 0; i < n_obs; ++i) {
+        if (band_obs[i] < 0 || band_obs[i] >= n_sub) continue;
+        irrep_magnon_dispersion(Lh, q_obs[i][0], q_obs[i][1], omega_buf, u_buf);
+        double r = omega_buf[band_obs[i]] - omega_obs[i];
+        chi2 += r * r;
+    }
+    irrep_magnon_lsw_free(Lh);
+    return chi2;
+}
+
+irrep_status_t irrep_magnon_fit_J(int n_sub, double S, const double a1[2], const double a2[2],
+                                    irrep_magnon_bond_t *bonds, int n_bonds, double Kz,
+                                    const double (*q_obs)[2], const double *omega_obs,
+                                    const int *band_obs, int n_obs, int max_iter, double tol,
+                                    double *chi2_out) {
+    if (!bonds || !q_obs || !omega_obs || !band_obs || n_bonds <= 0 || n_obs <= 0 ||
+        max_iter <= 0 || tol < 0)
+        return IRREP_ERR_INVALID_ARG;
+
+    double *omega = malloc((size_t)n_sub * sizeof *omega);
+    double _Complex *u = malloc((size_t)n_sub * n_sub * sizeof *u);
+    double *grad = malloc((size_t)n_bonds * sizeof *grad);
+    double *J_save = malloc((size_t)n_bonds * sizeof *J_save);
+    if (!omega || !u || !grad || !J_save) {
+        free(omega);
+        free(u);
+        free(grad);
+        free(J_save);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+
+    double chi2_curr = fit_chi2_(n_sub, S, a1, a2, bonds, n_bonds, Kz, q_obs, omega_obs,
+                                  band_obs, n_obs, omega, u);
+    if (!isfinite(chi2_curr)) {
+        free(omega);
+        free(u);
+        free(grad);
+        free(J_save);
+        return IRREP_ERR_INVALID_ARG;
+    }
+    double eps   = 1e-4;
+    double alpha = 0.01;
+
+    for (int iter = 0; iter < max_iter; ++iter) {
+        /* Save current J's. */
+        for (int k = 0; k < n_bonds; ++k) J_save[k] = bonds[k].J;
+
+        /* Forward-difference gradient. */
+        for (int k = 0; k < n_bonds; ++k) {
+            bonds[k].J = J_save[k] + eps;
+            double chi2_plus = fit_chi2_(n_sub, S, a1, a2, bonds, n_bonds, Kz, q_obs,
+                                          omega_obs, band_obs, n_obs, omega, u);
+            bonds[k].J = J_save[k];
+            grad[k]    = (chi2_plus - chi2_curr) / eps;
+        }
+
+        /* Backtracking line search. */
+        double chi2_new = chi2_curr;
+        int    accepted = 0;
+        for (int bt = 0; bt < 30; ++bt) {
+            for (int k = 0; k < n_bonds; ++k) bonds[k].J = J_save[k] - alpha * grad[k];
+            chi2_new = fit_chi2_(n_sub, S, a1, a2, bonds, n_bonds, Kz, q_obs, omega_obs,
+                                  band_obs, n_obs, omega, u);
+            if (isfinite(chi2_new) && chi2_new < chi2_curr) {
+                alpha *= 1.1;
+                accepted = 1;
+                break;
+            }
+            alpha *= 0.5;
+        }
+        if (!accepted) {
+            /* Stuck — restore and stop. */
+            for (int k = 0; k < n_bonds; ++k) bonds[k].J = J_save[k];
+            break;
+        }
+        if (fabs(chi2_curr - chi2_new) < tol) {
+            chi2_curr = chi2_new;
+            break;
+        }
+        chi2_curr = chi2_new;
+    }
+
+    if (chi2_out) *chi2_out = chi2_curr;
+    free(omega);
+    free(u);
+    free(grad);
+    free(J_save);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_kinematic_damping(const irrep_magnon_lsw_t *L,
                                                 const double (*kpath)[2], int n_k, int Nx,
                                                 int Ny, double eta, double *gamma_out) {

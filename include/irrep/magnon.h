@@ -498,6 +498,47 @@ IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor_general(
     int Nx, int Ny, double omega_min, double omega_max, int n_omega, double eta,
     double *intensity_out);
 
+/** @brief Fit Heisenberg couplings J's to observed band-resolved
+ *         dispersion data via gradient descent with backtracking.
+ *
+ *  Given a bond list with initial-guess J values and a set of
+ *  measured points (q_i, ω_i, b_i), iteratively adjusts each bond's J
+ *  to minimise χ² = Σ_i (ω_b_i(q_i; J) − ω_i)². The DMI fields D[3]
+ *  are NOT fit — pass them as known constants in the bond list.
+ *
+ *  Algorithm: gradient descent with backtracking line search. Each
+ *  iteration computes the gradient ∂χ²/∂J_k by finite-differencing
+ *  with ε = 1e-4 (rebuilds the LSW handle inside). Step size adapts
+ *  via (×1.1 on accept, ×0.5 on reject) backtracking.
+ *
+ *  Each bond's J is fit INDEPENDENTLY. To share a J across symmetry-
+ *  related bonds, callers should manually average post-hoc, or set
+ *  identical initial guesses and let the symmetry of the data drive
+ *  the fit toward identical optima (typically does within ~1e-4 in
+ *  noise-free synthetic data).
+ *
+ *  @param n_sub        number of magnetic sublattices
+ *  @param S            spin per site
+ *  @param a1, a2       primitive vectors
+ *  @param bonds        bond list — J's are starting guesses, overwritten with fit
+ *  @param n_bonds      number of bonds
+ *  @param Kz           uniaxial anisotropy (held fixed)
+ *  @param q_obs        n_obs × 2 momenta of observations
+ *  @param omega_obs    n_obs observed dispersion energies
+ *  @param band_obs     n_obs band indices (0 .. n_sub-1)
+ *  @param n_obs        number of observations
+ *  @param max_iter     maximum gradient-descent iterations
+ *  @param tol          convergence tolerance on |Δχ²|
+ *  @param chi2_out     final χ² (caller may pass NULL)
+ *  @return IRREP_OK on success, IRREP_ERR_* otherwise. */
+IRREP_API irrep_status_t irrep_magnon_fit_J(int n_sub, double S, const double a1[2],
+                                              const double a2[2],
+                                              irrep_magnon_bond_t *bonds, int n_bonds,
+                                              double Kz, const double (*q_obs)[2],
+                                              const double *omega_obs, const int *band_obs,
+                                              int n_obs, int max_iter, double tol,
+                                              double *chi2_out);
+
 /** @brief Kinematic upper bound on magnon decay rate Γ_kin(k, b) —
  *         the 2-magnon phase-space estimate of the linewidth.
  *

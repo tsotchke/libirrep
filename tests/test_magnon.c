@@ -1357,6 +1357,48 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (63) J-fitter: synthesise dispersion data with known J's, perturb
+ * the initial guess, run the fitter, verify recovered J's. */
+static void test_fit_J_recovers_synthetic(void) {
+    /* True model: square FM, single sublattice, NN J = -1.5. */
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds_true[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.5, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.5, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L_true = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds_true, 0);
+
+    /* Generate 6 synthetic observations on band 0 at random q's. */
+    double q_obs[6][2] = {
+        {0.5, 0.0}, {1.0, 0.0}, {1.5, 0.0},
+        {0.5, 0.5}, {1.0, 1.0}, {1.5, 1.5},
+    };
+    double omega_obs[6];
+    int    band_obs[6] = {0, 0, 0, 0, 0, 0};
+    double omega_buf[1];
+    double _Complex u_buf[1];
+    for (int i = 0; i < 6; ++i) {
+        irrep_magnon_dispersion(L_true, q_obs[i][0], q_obs[i][1], omega_buf, u_buf);
+        omega_obs[i] = omega_buf[0];
+    }
+    irrep_magnon_lsw_free(L_true);
+
+    /* Perturbed initial guess: J = -1.0 (vs true -1.5). Fit. */
+    irrep_magnon_bond_t bonds_fit[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    double chi2;
+    irrep_status_t st = irrep_magnon_fit_J(1, 0.5, a1, a2, bonds_fit, 2, 0, q_obs, omega_obs,
+                                            band_obs, 6, 200, 1e-12, &chi2);
+    ASSERT(st == IRREP_OK, "fit_J returns OK");
+    ASSERT(chi2 < 1e-6, "fit_J reaches near-zero χ² on synthetic data");
+    /* Both bonds should recover ≈ -1.5. */
+    ASSERT(fabs(bonds_fit[0].J - (-1.5)) < 0.01, "fit_J recovers J on bond 0");
+    ASSERT(fabs(bonds_fit[1].J - (-1.5)) < 0.01, "fit_J recovers J on bond 1");
+}
+
 /* (62) Kinematic damping basic check: function returns non-negative
  * finite values everywhere, output array is band-resolved. The actual
  * physics test (zero for collinear FM where the cubic vertex
@@ -2056,6 +2098,7 @@ int main(void) {
     test_anti_stokes_zero_at_T0();
     test_detailed_balance();
     test_kinematic_damping_basic();
+    test_fit_J_recovers_synthetic();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

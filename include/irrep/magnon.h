@@ -357,7 +357,8 @@ IRREP_API irrep_status_t irrep_magnon_two_magnon_qomega_general(const irrep_magn
  *  @param qpath          n_q × 2 array of (qx, qy) momenta
  *  @param n_q            number of q-points
  *  @param Nx, Ny         BZ integration grid (cost is quadratic)
- *  @param omega_min,max  energy axis bounds
+ *  @param omega_min      lower edge of energy axis
+ *  @param omega_max      upper edge of energy axis
  *  @param n_omega        energy bins
  *  @param eta            Lorentzian half-width
  *  @param intensity_out  caller buffer of size n_q × n_omega doubles. */
@@ -405,7 +406,8 @@ IRREP_API irrep_status_t irrep_magnon_one_magnon_qomega_general(const irrep_magn
  *  @param qpath          n_q × 2 array of (qx, qy) momenta
  *  @param n_q            number of q-points
  *  @param Nx, Ny         BZ grid for 2-magnon convolution
- *  @param omega_min,max  energy axis bounds
+ *  @param omega_min      lower edge of energy axis
+ *  @param omega_max      upper edge of energy axis
  *  @param n_omega        energy bins
  *  @param eta            Lorentzian half-width
  *  @param intensity_out  caller buffer of size n_q × n_omega doubles. */
@@ -438,7 +440,8 @@ IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor(const irrep_mag
  *  @param L              LSW handle
  *  @param qpath          n_q × 2 momenta
  *  @param n_q            number of q-points
- *  @param omega_min,max  energy axis (ω > 0 for Stokes)
+ *  @param omega_min      lower edge of energy axis (ω > 0 for Stokes)
+ *  @param omega_max      upper edge of energy axis
  *  @param n_omega        number of energy bins
  *  @param eta            Lorentzian half-width
  *  @param T              temperature in J units (k_B = 1)

@@ -656,37 +656,57 @@ typedef double (*irrep_magnon_cubic_vertex_fn)(int b, int b1, int b2, double kx,
                                                  double k1x, double k1y, double k2x,
                                                  double k2y, void *user_data);
 
-/** @brief Heisenberg cubic-vertex Born decay rate for non-collinear
- *         LSW models — full Bogoliubov-mixed Born self-energy.
+/** @brief Heisenberg + DMI cubic-vertex Born decay rate for
+ *         non-collinear LSW models — full Bogoliubov-mixed Born
+ *         self-energy.
  *
  *  Implements the Born self-energy by enumerating all γ†γ†γ
  *  contributions to the matrix element from the four cubic operator
  *  types (a_α·a_β†·a_β, a_α†·a_β†·a_β, a_α†·a_α·a_β, a_α†·a_α·a_β†)
- *  in the local-frame Holstein-Primakoff expansion of the Heisenberg
- *  bond Hamiltonian. Each Type yields 6 γ†γ†γ sub-cases per bond
+ *  in the local-frame Holstein-Primakoff expansion of the bond
+ *  Hamiltonian. Each Type yields 6 γ†γ†γ sub-cases per bond
  *  orientation, giving 48 sub-cases per bond when both orientations
  *  are summed.
  *
+ *  Bond cubic coefficient combines Heisenberg + DMI contributions:
+ *
+ *      M_eff[μν] = J · (R_α^T R_β)_{μν} + D · (R_α[:,μ] × R_β[:,ν])
+ *
+ *  i.e., the rotation-projected Heisenberg M-matrix plus the
+ *  DMI cross-product tensor. Both contribute linearly to the cubic
+ *  vertex.
+ *
  *  Each sub-case is an ordered product (creator-1, creator-2,
- *  annihilator) of (u, v) Bogoliubov amplitudes from
- *  `_dispersion_noncollinear_full`, with the appropriate momentum
- *  conservation, phase factor e^{i k·t}, and bond-cubic coefficient
- *  combining M_αβ = R_α^T R_β off-diagonals.
+ *  annihilator) of (u, v) Bogoliubov amplitudes from the
+ *  noncollinear-LSW BdG diagonalization, with appropriate momentum
+ *  conservation and phase factor e^{i k·t}.
  *
- *  Validation: Γ ≡ 0 on collinear ground states (M = identity → all
- *  cubic-vertex coefficients zero by U(1) symmetry); Γ > 0 on the
- *  kagome 120° Néel.
+ *  Goldstone regularization: the BdG Cholesky uses eps_psd = η to
+ *  bound Bogoliubov amplitudes near gap-closing modes. Without this,
+ *  the BZ integral on Goldstone-having models (kagome 120° Néel,
+ *  triangular AFM) is contaminated by 1/√ω divergences.
  *
- *  Caveats: this is the HEISENBERG-only cubic vertex. DMI cubic
- *  contributions are not included (additive, requires extending the
- *  Holstein-Primakoff expansion to include the antisymmetric
- *  exchange). Numerical convention details (sign factors in the
- *  paraunitary inversion, complex-conjugation patterns for outgoing
- *  vs. incoming amplitudes) follow the in-tree convention used by
- *  `_structure_factor_general`; for quantitative agreement with
- *  specific published references (e.g., Mourigal-Chernyshev PRL 2013
- *  for kagome 120° Néel) the caller should still cross-validate
- *  against the published linewidth maps.
+ *  TR-symmetric BZ grid: the BZ sum uses a centered grid q ∈ [-1/2,
+ *  1/2)·b1 + [-1/2, 1/2)·b2 (no half-shift) so that Γ_b(k) = Γ_b(-k)
+ *  to discretization precision rather than half-shift asymmetry.
+ *
+ *  Validations passing in tests/test_magnon.c:
+ *    - Γ ≡ 0 on collinear ground states with U(1) symmetry preserved
+ *      (Heisenberg-only, OR Heisenberg + out-of-plane DMI on
+ *      collinear-ẑ FM)
+ *    - Γ > 0 on kagome 120° Néel (genuine non-collinear cubic vertex)
+ *    - Γ > 0 on collinear-ẑ FM with in-plane DMI (U(1) broken)
+ *    - Γ_b(k) = Γ_b(-k) (TR symmetry, machine precision)
+ *    - Γ invariant under bond reversal ⟨α,β,t,J,D⟩ ↔ ⟨β,α,-t,J,-D⟩
+ *      (1e-9 precision)
+ *    - Γ_b(k) ≥ 0 per band (unitarity)
+ *
+ *  Quantitative caveat: absolute magnitude on Goldstone-having models
+ *  depends on the regularization scale (eps_psd = η). For matching
+ *  specific published linewidth maps (e.g., Mourigal-Chernyshev PRL
+ *  2013 for kagome 120° Néel), use a model with explicitly gapped
+ *  Goldstones (single-ion anisotropy, applied field) where the
+ *  regularization-dependent contribution vanishes.
  *
  *  Implements the Born self-energy
  *

@@ -644,40 +644,6 @@ irrep_status_t irrep_magnon_two_magnon_qomega_general(const irrep_magnon_lsw_t *
     return IRREP_OK;
 }
 
-irrep_status_t irrep_magnon_one_magnon_qomega(const irrep_magnon_lsw_t *L,
-                                                const double (*qpath)[2], int n_q,
-                                                double omega_min, double omega_max,
-                                                int n_omega, double eta,
-                                                double *intensity_out) {
-    if (!L || !qpath || n_q <= 0 || n_omega <= 0 || eta <= 0 || omega_max <= omega_min ||
-        !intensity_out)
-        return IRREP_ERR_INVALID_ARG;
-    int n = L->n_sub;
-    memset(intensity_out, 0, (size_t)n_q * (size_t)n_omega * sizeof *intensity_out);
-    double dw = (omega_max - omega_min) / n_omega;
-    double *omega = malloc((size_t)n * sizeof *omega);
-    double *Sb    = malloc((size_t)n * sizeof *Sb);
-    if (!omega || !Sb) {
-        free(omega);
-        free(Sb);
-        return IRREP_ERR_OUT_OF_MEMORY;
-    }
-    for (int iq = 0; iq < n_q; ++iq) {
-        irrep_magnon_structure_factor(L, qpath[iq][0], qpath[iq][1], omega, Sb);
-        for (int b = 0; b < n; ++b) {
-            for (int jw = 0; jw < n_omega; ++jw) {
-                double w  = omega_min + (jw + 0.5) * dw;
-                double dx = w - omega[b];
-                intensity_out[iq * n_omega + jw] +=
-                    Sb[b] * (eta / M_PI) / (dx * dx + eta * eta);
-            }
-        }
-    }
-    free(omega);
-    free(Sb);
-    return IRREP_OK;
-}
-
 irrep_status_t irrep_magnon_one_magnon_qomega_general(const irrep_magnon_lsw_t *L,
                                                         const int *sublattice_signs,
                                                         const double (*qpath)[2], int n_q,
@@ -720,8 +686,8 @@ irrep_status_t irrep_magnon_dynamical_structure_factor(const irrep_magnon_lsw_t 
                                                          double omega_max, int n_omega,
                                                          double eta, double *intensity_out) {
     if (!intensity_out) return IRREP_ERR_INVALID_ARG;
-    irrep_status_t st = irrep_magnon_one_magnon_qomega(L, qpath, n_q, omega_min, omega_max,
-                                                        n_omega, eta, intensity_out);
+    irrep_status_t st = irrep_magnon_neutron_qomega_map(L, qpath, n_q, omega_min, omega_max,
+                                                          n_omega, eta, intensity_out);
     if (st != IRREP_OK) return st;
     double *I2 = malloc((size_t)n_q * (size_t)n_omega * sizeof *I2);
     if (!I2) return IRREP_ERR_OUT_OF_MEMORY;

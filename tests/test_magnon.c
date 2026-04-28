@@ -1317,37 +1317,6 @@ static void test_afm_zero_point_square(void) {
     irrep_magnon_lsw_free(L);
 }
 
-/* (53) FM 1-magnon S^(1)(q, ω) on a single-site FM: at q=Γ the band
- * is flat (Goldstone), spectral weight concentrates at ω=0. Sum rule
- * per q: ∫ S^(1) dω = 2S·n_sub = 1 (for S=1/2, n_sub=1). */
-static void test_one_magnon_qomega(void) {
-    double a1[2] = {1.0, 0.0};
-    double a2[2] = {0.0, 1.0};
-    irrep_magnon_bond_t bonds[2] = {
-        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
-        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
-    };
-    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
-    /* Stay away from Γ so the Lorentzian sits inside [0, w_max] (otherwise
-     * half the weight leaks below ω=0). */
-    double q_pts[2][2] = {{M_PI / 2, 0.0}, {M_PI, 0.0}};
-    int n_omega = 200;
-    double eta = 0.05;
-    double w_max = 5.0;
-    double dw = w_max / n_omega;
-    double *I_qw = malloc((size_t)2 * n_omega * sizeof *I_qw);
-    irrep_magnon_one_magnon_qomega(L, q_pts, 2, 0.0, w_max, n_omega, eta, I_qw);
-    /* Sum rule per q: ∫ S^(1) dω = 2S·n_sub = 1.0. Lorentzian on a
-     * bounded grid loses some weight to tails — accept 5%. */
-    for (int iq = 0; iq < 2; ++iq) {
-        double sum = 0;
-        for (int j = 0; j < n_omega; ++j) sum += I_qw[iq * n_omega + j] * dw;
-        ASSERT(fabs(sum - 1.0) < 0.05, "1-magnon sum rule per q");
-    }
-    free(I_qw);
-    irrep_magnon_lsw_free(L);
-}
-
 /* (54) AFM 1-magnon S^(1)(q, ω) on a bipartite square AFM. With NN J=1
  * and S=1/2, single-magnon bandwidth ω_max ≈ 4·J·S = 2. Sum rule
  * (Bogoliubov-aware): ∫ S^(1) dω = 2S·n_sub = 1.0 per q. */
@@ -1407,7 +1376,7 @@ static void test_dynamical_structure_factor_sum(void) {
     double *I1   = malloc((size_t)n_omega * sizeof *I1);
     double *I2   = malloc((size_t)n_omega * sizeof *I2);
     double *Itot = malloc((size_t)n_omega * sizeof *Itot);
-    irrep_magnon_one_magnon_qomega(L, q_pts, 1, 0.0, w_max, n_omega, eta, I1);
+    irrep_magnon_neutron_qomega_map(L, q_pts, 1, 0.0, w_max, n_omega, eta, I1);
     irrep_magnon_two_magnon_qomega(L, q_pts, 1, Nx, Ny, 0.0, w_max, n_omega, eta, I2);
     irrep_magnon_dynamical_structure_factor(L, q_pts, 1, Nx, Ny, 0.0, w_max, n_omega, eta, Itot);
     int diff = 0;
@@ -1923,7 +1892,6 @@ int main(void) {
     test_two_magnon_qomega();
     test_structure_factor_general_fm_recovery();
     test_two_magnon_qomega_general();
-    test_one_magnon_qomega();
     test_one_magnon_qomega_general();
     test_powder_spectrum_fm();
     test_powder_spectrum_general_afm();

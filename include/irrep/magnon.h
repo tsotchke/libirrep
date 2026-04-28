@@ -495,6 +495,41 @@ IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor_general(
     int Nx, int Ny, double omega_min, double omega_max, int n_omega, double eta,
     double *intensity_out);
 
+/** @brief Kinematic upper bound on magnon decay rate Γ_kin(k, b) —
+ *         the 2-magnon phase-space estimate of the linewidth.
+ *
+ *      Γ_kin_b(k) = π · D⁽²⁾(k, ω_b(k))
+ *
+ *  where D⁽²⁾(k, ω) is the q-resolved 2-magnon density of states
+ *  evaluated at the 1-magnon dispersion energy. This is the phase-
+ *  space available for 1→2 magnon decay via cubic anharmonicity (the
+ *  matrix-element-stripped Born approximation). It vanishes when the
+ *  decay channel is kinematically forbidden (k below the 2-magnon
+ *  band-bottom) and is finite when allowed.
+ *
+ *  Caller multiplies by their estimate of |V_3(k)|² (the cubic-vertex
+ *  squared amplitude — material- and ground-state-dependent) for a
+ *  full Born linewidth. For order-of-magnitude estimates the kinematic
+ *  factor alone is what determines whether decays are *possible*.
+ *
+ *  Concrete example: in a collinear FM Heisenberg model the cubic
+ *  vertex vanishes by U(1) symmetry → Γ_real = 0 even when Γ_kin > 0.
+ *  In a non-collinear AFM (kagome 120° Néel) the cubic vertex is
+ *  O(sin(canting)) and the full damping is Γ_kin · (matrix element).
+ *
+ *  Output units: same as ω (matches the dispersion energy scale).
+ *
+ *  @param L           LSW handle
+ *  @param kpath       n_k × 2 momenta to evaluate
+ *  @param n_k         number of k-points
+ *  @param Nx, Ny      BZ grid for the 2-magnon convolution
+ *  @param eta         Lorentzian half-width on the energy axis
+ *  @param gamma_out   caller buffer of size n_k × n_sub doubles. */
+IRREP_API irrep_status_t irrep_magnon_kinematic_damping(const irrep_magnon_lsw_t *L,
+                                                         const double (*kpath)[2], int n_k,
+                                                         int Nx, int Ny, double eta,
+                                                         double *gamma_out);
+
 /** @brief Two-magnon density of states D⁽²⁾(ω) — spectral support
  *         for the 2-magnon continuum.
  *

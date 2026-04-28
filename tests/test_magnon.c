@@ -1357,6 +1357,33 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (62) Kinematic damping basic check: function returns non-negative
+ * finite values everywhere, output array is band-resolved. The actual
+ * physics test (zero for collinear FM where the cubic vertex
+ * vanishes by U(1) symmetry) is a *matrix-element* result; the
+ * kinematic phase-space estimate alone is non-zero. So we just check
+ * positivity, finiteness, and reasonable scale. */
+static void test_kinematic_damping_basic(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    /* Pick three k points: deep interior, zone-boundary, near band-top. */
+    double k_pts[3][2] = {{0.4, 0.3}, {M_PI / 2, M_PI / 2}, {M_PI - 0.1, M_PI - 0.1}};
+    double *gamma = malloc((size_t)3 * 1 * sizeof *gamma);
+    irrep_magnon_kinematic_damping(L, k_pts, 3, 16, 16, 0.1, gamma);
+    for (int i = 0; i < 3; ++i) {
+        ASSERT(gamma[i] >= 0, "Γ_kin ≥ 0");
+        ASSERT(isfinite(gamma[i]), "Γ_kin finite");
+        ASSERT(gamma[i] < 100.0, "Γ_kin < 100 J (sanity)");
+    }
+    free(gamma);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (60) Anti-Stokes channel: identically zero at T=0 (no thermal
  * magnons available to annihilate). */
 static void test_anti_stokes_zero_at_T0(void) {
@@ -2028,6 +2055,7 @@ int main(void) {
     test_dynamical_structure_factor_T_bose_enhancement();
     test_anti_stokes_zero_at_T0();
     test_detailed_balance();
+    test_kinematic_damping_basic();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

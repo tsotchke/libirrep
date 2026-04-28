@@ -881,6 +881,76 @@ irrep_status_t irrep_magnon_dynamical_structure_factor_general(
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_kinematic_damping(const irrep_magnon_lsw_t *L,
+                                                const double (*kpath)[2], int n_k, int Nx,
+                                                int Ny, double eta, double *gamma_out) {
+    if (!L || !kpath || n_k <= 0 || Nx <= 0 || Ny <= 0 || eta <= 0 || !gamma_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    memset(gamma_out, 0, (size_t)n_k * (size_t)n * sizeof *gamma_out);
+
+    int N_grid = Nx * Ny;
+    double *omega_grid = malloc((size_t)N_grid * n * sizeof *omega_grid);
+    double *omega_k    = malloc((size_t)n * sizeof *omega_k);
+    double _Complex *u_dummy = malloc((size_t)n * n * sizeof *u_dummy);
+    if (!omega_grid || !omega_k || !u_dummy) {
+        free(omega_grid);
+        free(omega_k);
+        free(u_dummy);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    /* Pre-compute 1-magnon dispersion on the BZ grid (half-shift to
+     * stay clear of Goldstone). */
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = ((double)ix + 0.5) / Nx;
+            double fy = ((double)iy + 0.5) / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            irrep_magnon_dispersion(L, kx, ky, omega_grid + (iy * Nx + ix) * n, u_dummy);
+        }
+    double inv_NBZ = 1.0 / ((double)Nx * (double)Ny);
+    double det = L->b1[0] * L->b2[1] - L->b1[1] * L->b2[0];
+
+    for (int ik = 0; ik < n_k; ++ik) {
+        irrep_magnon_dispersion(L, kpath[ik][0], kpath[ik][1], omega_k, u_dummy);
+        for (int b = 0; b < n; ++b) {
+            double w_target = omega_k[b];
+            double accum    = 0.0;
+            for (int p1 = 0; p1 < N_grid; ++p1) {
+                int    ix1 = p1 % Nx;
+                int    iy1 = p1 / Nx;
+                double fx1 = ((double)ix1 + 0.5) / Nx;
+                double fy1 = ((double)iy1 + 0.5) / Ny;
+                double kx1 = fx1 * L->b1[0] + fy1 * L->b2[0];
+                double ky1 = fx1 * L->b1[1] + fy1 * L->b2[1];
+                /* k₂ = k - k₁; nearest-neighbour grid lookup. */
+                double k2x = kpath[ik][0] - kx1;
+                double k2y = kpath[ik][1] - ky1;
+                double f2x = (k2x * L->b2[1] - k2y * L->b2[0]) / det;
+                double f2y = (-k2x * L->b1[1] + k2y * L->b1[0]) / det;
+                f2x        = f2x - floor(f2x);
+                f2y        = f2y - floor(f2y);
+                int ix2    = (int)(f2x * Nx + 0.5) % Nx;
+                int iy2    = (int)(f2y * Ny + 0.5) % Ny;
+                int p2     = iy2 * Nx + ix2;
+                for (int b1 = 0; b1 < n; ++b1)
+                    for (int b2 = 0; b2 < n; ++b2) {
+                        double dx = w_target - omega_grid[p1 * n + b1] -
+                                    omega_grid[p2 * n + b2];
+                        accum += inv_NBZ * (eta / M_PI) / (dx * dx + eta * eta);
+                    }
+            }
+            /* Γ_kin = π · D^(2)(k, ω_b(k)). */
+            gamma_out[ik * n + b] = M_PI * accum;
+        }
+    }
+    free(omega_grid);
+    free(omega_k);
+    free(u_dummy);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_two_magnon_qomega(const irrep_magnon_lsw_t *L,
                                                 const double (*qpath)[2], int n_q, int Nx,
                                                 int Ny, double omega_min, double omega_max,

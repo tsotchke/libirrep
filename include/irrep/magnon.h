@@ -640,6 +640,56 @@ IRREP_API irrep_status_t irrep_magnon_three_magnon_dos(const irrep_magnon_lsw_t 
                                                          double omega_max, int n_bins,
                                                          double *dos_out);
 
+/** @brief User-provided cubic vertex matrix-element-squared
+ *         |V_3(k, k1, k-k1; b, b1, b2)|², in units of J².
+ *
+ *  Called by `irrep_magnon_born_decay_rate` once per (k, k1, b, b1,
+ *  b2) tuple in the phase-space sum. Allows callers to plug in any
+ *  model-specific vertex (Mourigal-Chernyshev for non-collinear, the
+ *  generic Heisenberg cubic for canted FMs, etc.) without the
+ *  library committing to a specific Holstein-Primakoff expansion.
+ *
+ *  Return |V_3|² (NOT V_3 itself) — must be non-negative. The
+ *  library multiplies by π and convolves with a Lorentzian over the
+ *  energy delta. */
+typedef double (*irrep_magnon_cubic_vertex_fn)(int b, int b1, int b2, double kx, double ky,
+                                                 double k1x, double k1y, double k2x,
+                                                 double k2y, void *user_data);
+
+/** @brief Born-approximation magnon decay rate Γ_b(k) from a user-
+ *         provided cubic vertex, via Fermi golden rule:
+ *
+ *      Γ_b(k) = π Σ_{q, b1, b2} |V_3(k, q, k-q; b, b1, b2)|²
+ *                 · (η/π) / ((ω_b(k) - ω_{b1}(q) - ω_{b2}(k-q))² + η²)
+ *
+ *  This is the matrix-element-aware companion to
+ *  `_kinematic_damping`: where the kinematic version returns the
+ *  phase-space upper bound (|V_3|² ≡ 1), this returns the actual
+ *  linewidth for whatever vertex the caller supplies.
+ *
+ *  Callers building |V_3|² for a specific model:
+ *    - Collinear FM Heisenberg: vertex vanishes by U(1) → return 0.
+ *    - Collinear AFM Heisenberg: vertex vanishes by U(1) → return 0.
+ *    - Canted FM (field-tilted): vertex ∝ sin(canting)·J · γ-function.
+ *    - Kagome 120° Néel: see Mourigal-Chernyshev PRL 2013 for the
+ *      explicit form including DMI corrections.
+ *
+ *  Output units are J (matches the dispersion energy scale).
+ *
+ *  @param L              LSW handle (used for ω_b(k) and BZ geometry)
+ *  @param kpath          n_k × 2 momenta
+ *  @param n_k            number of k-points
+ *  @param Nx, Ny         BZ grid for the phase-space sum
+ *  @param eta            Lorentzian half-width on the energy delta
+ *  @param vertex_fn      user callback returning |V_3|² (units J²)
+ *  @param vertex_data    opaque pointer passed to vertex_fn
+ *  @param gamma_out      n_k × n_sub doubles. */
+IRREP_API irrep_status_t irrep_magnon_born_decay_rate(const irrep_magnon_lsw_t *L,
+                                                       const double (*kpath)[2], int n_k,
+                                                       int Nx, int Ny, double eta,
+                                                       irrep_magnon_cubic_vertex_fn vertex_fn,
+                                                       void *vertex_data, double *gamma_out);
+
 /** @brief Kinematic upper bound on magnon decay rate Γ_kin(k, b) —
  *         the 2-magnon phase-space estimate of the linewidth.
  *

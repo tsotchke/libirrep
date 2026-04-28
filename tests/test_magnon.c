@@ -1357,6 +1357,60 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (70) Born decay-rate harness: with |V_3|² ≡ 1 the result should
+ * agree with _kinematic_damping (which is π · D^(2)(k, ω_b(k)) ≡
+ * π · accum with V² = 1). */
+static double const_one_vertex_(int b, int b1, int b2, double kx, double ky,
+                                 double k1x, double k1y, double k2x, double k2y,
+                                 void *user_data) {
+    (void)b; (void)b1; (void)b2;
+    (void)kx; (void)ky; (void)k1x; (void)k1y; (void)k2x; (void)k2y; (void)user_data;
+    return 1.0;
+}
+static double zero_vertex_(int b, int b1, int b2, double kx, double ky,
+                            double k1x, double k1y, double k2x, double k2y, void *user_data) {
+    (void)b; (void)b1; (void)b2;
+    (void)kx; (void)ky; (void)k1x; (void)k1y; (void)k2x; (void)k2y; (void)user_data;
+    return 0.0;
+}
+
+static void test_born_decay_rate_recovers_kinematic(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double k_pts[3][2] = {{0.4, 0.3}, {M_PI / 2, M_PI / 2}, {M_PI - 0.1, M_PI - 0.1}};
+    double *gamma_kin = malloc((size_t)3 * sizeof *gamma_kin);
+    double *gamma_born = malloc((size_t)3 * sizeof *gamma_born);
+    irrep_magnon_kinematic_damping(L, k_pts, 3, 16, 16, 0.1, gamma_kin);
+    irrep_magnon_born_decay_rate(L, k_pts, 3, 16, 16, 0.1, const_one_vertex_, NULL,
+                                   gamma_born);
+    for (int i = 0; i < 3; ++i)
+        ASSERT(fabs(gamma_born[i] - gamma_kin[i]) < 1e-9 * (gamma_kin[i] + 1.0),
+               "Γ_born(|V|²=1) ≡ Γ_kin");
+    free(gamma_kin);
+    free(gamma_born);
+    irrep_magnon_lsw_free(L);
+}
+
+static void test_born_decay_rate_zero_vertex(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double k_pts[1][2] = {{M_PI / 2, M_PI / 2}};
+    double gamma_zero;
+    irrep_magnon_born_decay_rate(L, k_pts, 1, 12, 12, 0.1, zero_vertex_, NULL, &gamma_zero);
+    ASSERT(gamma_zero == 0.0, "Γ_born(|V|²=0) ≡ 0");
+    irrep_magnon_lsw_free(L);
+}
+
 /* (69) AFM-aware 3-magnon S^(3)(q, ω) on a tiny bipartite-square AFM
  * grid. Verify positivity and non-trivial integrated weight. */
 static void test_three_magnon_qomega_general_basic(void) {
@@ -2356,6 +2410,8 @@ int main(void) {
     test_three_magnon_dos_sum_rule();
     test_three_magnon_qomega_basic();
     test_three_magnon_qomega_general_basic();
+    test_born_decay_rate_recovers_kinematic();
+    test_born_decay_rate_zero_vertex();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

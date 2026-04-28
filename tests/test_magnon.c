@@ -1357,6 +1357,73 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (60) Anti-Stokes channel: identically zero at T=0 (no thermal
+ * magnons available to annihilate). */
+static void test_anti_stokes_zero_at_T0(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double q_pts[1][2] = {{M_PI, 0.0}};
+    int n_omega = 100;
+    double *intensity = malloc((size_t)n_omega * sizeof *intensity);
+    irrep_magnon_dynamical_structure_factor_T_anti_stokes(L, q_pts, 1, -3.0, 3.0, n_omega,
+                                                           0.05, 0.0, intensity);
+    double max_I = 0;
+    for (int j = 0; j < n_omega; ++j)
+        if (fabs(intensity[j]) > max_I) max_I = fabs(intensity[j]);
+    ASSERT(max_I < 1e-15, "anti-Stokes ≡ 0 at T=0");
+    free(intensity);
+    irrep_magnon_lsw_free(L);
+}
+
+/* (61) Detailed balance: S(q, ω, T) / S(q, -ω, T) = exp(ω/T) for the
+ * pair (Stokes, anti-Stokes) at the band peak. Picks one band, T
+ * comparable to ω, and checks the ratio at peak. */
+static void test_detailed_balance(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double q_pts[1][2] = {{M_PI / 2, M_PI / 2}};
+    int n_omega = 400;
+    double w_max = 5.0;
+    double dw = 2 * w_max / n_omega;
+    double T = 1.0;
+    double *I_S = malloc((size_t)n_omega * sizeof *I_S);
+    double *I_A = malloc((size_t)n_omega * sizeof *I_A);
+    irrep_magnon_dynamical_structure_factor_T(L, q_pts, 1, -w_max, w_max, n_omega,
+                                                0.02, T, I_S);
+    irrep_magnon_dynamical_structure_factor_T_anti_stokes(L, q_pts, 1, -w_max, w_max, n_omega,
+                                                            0.02, T, I_A);
+    /* Peak in I_S at +ω_b; peak in I_A at -ω_b. Ratio should be e^(ω_b/T). */
+    int j_pos = 0, j_neg = 0;
+    for (int j = 0; j < n_omega; ++j) {
+        if (I_S[j] > I_S[j_pos]) j_pos = j;
+        if (I_A[j] > I_A[j_neg]) j_neg = j;
+    }
+    double w_pos = -w_max + (j_pos + 0.5) * dw;
+    double w_neg = -w_max + (j_neg + 0.5) * dw;
+    ASSERT(w_pos > 0, "Stokes peak at ω > 0");
+    ASSERT(w_neg < 0, "anti-Stokes peak at ω < 0");
+    double ratio = I_S[j_pos] / I_A[j_neg];
+    double expected = exp((w_pos - w_neg) / T / 2);  /* effective ω = (w_pos-w_neg)/2 ≈ ω_b */
+    /* The Lorentzian peak heights are (1+n_B)·S/(πη) and n_B·S/(πη) so the
+     * ratio is (1+n_B)/n_B = e^{ω_b/T}. Allow 30% for finite-η broadening
+     * and discretisation. */
+    ASSERT(fabs(ratio / expected - 1.0) < 0.3,
+           "detailed balance: I_S(peak) / I_A(peak) ≈ exp(ω_b/T)");
+    free(I_S);
+    free(I_A);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (58) Finite-T S^(1)(q, ω, T): at T → 0 should reduce to the
  * neutron_qomega_map output bin-by-bin. */
 static void test_dynamical_structure_factor_T_recovers_zero_T(void) {
@@ -1959,6 +2026,8 @@ int main(void) {
     test_dynamical_structure_factor_sum();
     test_dynamical_structure_factor_T_recovers_zero_T();
     test_dynamical_structure_factor_T_bose_enhancement();
+    test_anti_stokes_zero_at_T0();
+    test_detailed_balance();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

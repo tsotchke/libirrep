@@ -455,6 +455,38 @@ IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor_T_general(
     double omega_min, double omega_max, int n_omega, double eta, double T,
     double *intensity_out);
 
+/** @brief Anti-Stokes channel of the finite-T 1-magnon spectral
+ *         function — magnon-annihilation contribution at ω < 0.
+ *
+ *      S^(1)_anti(q, ω; T) = Σ_b n_B(ω_b(q), T) · S_⊥_b(q)
+ *                              · (η/π) / ((ω + ω_b(q))² + η²)
+ *
+ *  At T = 0 returns identically 0 (no thermal magnons to annihilate).
+ *  Together with `_dynamical_structure_factor_T` (Stokes), gives the
+ *  full-window spectral function consistent with detailed balance:
+ *
+ *      S(q, ω, T) / S(q, -ω, T) = exp(ω / T)
+ *
+ *  For TR-symmetric ground states the anti-Stokes peak is at
+ *  ω = -ω_b(q); for DMI-broken systems this would shift to
+ *  -ω_b(-q), which the FM-track function does NOT account for —
+ *  for chiral magnets use the AFM-aware variant which works in the
+ *  Bogoliubov basis.
+ *
+ *  Caller is expected to choose ω_min < 0 < ω_max to see both
+ *  channels in a single histogram window. */
+IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor_T_anti_stokes(
+    const irrep_magnon_lsw_t *L, const double (*qpath)[2], int n_q, double omega_min,
+    double omega_max, int n_omega, double eta, double T, double *intensity_out);
+
+/** @brief AFM-aware anti-Stokes channel — same as
+ *         `_dynamical_structure_factor_T_anti_stokes` but with
+ *         Bogoliubov structure factors. */
+IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor_T_anti_stokes_general(
+    const irrep_magnon_lsw_t *L, const int *sublattice_signs, const double (*qpath)[2], int n_q,
+    double omega_min, double omega_max, int n_omega, double eta, double T,
+    double *intensity_out);
+
 /** @brief AFM-aware total S(q, ω) — same as `_dynamical_structure_factor`
  *         but uses Bogoliubov-aware structure factors for both 1- and
  *         2-magnon contributions. Required for AFM/ferri materials. */

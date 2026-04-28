@@ -308,6 +308,27 @@ IRREP_API irrep_status_t irrep_magnon_hessian(const irrep_magnon_lsw_t *L, doubl
                                                double h, double *hxx_out, double *hyy_out,
                                                double *hxy_out);
 
+/** @brief AFM-aware two-magnon S⁽²⁾(q, ω). Same as
+ *         `_two_magnon_qomega` but uses the Bogoliubov-aware
+ *         structure factor `_structure_factor_general` instead of
+ *         the FM-only Hermitian form.
+ *
+ *  Required for AFM materials where the Bogoliubov pairing is
+ *  essential to the 2-magnon spectral weight (e.g., cuprate INS
+ *  continuum above the band-top includes AFM 2-magnon
+ *  contributions).
+ *
+ *  Same parameters and output format as `_two_magnon_qomega` plus
+ *  the `sublattice_signs` array. */
+IRREP_API irrep_status_t irrep_magnon_two_magnon_qomega_general(const irrep_magnon_lsw_t *L,
+                                                                  const int *sublattice_signs,
+                                                                  const double (*qpath)[2],
+                                                                  int n_q, int Nx, int Ny,
+                                                                  double omega_min,
+                                                                  double omega_max, int n_omega,
+                                                                  double eta,
+                                                                  double *intensity_out);
+
 /** @brief Two-magnon dynamical structure factor S⁽²⁾(q, ω) — the
  *         q-resolved 2-magnon continuum, a real beyond-1-magnon
  *         INS observable.

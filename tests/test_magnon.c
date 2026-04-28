@@ -1317,6 +1317,41 @@ static void test_afm_zero_point_square(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (52) AFM-aware 2-magnon S^(2)(q, ω) on a bipartite square AFM. Should
+ * have non-zero spectral weight at intermediate ω (between ω_min and
+ * 2·ω_max), confirming the convolution structure works through the
+ * AFM Bogoliubov path. */
+static void test_two_magnon_qomega_general(void) {
+    double a1[2] = {1.0, 1.0};
+    double a2[2] = {1.0, -1.0};
+    irrep_magnon_bond_t bonds[4] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, 0.5, a1, a2, 4, bonds, 0);
+    int signs[2] = {+1, -1};
+    double q_pts[1][2] = {{M_PI, 0.0}};
+    int n_omega = 100;
+    double *I_qw = malloc((size_t)n_omega * sizeof *I_qw);
+    /* For square AFM with NN J=1, S=1/2: bandwidth ω_max ≈ 4·J·S = 2,
+     * so 2-magnon ∈ [0, 4]. */
+    irrep_magnon_two_magnon_qomega_general(L, signs, q_pts, 1, 24, 24, 0.0, 4.5, n_omega,
+                                            0.1, I_qw);
+    double total_int = 0;
+    int peak = 0;
+    for (int i = 0; i < n_omega; ++i) {
+        total_int += I_qw[i];
+        if (I_qw[i] > I_qw[peak]) peak = i;
+    }
+    ASSERT(total_int > 0, "AFM 2-magnon S^(2) has non-zero spectral weight");
+    ASSERT(peak > 5 && peak < n_omega - 5,
+           "AFM 2-magnon S^(2) peak in interior (not at edges)");
+    free(I_qw);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (51) AFM Bogoliubov structure factor: with signs=+1 (FM), should
  * match the FM-track _structure_factor for the same model. */
 static void test_structure_factor_general_fm_recovery(void) {
@@ -1727,6 +1762,7 @@ int main(void) {
     test_two_magnon_dos();
     test_two_magnon_qomega();
     test_structure_factor_general_fm_recovery();
+    test_two_magnon_qomega_general();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

@@ -1357,6 +1357,38 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (68) 3-magnon S^(3)(q, ω) basic check on a small FM grid: returns
+ * non-negative finite intensity, peaks in the upper bandwidth third
+ * (3-magnon continuum extends to 3·ω_max ≈ 12 for J=1, S=1/2 square
+ * FM). */
+static void test_three_magnon_qomega_basic(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double q_pts[1][2] = {{M_PI / 2, M_PI / 2}};
+    int n_omega = 60;
+    double w_max = 12.5;
+    double *I_qw = malloc((size_t)n_omega * sizeof *I_qw);
+    /* Tiny BZ grid to keep test fast (cost is N⁴). */
+    irrep_magnon_three_magnon_qomega(L, q_pts, 1, 8, 8, 0.0, w_max, n_omega, 0.3, I_qw);
+    double weight_sum = 0;
+    int    peak       = 0;
+    for (int i = 0; i < n_omega; ++i) {
+        ASSERT(I_qw[i] >= 0, "S^(3) ≥ 0");
+        weight_sum += I_qw[i];
+        if (I_qw[i] > I_qw[peak]) peak = i;
+    }
+    ASSERT(weight_sum > 0, "S^(3) total weight > 0");
+    ASSERT(peak > n_omega / 4 && peak < n_omega - 2,
+           "S^(3) peak in upper portion of energy range");
+    free(I_qw);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (67) Three-magnon DOS sum rule: ∫ D^(3)(ω) dω = n_sub³ (= 1 for
  * a single-sublattice FM). Verifies the convolution machinery is
  * correctly normalised. */
@@ -2293,6 +2325,7 @@ int main(void) {
     test_form_factor_general_recovers_at_gamma();
     test_fit_J_and_DMI_recovers_kagome_DMI();
     test_three_magnon_dos_sum_rule();
+    test_three_magnon_qomega_basic();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

@@ -571,6 +571,37 @@ IRREP_API irrep_status_t irrep_magnon_fit_J_and_DMI(
     const double *omega_obs, const int *band_obs, int n_obs, int max_iter, double tol,
     double *chi2_out);
 
+/** @brief Three-magnon dynamical structure factor S^(3)(q, ω) — the
+ *         q-resolved 3-magnon continuum, providing spectral weight
+ *         for high-energy INS features above the 2-magnon band-top.
+ *
+ *      S^(3)(q, ω) = (1/N²) Σ_{k1,k2,b1,b2,b3}
+ *                       S_⊥_b1(k1) · S_⊥_b2(k2) · S_⊥_b3(q − k1 − k2)
+ *                       · (η/π) / ((ω − ω_{b1}(k1) − ω_{b2}(k2) − ω_{b3}(q − k1 − k2))² + η²)
+ *
+ *  Output is row-major n_q × n_omega; same format as the 2-magnon
+ *  family. Cost per q-point is O(Nx² · Ny² · n_sub³ · n_omega) —
+ *  significantly more expensive than `_two_magnon_qomega`. Use modest
+ *  Nx, Ny (≤ 16) for n_q ≥ 4.
+ *
+ *  For AFM ground states use `_three_magnon_qomega_general`.
+ *
+ *  @param L              LSW handle
+ *  @param qpath          n_q × 2 momenta
+ *  @param n_q            number of q-points
+ *  @param Nx, Ny         BZ grid (typical 8-16; quartic in cost)
+ *  @param omega_min      lower edge of energy axis
+ *  @param omega_max      upper edge (typical 3·ω_max of 1-magnon)
+ *  @param n_omega        number of energy bins
+ *  @param eta            Lorentzian half-width
+ *  @param intensity_out  caller buffer of size n_q × n_omega doubles. */
+IRREP_API irrep_status_t irrep_magnon_three_magnon_qomega(const irrep_magnon_lsw_t *L,
+                                                            const double (*qpath)[2], int n_q,
+                                                            int Nx, int Ny, double omega_min,
+                                                            double omega_max, int n_omega,
+                                                            double eta,
+                                                            double *intensity_out);
+
 /** @brief Three-magnon density of states D^(3)(ω) — spectral support
  *         for the 3-magnon continuum.
  *

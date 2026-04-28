@@ -602,6 +602,16 @@ IRREP_API irrep_status_t irrep_magnon_three_magnon_qomega(const irrep_magnon_lsw
                                                             double eta,
                                                             double *intensity_out);
 
+/** @brief AFM-aware q-resolved three-magnon S^(3)(q, ω). Same as
+ *         `_three_magnon_qomega` but uses the Bogoliubov-aware
+ *         structure factor `_structure_factor_general` for the SF
+ *         weighting. Required for AFM/ferri ground states where the
+ *         pairing controls the spectral weight. */
+IRREP_API irrep_status_t irrep_magnon_three_magnon_qomega_general(
+    const irrep_magnon_lsw_t *L, const int *sublattice_signs, const double (*qpath)[2],
+    int n_q, int Nx, int Ny, double omega_min, double omega_max, int n_omega, double eta,
+    double *intensity_out);
+
 /** @brief Three-magnon density of states D^(3)(ω) — spectral support
  *         for the 3-magnon continuum.
  *

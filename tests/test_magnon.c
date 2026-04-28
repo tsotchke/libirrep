@@ -1357,6 +1357,35 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (69) AFM-aware 3-magnon S^(3)(q, ω) on a tiny bipartite-square AFM
+ * grid. Verify positivity and non-trivial integrated weight. */
+static void test_three_magnon_qomega_general_basic(void) {
+    double a1[2] = {1.0, 1.0};
+    double a2[2] = {1.0, -1.0};
+    irrep_magnon_bond_t bonds[4] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, 0.5, a1, a2, 4, bonds, 0);
+    int signs[2] = {+1, -1};
+    double q_pts[1][2] = {{M_PI, 0.0}};
+    int n_omega = 50;
+    double w_max = 7.0;     /* 3 × AFM bandwidth (= 4) ≈ 12, capped for fast test */
+    double *I_qw = malloc((size_t)n_omega * sizeof *I_qw);
+    irrep_magnon_three_magnon_qomega_general(L, signs, q_pts, 1, 6, 6, 0.0, w_max, n_omega,
+                                               0.3, I_qw);
+    double weight_sum = 0;
+    for (int i = 0; i < n_omega; ++i) {
+        ASSERT(I_qw[i] >= 0, "AFM S^(3) ≥ 0");
+        weight_sum += I_qw[i];
+    }
+    ASSERT(weight_sum > 0, "AFM S^(3) total weight > 0");
+    free(I_qw);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (68) 3-magnon S^(3)(q, ω) basic check on a small FM grid: returns
  * non-negative finite intensity, peaks in the upper bandwidth third
  * (3-magnon continuum extends to 3·ω_max ≈ 12 for J=1, S=1/2 square
@@ -2326,6 +2355,7 @@ int main(void) {
     test_fit_J_and_DMI_recovers_kagome_DMI();
     test_three_magnon_dos_sum_rule();
     test_three_magnon_qomega_basic();
+    test_three_magnon_qomega_general_basic();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

@@ -1233,6 +1233,91 @@ irrep_status_t irrep_magnon_two_magnon_qomega(const irrep_magnon_lsw_t *L,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_three_magnon_qomega_general(const irrep_magnon_lsw_t *L,
+                                                          const int *sublattice_signs,
+                                                          const double (*qpath)[2], int n_q,
+                                                          int Nx, int Ny, double omega_min,
+                                                          double omega_max, int n_omega,
+                                                          double eta, double *intensity_out) {
+    if (!L || !sublattice_signs || !qpath || n_q <= 0 || Nx <= 0 || Ny <= 0 || n_omega <= 0 ||
+        eta <= 0 || omega_max <= omega_min || !intensity_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    memset(intensity_out, 0, (size_t)n_q * (size_t)n_omega * sizeof *intensity_out);
+    double dw       = (omega_max - omega_min) / n_omega;
+    double inv_NBZ2 = 1.0 / ((double)Nx * (double)Ny * (double)Nx * (double)Ny);
+
+    int     N_grid     = Nx * Ny;
+    double *omega_grid = malloc((size_t)N_grid * n * sizeof *omega_grid);
+    double *Sb_grid    = malloc((size_t)N_grid * n * sizeof *Sb_grid);
+    if (!omega_grid || !Sb_grid) {
+        free(omega_grid);
+        free(Sb_grid);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    /* Pre-compute 1-magnon dispersion + AFM Bogoliubov SF on a half-shifted
+     * BZ grid (avoid Goldstone). */
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = ((double)ix + 0.5) / Nx;
+            double fy = ((double)iy + 0.5) / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            int    p  = iy * Nx + ix;
+            irrep_magnon_structure_factor_general(L, sublattice_signs, kx, ky,
+                                                    omega_grid + p * n, Sb_grid + p * n);
+        }
+    double det = L->b1[0] * L->b2[1] - L->b1[1] * L->b2[0];
+
+    for (int iq = 0; iq < n_q; ++iq) {
+        double qx = qpath[iq][0];
+        double qy = qpath[iq][1];
+        for (int p1 = 0; p1 < N_grid; ++p1) {
+            int    ix1 = p1 % Nx, iy1 = p1 / Nx;
+            double fx1 = ((double)ix1 + 0.5) / Nx;
+            double fy1 = ((double)iy1 + 0.5) / Ny;
+            double kx1 = fx1 * L->b1[0] + fy1 * L->b2[0];
+            double ky1 = fx1 * L->b1[1] + fy1 * L->b2[1];
+            for (int p2 = 0; p2 < N_grid; ++p2) {
+                int    ix2 = p2 % Nx, iy2 = p2 / Nx;
+                double fx2 = ((double)ix2 + 0.5) / Nx;
+                double fy2 = ((double)iy2 + 0.5) / Ny;
+                double kx2 = fx2 * L->b1[0] + fy2 * L->b2[0];
+                double ky2 = fx2 * L->b1[1] + fy2 * L->b2[1];
+                double k3x = qx - kx1 - kx2;
+                double k3y = qy - ky1 - ky2;
+                double f3x = (k3x * L->b2[1] - k3y * L->b2[0]) / det;
+                double f3y = (-k3x * L->b1[1] + k3y * L->b1[0]) / det;
+                f3x = f3x - floor(f3x);
+                f3y = f3y - floor(f3y);
+                int ix3 = (int)(f3x * Nx + 0.5) % Nx;
+                int iy3 = (int)(f3y * Ny + 0.5) % Ny;
+                int p3  = iy3 * Nx + ix3;
+                for (int b1 = 0; b1 < n; ++b1)
+                    for (int b2 = 0; b2 < n; ++b2)
+                        for (int b3 = 0; b3 < n; ++b3) {
+                            double w_total = omega_grid[p1 * n + b1] +
+                                             omega_grid[p2 * n + b2] +
+                                             omega_grid[p3 * n + b3];
+                            double weight  = Sb_grid[p1 * n + b1] *
+                                            Sb_grid[p2 * n + b2] *
+                                            Sb_grid[p3 * n + b3];
+                            for (int jw = 0; jw < n_omega; ++jw) {
+                                double w  = omega_min + (jw + 0.5) * dw;
+                                double dx = w - w_total;
+                                intensity_out[iq * n_omega + jw] +=
+                                    inv_NBZ2 * weight * (eta / M_PI) /
+                                    (dx * dx + eta * eta);
+                            }
+                        }
+            }
+        }
+    }
+    free(omega_grid);
+    free(Sb_grid);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_three_magnon_qomega(const irrep_magnon_lsw_t *L,
                                                   const double (*qpath)[2], int n_q, int Nx,
                                                   int Ny, double omega_min, double omega_max,

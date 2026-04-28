@@ -417,6 +417,44 @@ IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor(const irrep_mag
                                                                    double eta,
                                                                    double *intensity_out);
 
+/** @brief Finite-T 1-magnon dynamical structure factor S^(1)(q, ω, T)
+ *         — Stokes channel with the (1 + n_B(ω, T)) Bose enhancement
+ *         that real inelastic-neutron experiments measure.
+ *
+ *      S^(1)(q, ω; T) = Σ_b (1 + n_B(ω_b(q), T)) · S_⊥_b(q)
+ *                          · (η/π) / ((ω − ω_b(q))² + η²)
+ *
+ *  At T → 0, n_B → 0 and this reduces to `_neutron_qomega_map`.
+ *  At higher T, soft modes (ω_b(q) ≪ k_B T) are strongly amplified —
+ *  a real effect in finite-T INS that affects scaling fits and
+ *  sub-bandwidth weight estimates.
+ *
+ *  This handles the Stokes (ω > 0, magnon creation) channel; the
+ *  anti-Stokes (magnon-annihilation) side is suppressed by n_B / (1
+ *  + n_B) = exp(-ω/T) and is not returned here.
+ *
+ *  For AFM ground states use `_dynamical_structure_factor_T_general`.
+ *
+ *  @param L              LSW handle
+ *  @param qpath          n_q × 2 momenta
+ *  @param n_q            number of q-points
+ *  @param omega_min,max  energy axis (ω > 0 for Stokes)
+ *  @param n_omega        number of energy bins
+ *  @param eta            Lorentzian half-width
+ *  @param T              temperature in J units (k_B = 1)
+ *  @param intensity_out  caller buffer of size n_q × n_omega doubles. */
+IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor_T(
+    const irrep_magnon_lsw_t *L, const double (*qpath)[2], int n_q, double omega_min,
+    double omega_max, int n_omega, double eta, double T, double *intensity_out);
+
+/** @brief AFM-aware finite-T S^(1)(q, ω, T). Same as
+ *         `_dynamical_structure_factor_T` but uses Bogoliubov-Colpa
+ *         structure factors. */
+IRREP_API irrep_status_t irrep_magnon_dynamical_structure_factor_T_general(
+    const irrep_magnon_lsw_t *L, const int *sublattice_signs, const double (*qpath)[2], int n_q,
+    double omega_min, double omega_max, int n_omega, double eta, double T,
+    double *intensity_out);
+
 /** @brief AFM-aware total S(q, ω) — same as `_dynamical_structure_factor`
  *         but uses Bogoliubov-aware structure factors for both 1- and
  *         2-magnon contributions. Required for AFM/ferri materials. */

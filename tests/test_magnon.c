@@ -1357,6 +1357,67 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (58) Finite-T S^(1)(q, ω, T): at T → 0 should reduce to the
+ * neutron_qomega_map output bin-by-bin. */
+static void test_dynamical_structure_factor_T_recovers_zero_T(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double q_pts[2][2] = {{M_PI / 2, 0.0}, {M_PI, M_PI}};
+    int n_omega = 50;
+    double w_max = 5.0;
+    double eta = 0.1;
+    double *I0 = malloc((size_t)2 * n_omega * sizeof *I0);
+    double *IT = malloc((size_t)2 * n_omega * sizeof *IT);
+    irrep_magnon_neutron_qomega_map(L, q_pts, 2, 0.0, w_max, n_omega, eta, I0);
+    irrep_magnon_dynamical_structure_factor_T(L, q_pts, 2, 0.0, w_max, n_omega, eta, 0.0, IT);
+    int diff = 0;
+    for (int j = 0; j < 2 * n_omega; ++j)
+        if (fabs(IT[j] - I0[j]) > 1e-12 * (fabs(I0[j]) + 1)) ++diff;
+    ASSERT(diff == 0, "S(q, ω, T=0) ≡ S(q, ω) bin-by-bin");
+    free(I0);
+    free(IT);
+    irrep_magnon_lsw_free(L);
+}
+
+/* (59) Finite-T S^(1): at T comparable to bandwidth, soft modes get
+ * Bose-enhanced. Verify the integrated Stokes weight at fixed soft q
+ * grows with T (1+n_B factor). */
+static void test_dynamical_structure_factor_T_bose_enhancement(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    /* Pick a soft-mode q where ω_b(q) ≈ 0.3 — comparable to the
+     * temperature scale we'll use, so 1+n_B ≈ 4. */
+    double q_pts[1][2] = {{0.55, 0.0}};
+    int n_omega = 200;
+    double w_max = 5.0;
+    double dw = w_max / n_omega;
+    double eta = 0.05;
+    double *I_lo = malloc((size_t)n_omega * sizeof *I_lo);
+    double *I_hi = malloc((size_t)n_omega * sizeof *I_hi);
+    irrep_magnon_dynamical_structure_factor_T(L, q_pts, 1, 0.0, w_max, n_omega, eta, 0.0, I_lo);
+    irrep_magnon_dynamical_structure_factor_T(L, q_pts, 1, 0.0, w_max, n_omega, eta, 0.5, I_hi);
+    double sum_lo = 0, sum_hi = 0;
+    for (int j = 0; j < n_omega; ++j) {
+        sum_lo += I_lo[j] * dw;
+        sum_hi += I_hi[j] * dw;
+    }
+    ASSERT(sum_hi > 1.5 * sum_lo,
+           "soft-mode Stokes weight enhanced > 1.5× by Bose at T = bandwidth/8");
+    free(I_lo);
+    free(I_hi);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (57) Total S(q, ω) = S^(1) + S^(2) — verify the wrapper equals the
  * sum of independent calls. */
 static void test_dynamical_structure_factor_sum(void) {
@@ -1896,6 +1957,8 @@ int main(void) {
     test_powder_spectrum_fm();
     test_powder_spectrum_general_afm();
     test_dynamical_structure_factor_sum();
+    test_dynamical_structure_factor_T_recovers_zero_T();
+    test_dynamical_structure_factor_T_bose_enhancement();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

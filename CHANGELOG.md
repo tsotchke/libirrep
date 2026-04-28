@@ -54,6 +54,29 @@ factor). New public functions in `irrep/magnon.h`:
   1→2 magnon decay phase space. Caller multiplies by their |V_3|²
   cubic-vertex estimate for the full Born linewidth.
 
+- **Heisenberg fitter** —
+  `irrep_magnon_fit_J` runs gradient descent with backtracking line
+  search on the J's of a bond list to minimise χ² against observed
+  band-resolved dispersion data. The DMI-aware variant
+  `irrep_magnon_fit_J_and_DMI` fits J + 3 DMI components per bond
+  simultaneously (4× the parameters). Used to extract spin-Hamiltonian
+  parameters from inelastic-neutron peak measurements.
+
+- **Intra-cell INS form factor** —
+  `irrep_magnon_structure_factor_with_form_factor` and `_general`
+  compute the band-resolved transverse SF with proper q-dependent
+  intra-cell phase factors `e^{i q·r_α}`. The pre-existing function
+  `_structure_factor` returns the Wannier-centred form (positions
+  absorbed into the cell origin); the form-factor variants give
+  what neutron experiments actually see at finite q. At q = 0 the
+  results coincide.
+
+- **3-magnon spectroscopy** —
+  `irrep_magnon_three_magnon_dos` (BZ-integrated D^(3)(ω)) and
+  `_three_magnon_qomega` (q-resolved S^(3)(q, ω)) plus the AFM-aware
+  `_three_magnon_qomega_general`. Captures the high-energy continuum
+  above the 2-magnon band-top.
+
 ### New examples
 
 - `lsw_dynamical_sf_vs_ed_4x4` — capstone validation of the new
@@ -77,11 +100,24 @@ factor). New public functions in `irrep/magnon.h`:
   `k_resolved_magnon_4x4_afm`, `kagome_120neel_lsw` — supporting
   ED-vs-LSW comparison demos that close the validation loop.
 
+- `cuprate_J_fitter` — Heisenberg-coupling extraction from synthetic
+  INS-style dispersion data on the canonical Coldea-Hayden cuprate
+  parameterisation (La₂CuO₄, J = 138, J' = -18 meV). Recovers both
+  J's to within 0.1% from a deliberately poor initial guess (J off
+  by 30%, J' off by 100%) with 5% measurement noise.
+
+- `square_afm_three_magnon` — full 1+2+3 magnon spectroscopy
+  comparison on a single bipartite-square AFM. Reports peak (ω, S)
+  and ω-integrated weight per order across three q-points, showing
+  the energetic separation of the three orders.
+
 ### Test count
 
-`test_magnon`: 285/285 assertions (was 124/124 at 1.3.1). ASan and
+`test_magnon`: 412/412 assertions (was 124/124 at 1.3.1). ASan and
 UBSan both clean across the full suite. Module-level coverage on
-`magnon` remains in the high-90% range.
+`magnon` remains in the high-90% range. Two shadow bugs found and
+fixed during the expansion (local `double total` shadowing the
+global `int total` used by the ASSERT macro).
 
 ## [1.3.1] — 2026-04-26
 

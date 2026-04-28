@@ -728,6 +728,42 @@ IRREP_API irrep_status_t irrep_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, i
                                            double omega_min, double omega_max, int n_bins,
                                            double *dos_out);
 
+/** @brief Powder-averaged 1-magnon spectrum S_powder(ω) — the BZ-
+ *         integrated, structure-factor-weighted DOS.
+ *
+ *      S_powder(ω) = (1/N_BZ) Σ_{k, b} S_⊥_b(k) · δ(ω - ω_b(k))
+ *
+ *  This is the angular-averaged inelastic-neutron intensity measured
+ *  on POWDER samples — distinct from the plain magnon DOS in that
+ *  bands with low spectral weight (dark on transverse INS) are
+ *  suppressed. For a kagome FM, the upper bands are dark at Γ but
+ *  carry weight elsewhere in the BZ; the powder spectrum picks that
+ *  up correctly.
+ *
+ *  Sum rule:  ∫ S_powder(ω) dω = 2S · n_sub.
+ *
+ *  Use `_powder_spectrum_general` for AFM/ferri ground states; the
+ *  Bogoliubov-Colpa structure factor is required for correct
+ *  spectral weight there.
+ *
+ *  @param L         LSW handle
+ *  @param Nx, Ny    BZ integration grid
+ *  @param omega_min, omega_max  energy histogram window
+ *  @param n_bins    number of energy bins
+ *  @param S_out     caller buffer of n_bins doubles. */
+IRREP_API irrep_status_t irrep_magnon_powder_spectrum(const irrep_magnon_lsw_t *L, int Nx, int Ny,
+                                                       double omega_min, double omega_max,
+                                                       int n_bins, double *S_out);
+
+/** @brief AFM-aware powder-averaged 1-magnon spectrum — same as
+ *         `_powder_spectrum` but with sublattice signs and the
+ *         Bogoliubov structure factor. */
+IRREP_API irrep_status_t irrep_magnon_powder_spectrum_general(const irrep_magnon_lsw_t *L,
+                                                               const int *sublattice_signs,
+                                                               int Nx, int Ny, double omega_min,
+                                                               double omega_max, int n_bins,
+                                                               double *S_out);
+
 /** @brief Band-resolved transverse structure factor for a *general*
  *         (collinear FM/AFM/ferri) ground state — uses the Bogoliubov-
  *         Colpa machinery instead of the FM-only Hermitian path.

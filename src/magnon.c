@@ -1168,6 +1168,80 @@ irrep_status_t irrep_magnon_dos(const irrep_magnon_lsw_t *L, int Nx, int Ny, dou
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_powder_spectrum(const irrep_magnon_lsw_t *L, int Nx, int Ny,
+                                              double omega_min, double omega_max, int n_bins,
+                                              double *S_out) {
+    if (!L || Nx <= 0 || Ny <= 0 || n_bins <= 0 || omega_max <= omega_min || !S_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    memset(S_out, 0, (size_t)n_bins * sizeof *S_out);
+    double  bin_w = (omega_max - omega_min) / n_bins;
+    double *omega = malloc((size_t)n * sizeof *omega);
+    double *Sb    = malloc((size_t)n * sizeof *Sb);
+    if (!omega || !Sb) {
+        free(omega);
+        free(Sb);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = ((double)ix + 0.5) / Nx;
+            double fy = ((double)iy + 0.5) / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            irrep_magnon_structure_factor(L, kx, ky, omega, Sb);
+            for (int b = 0; b < n; ++b) {
+                int idx = (int)((omega[b] - omega_min) / bin_w);
+                if (idx >= 0 && idx < n_bins)
+                    S_out[idx] += Sb[b];
+            }
+        }
+    double norm = 1.0 / ((double)Nx * (double)Ny * bin_w);
+    for (int i = 0; i < n_bins; ++i)
+        S_out[i] *= norm;
+    free(omega);
+    free(Sb);
+    return IRREP_OK;
+}
+
+irrep_status_t irrep_magnon_powder_spectrum_general(const irrep_magnon_lsw_t *L,
+                                                      const int *sublattice_signs, int Nx, int Ny,
+                                                      double omega_min, double omega_max,
+                                                      int n_bins, double *S_out) {
+    if (!L || !sublattice_signs || Nx <= 0 || Ny <= 0 || n_bins <= 0 ||
+        omega_max <= omega_min || !S_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n = L->n_sub;
+    memset(S_out, 0, (size_t)n_bins * sizeof *S_out);
+    double  bin_w = (omega_max - omega_min) / n_bins;
+    double *omega = malloc((size_t)n * sizeof *omega);
+    double *Sb    = malloc((size_t)n * sizeof *Sb);
+    if (!omega || !Sb) {
+        free(omega);
+        free(Sb);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = ((double)ix + 0.5) / Nx; /* avoid Goldstone at Γ */
+            double fy = ((double)iy + 0.5) / Ny;
+            double kx = fx * L->b1[0] + fy * L->b2[0];
+            double ky = fx * L->b1[1] + fy * L->b2[1];
+            irrep_magnon_structure_factor_general(L, sublattice_signs, kx, ky, omega, Sb);
+            for (int b = 0; b < n; ++b) {
+                int idx = (int)((omega[b] - omega_min) / bin_w);
+                if (idx >= 0 && idx < n_bins)
+                    S_out[idx] += Sb[b];
+            }
+        }
+    double norm = 1.0 / ((double)Nx * (double)Ny * bin_w);
+    for (int i = 0; i < n_bins; ++i)
+        S_out[i] *= norm;
+    free(omega);
+    free(Sb);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_structure_factor(const irrep_magnon_lsw_t *L, double qx, double qy,
                                               double *omega_out, double *S_perp_out) {
     if (!L || !omega_out || !S_perp_out)

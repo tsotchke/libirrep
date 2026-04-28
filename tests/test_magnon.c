@@ -1388,6 +1388,61 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (55) FM powder spectrum: sum rule ∫ S_powder dω = 2S·n_sub = 1.0
+ * for the square FM (S=1/2, n_sub=1). Single-band coverage of the
+ * full bandwidth ω ∈ [0, 4·J·S] = [0, 2]. */
+static void test_powder_spectrum_fm(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    int n_bins = 100;
+    double w_max = 4.5;       /* FM bandwidth [0, 4·|J|·S·z/2] = [0, 4] */
+    double dw = w_max / n_bins;
+    double *Sw = malloc((size_t)n_bins * sizeof *Sw);
+    irrep_magnon_powder_spectrum(L, 60, 60, 0.0, w_max, n_bins, Sw);
+    double weight_sum = 0;
+    for (int i = 0; i < n_bins; ++i) weight_sum += Sw[i] * dw;
+    ASSERT(fabs(weight_sum - 1.0) < 0.05, "FM powder sum rule = 2S·n_sub");
+    /* For 2D FM the DOS has a step edge at ω→0 (constant DOS in 2D
+     * for quadratic dispersion). S_⊥ = 2S = 1 is q-independent so
+     * S_powder ≡ DOS for n_sub=1. Bottom bin has finite weight. */
+    ASSERT(Sw[0] > 0.05, "FM powder has spectral weight at ω→0");
+    free(Sw);
+    irrep_magnon_lsw_free(L);
+}
+
+/* (56) AFM bipartite square powder: AFM dispersion ω(k) = 2J·S·√(1-γ²)
+ * has bandwidth [0, 2] for J=1, S=1/2. Bogoliubov structure factor
+ * diverges at Γ but ∫ converges. Sum rule: 2S·n_sub = 2.0. */
+static void test_powder_spectrum_general_afm(void) {
+    double a1[2] = {1.0, 1.0};
+    double a2[2] = {1.0, -1.0};
+    irrep_magnon_bond_t bonds[4] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 1, .delta_x = -1, .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, 0.5, a1, a2, 4, bonds, 0);
+    int signs[2] = {+1, -1};
+    int n_bins = 100;
+    double w_max = 2.5;
+    double *Sw = malloc((size_t)n_bins * sizeof *Sw);
+    irrep_magnon_powder_spectrum_general(L, signs, 80, 80, 0.0, w_max, n_bins, Sw);
+    double weight_sum = 0;
+    for (int i = 0; i < n_bins; ++i) {
+        ASSERT(Sw[i] >= 0, "AFM powder spectrum non-negative");
+        weight_sum += Sw[i];
+    }
+    ASSERT(weight_sum > 0, "AFM powder spectrum has non-zero integrated weight");
+    free(Sw);
+    irrep_magnon_lsw_free(L);
+}
+
 /* (52) AFM-aware 2-magnon S^(2)(q, ω) on a bipartite square AFM. Should
  * have non-zero spectral weight at intermediate ω (between ω_min and
  * 2·ω_max), confirming the convolution structure works through the
@@ -1836,6 +1891,8 @@ int main(void) {
     test_two_magnon_qomega_general();
     test_one_magnon_qomega();
     test_one_magnon_qomega_general();
+    test_powder_spectrum_fm();
+    test_powder_spectrum_general_afm();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

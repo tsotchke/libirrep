@@ -4,6 +4,85 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — magnon spectroscopy expansion (post-1.3.1)
+
+Closes the 1-magnon → full INS prediction loop on top of the existing
+LSW infrastructure (dispersion, Berry/Chern, thermal Hall, structure
+factor). New public functions in `irrep/magnon.h`:
+
+- **AFM-aware Bogoliubov structure factor** —
+  `irrep_magnon_structure_factor_general(L, sublattice_signs, qx, qy,
+  ω, S_⊥)` returns the band-resolved transverse SF for collinear
+  FM/AFM/ferri ground states using the Bogoliubov-Colpa machinery
+  (uses both u and v amplitudes). Reduces to the FM-track
+  `_structure_factor` when all signs are +1.
+
+- **One-magnon dynamical SF (AFM-aware)** —
+  `irrep_magnon_one_magnon_qomega_general` is the AFM counterpart of
+  the pre-existing FM-track `_neutron_qomega_map`.
+
+- **Two-magnon dynamical SF** —
+  `irrep_magnon_two_magnon_qomega` (FM) and `_general` (AFM).
+  Pre-computes a half-shifted BZ grid and convolves to give
+  S^(2)(q, ω). Sum rule `n_sub²` for FM.
+
+- **Total dynamical SF** —
+  `irrep_magnon_dynamical_structure_factor` and `_general` are
+  single-call wrappers that sum S^(1) + S^(2).
+
+- **Finite-T Stokes channel** —
+  `irrep_magnon_dynamical_structure_factor_T` and `_general` apply
+  the (1 + n_B(ω, T)) Bose-enhancement factor to the 1-magnon
+  spectrum.
+
+- **Anti-Stokes channel** —
+  `irrep_magnon_dynamical_structure_factor_T_anti_stokes` and
+  `_general` return the magnon-annihilation channel (peak at
+  -ω_b(q), weight n_B). Together with Stokes satisfies detailed
+  balance: S(q, ω, T) / S(q, -ω, T) = exp(ω/T).
+
+- **Powder-averaged spectrum** —
+  `irrep_magnon_powder_spectrum` and `_general` compute the BZ-
+  integrated, structure-factor-weighted DOS — what powder-INS
+  experiments report (distinct from the plain magnon DOS).
+
+- **Kinematic decay rate** —
+  `irrep_magnon_kinematic_damping` returns Γ_kin = π · D^(2)(k, ω_b(k)),
+  the matrix-element-stripped Born estimate of the linewidth via
+  1→2 magnon decay phase space. Caller multiplies by their |V_3|²
+  cubic-vertex estimate for the full Born linewidth.
+
+### New examples
+
+- `lsw_dynamical_sf_vs_ed_4x4` — capstone validation of the new
+  spectroscopy stack against quantum-exact CF-Lanczos on a 16-site
+  AFM cluster. Demonstrates zone-interior agreement (~25% from
+  finite-L drift) and the zone-corner LSW two-magnon vs. ED
+  finite-size-tower distinction.
+
+- `kagome_finite_T_ins` — finite-T INS on a kagome topological FM
+  with DMI at three temperatures (T = 0.1, 1.0, 5.0 in J units).
+  Verifies detailed-balance ratio numerically at the M-point.
+
+- `kagome_kinematic_damping` — phase-space decay-rate map across
+  Γ-K-M-Γ on the kagome topological FM, with physics commentary on
+  the Γ_real = Γ_kin · |V_3|² decomposition.
+
+- `dynamical_structure_factor_4x4` — CF-Lanczos exact S(q, ω) on
+  the same 4×4 AFM cluster, used by the capstone above.
+
+- `lsw_vs_ed_4x4_afm`, `spin_correlation_lsw_vs_ed`,
+  `k_resolved_magnon_4x4_afm`, `kagome_120neel_lsw` — supporting
+  ED-vs-LSW comparison demos that close the validation loop.
+
+### Test count
+
+`test_magnon`: 285/285 assertions (was 124/124 at 1.3.1). ASan and
+UBSan both clean across the full suite. Module-level coverage on
+`magnon` remains in the high-90% range.
+
 ## [1.3.1] — 2026-04-26
 
 First non-alpha release on the 1.3 line. Drops the `-alpha` suffix

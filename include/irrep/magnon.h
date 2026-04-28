@@ -656,6 +656,57 @@ typedef double (*irrep_magnon_cubic_vertex_fn)(int b, int b1, int b2, double kx,
                                                  double k1x, double k1y, double k2x,
                                                  double k2y, void *user_data);
 
+/** @brief Heisenberg cubic-vertex Born decay rate for non-collinear
+ *         LSW models — turns the user's ground-state direction set
+ *         and bond list into Γ_b(k) directly, no callback required.
+ *
+ *  Implements the Born self-energy
+ *
+ *      Γ_b(k) = π Σ_{q, b1, b2} |V_3(k → q, k-q; b → b1, b2)|²
+ *                 · L_η(ω_b(k) - ω_{b1}(q) - ω_{b2}(k-q))
+ *
+ *  where V_3 is the Heisenberg cubic vertex from local-frame
+ *  Holstein-Primakoff expansion. Per bond ⟨α(R), β(R+t)⟩ with
+ *  rotation-induced relative orientation M_αβ = R_α^T R_β, the
+ *  cubic Hamiltonian's 1→2 piece is
+ *
+ *      H_3^{1→2}_⟨αβ⟩ = -J √(S/2) · {
+ *          (M[XZ] + i M[YZ]) · a_α†(R) a_β†(R+t) a_β(R+t)
+ *        + (M[ZX] + i M[ZY]) · a_α†(R) a_α(R) a_β†(R+t) }
+ *
+ *  After Fourier transform and summing over the bond list (both
+ *  orientations), the band-basis matrix element is computed by
+ *  sandwiching with the Bogoliubov u-amplitudes from
+ *  `_dispersion_noncollinear_full`.
+ *
+ *  IMPORTANT — Bogoliubov approximation: this implementation uses
+ *  ONLY the leading u·u·u* term from the (u, v) Bogoliubov expansion
+ *  of the bare-boson cubic vertex. The exact result includes v-mixed
+ *  contributions (8 total terms per bond contribution) that are
+ *  parametrically suppressed for "FM-like" non-collinear states (low
+ *  pairing amplitudes) but become O(1) corrections for strongly-
+ *  paired AFMs. For quantitative agreement on canonical references
+ *  like the kagome 120° Néel (Mourigal-Chernyshev PRL 2013), the
+ *  v contributions need to be added — this is documented and left
+ *  for follow-on work.
+ *
+ *  By construction Γ → 0 on COLLINEAR ground states (M = identity
+ *  → no cubic vertex by U(1)), and Γ > 0 on genuine non-collinear
+ *  ground states.
+ *
+ *  @param L           non-collinear LSW handle
+ *  @param n_vectors   3·n_sub doubles — local ẑ direction per sublattice
+ *  @param kpath       n_k × 2 momenta
+ *  @param n_k         number of k-points
+ *  @param Nx, Ny      BZ grid for the phase-space sum
+ *  @param eta         Lorentzian half-width
+ *  @param gamma_out   n_k × n_sub doubles — Γ_b(k) in J units */
+IRREP_API irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
+                                                              const double *n_vectors,
+                                                              const double (*kpath)[2],
+                                                              int n_k, int Nx, int Ny,
+                                                              double eta, double *gamma_out);
+
 /** @brief Born-approximation magnon decay rate Γ_b(k) from a user-
  *         provided cubic vertex, via Fermi golden rule:
  *

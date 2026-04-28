@@ -1357,6 +1357,70 @@ static void test_one_magnon_qomega_general(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (74) Heisenberg cubic-vertex decay rate:
+ * - On collinear FM along ẑ all R_α = identity → M = identity →
+ *   off-diagonals zero → cubic vertex zero → Γ = 0 (within numerical
+ *   noise from BZ-grid Lorentzian tails).
+ */
+static void test_heisenberg_decay_rate_collinear_zero(void) {
+    /* Bipartite-square AFM ground state along +ẑ for both sublattices
+     * (NOT actually a stable Néel — but that's fine, we're testing
+     * the cubic-vertex formula on a model with M = identity).
+     * Use a 2-sublattice geometry but specify identical n_α directions. */
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.0, 1.0};
+    irrep_magnon_bond_t bonds[2] = {
+        {.bi = 0, .bj = 0, .delta_x = 1, .delta_y = 0, .J = -1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 0, .delta_x = 0, .delta_y = 1, .J = -1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, 0);
+    double n_vecs[3] = {0, 0, 1};
+    double k_pts[1][2] = {{M_PI / 2, M_PI / 2}};
+    double gamma_out;
+    irrep_status_t st = irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts, 1, 12, 12, 0.1,
+                                                            &gamma_out);
+    ASSERT(st == IRREP_OK, "heisenberg_decay_rate on collinear FM returns OK");
+    ASSERT(fabs(gamma_out) < 1e-9, "Γ ≈ 0 on collinear FM (M = identity, no cubic)");
+    irrep_magnon_lsw_free(L);
+}
+
+/* (75) On the kagome 120° Néel — a genuinely stable classical
+ * non-collinear ground state — the cubic vertex is finite and Γ > 0
+ * on at least one band at a generic k away from Γ. */
+static void test_heisenberg_decay_rate_noncollinear_finite(void) {
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * sqrt(3.0)};
+    /* 6 kagome NN bonds, AFM coupling. */
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 2, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 0, .delta_x = 0,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 1, .bj = 0, .delta_x = 1,  .delta_y = 0,  .J = +1.0, .D = {0,0,0}},
+        {.bi = 0, .bj = 2, .delta_x = 0,  .delta_y = -1, .J = +1.0, .D = {0,0,0}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y = 1,  .J = +1.0, .D = {0,0,0}},
+    };
+    irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, 0.5, a1, a2, 6, bonds, 0);
+    /* 120° Néel ordering vectors in the lattice plane. */
+    double n_vecs[9] = {
+        1.0,           0.0,            0.0,    /* sublattice 0 → +x̂ */
+       -0.5,           0.5 * sqrt(3.0), 0.0,   /* sublattice 1 → 120° */
+       -0.5,          -0.5 * sqrt(3.0), 0.0,   /* sublattice 2 → 240° */
+    };
+    /* Generic interior k away from Γ. */
+    double k_pts[1][2] = {{1.5, 0.7}};
+    double gamma_out[3];
+    irrep_status_t st = irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_pts, 1, 12, 12, 0.1,
+                                                            gamma_out);
+    ASSERT(st == IRREP_OK, "heisenberg_decay_rate on kagome 120° Néel returns OK");
+    int any_finite = (gamma_out[0] > 1e-4) || (gamma_out[1] > 1e-4) || (gamma_out[2] > 1e-4);
+    ASSERT(any_finite, "Γ > 0 on kagome 120° Néel (non-trivial cubic vertex)");
+    /* All Γ ≥ 0. */
+    int all_nonneg = 1;
+    for (int b = 0; b < 3; ++b) if (gamma_out[b] < -1e-9) all_nonneg = 0;
+    ASSERT(all_nonneg, "Γ_b(k) ≥ 0 for all bands");
+    irrep_magnon_lsw_free(L);
+}
+
 /* (73) _dispersion_noncollinear_full: ω_out should match what
  * _dispersion_noncollinear returns; the additional Bogoliubov
  * uv_out is non-zero and contains finite finite amplitudes. */
@@ -2487,6 +2551,8 @@ int main(void) {
     test_polarized_sf_collinear_FM();
     test_polarized_sf_relates_to_S_perp();
     test_dispersion_noncollinear_full_recovers_omega();
+    test_heisenberg_decay_rate_collinear_zero();
+    test_heisenberg_decay_rate_noncollinear_finite();
     printf("test_magnon: %d/%d assertions passed\n", total - failed, total);
     return failed == 0 ? 0 : 1;
 }

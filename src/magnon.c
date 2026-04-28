@@ -1084,6 +1084,166 @@ irrep_status_t irrep_magnon_fit_J_and_DMI(int n_sub, double S, const double a1[2
     return IRREP_OK;
 }
 
+/* Forward declarations for non-collinear-LSW internals defined later. */
+static void rotate_zhat_to_n_(const double n[3], double R[9]);
+
+irrep_status_t irrep_magnon_heisenberg_decay_rate(const irrep_magnon_lsw_t *L,
+                                                    const double *n_vectors,
+                                                    const double (*kpath)[2], int n_k, int Nx,
+                                                    int Ny, double eta, double *gamma_out) {
+    if (!L || !n_vectors || !kpath || n_k <= 0 || Nx <= 0 || Ny <= 0 || eta <= 0 ||
+        !gamma_out)
+        return IRREP_ERR_INVALID_ARG;
+    int n     = L->n_sub;
+    int N_BdG = 2 * n;
+    int nb    = L->n_bonds;
+    int N_grid = Nx * Ny;
+
+    memset(gamma_out, 0, (size_t)n_k * (size_t)n * sizeof *gamma_out);
+
+    double          *R_all      = malloc((size_t)n * 9 * sizeof *R_all);
+    double          *bond_M     = malloc((size_t)nb * 9 * sizeof *bond_M);
+    double          *omega_grid = malloc((size_t)N_grid * n * sizeof *omega_grid);
+    double _Complex *uv_grid    = malloc((size_t)N_grid * n * N_BdG * sizeof *uv_grid);
+    double          *omega_k    = malloc((size_t)n * sizeof *omega_k);
+    double _Complex *uv_k       = malloc((size_t)n * N_BdG * sizeof *uv_k);
+    if (!R_all || !bond_M || !omega_grid || !uv_grid || !omega_k || !uv_k) {
+        free(R_all); free(bond_M); free(omega_grid); free(uv_grid); free(omega_k); free(uv_k);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    /* Rotation matrices per sublattice and M_αβ per bond. M_αβ = R_α^T · R_β. */
+    for (int a = 0; a < n; ++a) rotate_zhat_to_n_(n_vectors + 3 * a, R_all + 9 * a);
+    for (int b = 0; b < nb; ++b) {
+        const irrep_magnon_bond_t *bd = &L->bonds[b];
+        double *Ra = R_all + 9 * bd->bi;
+        double *Rb = R_all + 9 * bd->bj;
+        double *M  = bond_M + 9 * b;
+        for (int i = 0; i < 3; ++i)
+            for (int j = 0; j < 3; ++j) {
+                double sum = 0;
+                for (int k = 0; k < 3; ++k) sum += Ra[3 * k + i] * Rb[3 * k + j];
+                M[3 * i + j] = sum;
+            }
+    }
+    /* Pre-compute (ω, u, v) on a half-shifted BZ grid via the new
+     * `_dispersion_noncollinear_full` API. */
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double fx = ((double)ix + 0.5) / Nx;
+            double fy = ((double)iy + 0.5) / Ny;
+            double qx = fx * L->b1[0] + fy * L->b2[0];
+            double qy = fx * L->b1[1] + fy * L->b2[1];
+            int    p = iy * Nx + ix;
+            irrep_status_t st = irrep_magnon_dispersion_noncollinear_full(
+                L, n_vectors, qx, qy, omega_grid + p * n, uv_grid + p * n * N_BdG);
+            if (st != IRREP_OK) {
+                free(R_all); free(bond_M); free(omega_grid); free(uv_grid);
+                free(omega_k); free(uv_k);
+                return st;
+            }
+        }
+    double inv_NBZ      = 1.0 / (double)N_grid;
+    double prefactor    = sqrt(0.5 * L->S);   /* √(S/2) */
+    double det          = L->b1[0] * L->b2[1] - L->b1[1] * L->b2[0];
+
+    for (int ik = 0; ik < n_k; ++ik) {
+        double kx = kpath[ik][0];
+        double ky = kpath[ik][1];
+        irrep_status_t st = irrep_magnon_dispersion_noncollinear_full(L, n_vectors, kx, ky,
+                                                                       omega_k, uv_k);
+        if (st != IRREP_OK) {
+            free(R_all); free(bond_M); free(omega_grid); free(uv_grid); free(omega_k);
+            free(uv_k);
+            return st;
+        }
+        for (int b = 0; b < n; ++b) {
+            double w_target = omega_k[b];
+            double accum    = 0.0;
+            for (int p1 = 0; p1 < N_grid; ++p1) {
+                int    ix1 = p1 % Nx, iy1 = p1 / Nx;
+                double fx1 = ((double)ix1 + 0.5) / Nx;
+                double fy1 = ((double)iy1 + 0.5) / Ny;
+                double k1x = fx1 * L->b1[0] + fy1 * L->b2[0];
+                double k1y = fx1 * L->b1[1] + fy1 * L->b2[1];
+                double k2x = kx - k1x;
+                double k2y = ky - k1y;
+                double f2x = (k2x * L->b2[1] - k2y * L->b2[0]) / det;
+                double f2y = (-k2x * L->b1[1] + k2y * L->b1[0]) / det;
+                f2x        = f2x - floor(f2x);
+                f2y        = f2y - floor(f2y);
+                int ix2    = (int)(f2x * Nx + 0.5) % Nx;
+                int iy2    = (int)(f2y * Ny + 0.5) % Ny;
+                int p2     = iy2 * Nx + ix2;
+
+                for (int b1 = 0; b1 < n; ++b1)
+                    for (int b2 = 0; b2 < n; ++b2) {
+                        double _Complex M_amp = 0;
+                        for (int bdi = 0; bdi < nb; ++bdi) {
+                            const irrep_magnon_bond_t *bd = &L->bonds[bdi];
+                            double tx = bd->delta_x * L->a1[0] + bd->delta_y * L->a2[0];
+                            double ty = bd->delta_x * L->a1[1] + bd->delta_y * L->a2[1];
+                            double *MM = bond_M + 9 * bdi;
+                            int    alpha = bd->bi;
+                            int    beta  = bd->bj;
+                            double Mxz = MM[2], Myz = MM[5], Mzx = MM[6], Mzy = MM[7];
+                            double _Complex A = Mxz + I * Myz;
+                            double _Complex B = Mzx + I * Mzy;
+                            /* Iterate over both bond orientations: (α, β, t) as
+                             * given, and (β, α, -t). For the reversed orientation
+                             * M' = M^T, so A' = M[ZX] + i M[ZY] and B' = M[XZ] + i M[YZ]. */
+                            for (int orient = 0; orient < 2; ++orient) {
+                                int    a_in_C = beta, a_in_D = alpha;
+                                int    a_out_alpha = alpha, a_out_beta = beta;
+                                double tx_or = tx, ty_or = ty;
+                                double _Complex A_or = A, B_or = B;
+                                if (orient == 1) {
+                                    a_in_C       = alpha;
+                                    a_in_D       = beta;
+                                    a_out_alpha  = beta;
+                                    a_out_beta   = alpha;
+                                    tx_or        = -tx;
+                                    ty_or        = -ty;
+                                    A_or         = Mzx + I * Mzy;
+                                    B_or         = Mxz + I * Myz;
+                                }
+                                /* Channel C: incoming a_in_C, outgoing a_out_alpha at k1,
+                                 * a_out_beta at k2. Phase e^{+i k1 · t}. */
+                                double phase_C = k1x * tx_or + k1y * ty_or;
+                                double _Complex eikt_C = cos(phase_C) + I * sin(phase_C);
+                                double _Complex u_in_C  = uv_k[b * N_BdG + a_in_C];
+                                double _Complex u1_C    =
+                                    uv_grid[p1 * n * N_BdG + b1 * N_BdG + a_out_alpha];
+                                double _Complex u2_C    =
+                                    uv_grid[p2 * n * N_BdG + b2 * N_BdG + a_out_beta];
+                                M_amp += -bd->J * prefactor * A_or * eikt_C * conj(u1_C) *
+                                         conj(u2_C) * u_in_C;
+                                /* Channel D: incoming a_in_D, outgoing a_out_alpha at k1,
+                                 * a_out_beta at k2. Phase e^{-i k2 · t}. */
+                                double phase_D = -(k2x * tx_or + k2y * ty_or);
+                                double _Complex eikt_D = cos(phase_D) + I * sin(phase_D);
+                                double _Complex u_in_D  = uv_k[b * N_BdG + a_in_D];
+                                double _Complex u1_D    =
+                                    uv_grid[p1 * n * N_BdG + b1 * N_BdG + a_out_alpha];
+                                double _Complex u2_D    =
+                                    uv_grid[p2 * n * N_BdG + b2 * N_BdG + a_out_beta];
+                                M_amp += -bd->J * prefactor * B_or * eikt_D * conj(u1_D) *
+                                         conj(u2_D) * u_in_D;
+                            }
+                        }
+                        double V2 = creal(M_amp) * creal(M_amp) +
+                                    cimag(M_amp) * cimag(M_amp);
+                        double dx = w_target - omega_grid[p1 * n + b1] -
+                                    omega_grid[p2 * n + b2];
+                        accum += inv_NBZ * V2 * (eta / M_PI) / (dx * dx + eta * eta);
+                    }
+            }
+            gamma_out[ik * n + b] = M_PI * accum;
+        }
+    }
+    free(R_all); free(bond_M); free(omega_grid); free(uv_grid); free(omega_k); free(uv_k);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_born_decay_rate(const irrep_magnon_lsw_t *L,
                                               const double (*kpath)[2], int n_k, int Nx,
                                               int Ny, double eta,

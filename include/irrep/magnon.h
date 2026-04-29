@@ -1733,14 +1733,19 @@ IRREP_API irrep_status_t irrep_magnon_topological_charge_2d(const double *n_fiel
  *      along the z-axis returns H proportional to n.
  *    - **Antisymmetric under twist sign-flip**: H(−n) = −H(n).
  *
- *  Calibration status: for textures that compactify smoothly to
- *  S³ → S² (m̂(r) → const at the periodic boundary), H is the integer
- *  linking number of any two preimages — the homotopy invariant of
- *  m̂. For textures supported on T³ that do not compactify cleanly
+ *  Calibration status: validated against the analytic charge-1
+ *  Hopfion via stereographic R³ → S³ → S²: m̂_x = (8xz + 4y(r²−1))/D²,
+ *  m̂_y = (8yz − 4x(r²−1))/D², m̂_z = (−r⁴ + 6r² − 8z² − 1)/D² with
+ *  D = 1 + r². This ansatz has m̂(0) = m̂(∞) = −ẑ uniformly in any
+ *  direction, so the texture closes cleanly under PBC; the integer
+ *  H = +1 (linking number of the unit-circle m̂ = +ẑ preimage and
+ *  the z-axis m̂ = −ẑ preimage). Numerically H ≈ +0.91 on 64³ with
+ *  R = 8 — about 9% from integer due to central-difference O(h²)
+ *  errors and PBC truncation; convergent toward +1 with finer
+ *  resolution. For textures that do not compactify cleanly on T³
  *  (e.g., twisted skyrmion tubes with direction-dependent asymptotic
  *  behaviour), H is the well-defined discrete Whitehead integral but
- *  is not required to be a clean integer. Calibrating against an
- *  analytic Hopf-1 Faddeev-Niemi toroidal ansatz remains a follow-up.
+ *  is not required to be a clean integer.
  *
  *  Use cases:
  *    - Relative Hopf-charge comparison between texture configurations

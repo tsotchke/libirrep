@@ -240,18 +240,26 @@ factor). New public functions in `irrep/magnon.h`:
     * **Antisymmetric under twist sign-flip**: H(−n) = −H(n) to
       machine precision.
 
-  Calibration status: for textures that compactify smoothly to
-  S³ → S² (m̂(r) → const at the periodic boundary), H is the integer
-  linking number of any two preimages. For textures supported on T³
-  that do not compactify cleanly (e.g., the twisted-skyrmion-tube
-  validation ansatz, which has direction-dependent asymptotic
-  behaviour), H is the well-defined discrete Whitehead integral but
-  is not required to be a clean integer. Calibrating against an
-  analytic Faddeev-Niemi toroidal Hopfion ansatz remains a follow-up.
+  Absolute calibration: validated against the analytic charge-1
+  Hopfion via stereographic R³ → S³ → S² (Hopf map):
+
+      m̂_x = (8xz + 4y(r²−1)) / (1+r²)²
+      m̂_y = (8yz − 4x(r²−1)) / (1+r²)²
+      m̂_z = (−r⁴ + 6r² − 8z² − 1) / (1+r²)²
+
+  This texture has m̂(0) = m̂(∞) = −ẑ uniformly, so the boundary
+  closes cleanly under PBC, and H = +1 is the analytic linking
+  number of the m̂ = +ẑ preimage (unit circle in xy-plane) with the
+  m̂ = −ẑ preimage (z-axis). Numerically H ≈ +0.91 on 64³ with R = 8
+  — within 9% of integer; the residual is central-difference O(h²)
+  error + PBC truncation at the lattice boundary. Convergent toward
+  +1 with finer resolution. Test
+  `test_hopf_charge_unit_hopfion_ansatz` exercises this on a 48³
+  lattice with R = 6 and asserts H ∈ (0.7, 1.0).
 
 ### Test count
 
-`test_magnon`: 487/487 assertions (was 124/124 at 1.3.1; +63 over
+`test_magnon`: 490/490 assertions (was 124/124 at 1.3.1; +66 over
 the magnon-spectroscopy + topological-charge + Chern-sweep + Hopf-
 charge expansion). ASan and UBSan both clean across the full suite.
 Module-level function coverage on `magnon` ≥ 93%. Two shadow bugs

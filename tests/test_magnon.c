@@ -1823,6 +1823,52 @@ static void test_hopf_charge_twist_antisymmetry(void) {
     free(m);
 }
 
+/* Charge-1 Hopfion via stereographic R³ → S³ → S²:
+ *   X = 2x/(1+r²), Y = 2y/(1+r²), Z = 2z/(1+r²), T = (r²-1)/(1+r²)
+ *   m̂ = (2 Z_1 Z̄_2, |Z_1|² - |Z_2|²) where Z_1 = X+iY, Z_2 = Z+iT
+ *
+ * Asymptotic limits: m̂(0) = m̂(∞) = -ẑ uniformly in any direction —
+ * so the texture closes cleanly under PBC, and H is the integer
+ * linking number of the unit-circle (m̂=+ẑ preimage in xy-plane) and
+ * the z-axis (m̂=-ẑ preimage), which is +1. */
+static void fill_unit_hopfion_(double *m, int N, double R) {
+    for (int iz = 0; iz < N; ++iz)
+        for (int iy = 0; iy < N; ++iy)
+            for (int ix = 0; ix < N; ++ix) {
+                int p = (iz * N + iy) * N + ix;
+                double x = (ix - N / 2.0) / R;
+                double y = (iy - N / 2.0) / R;
+                double z = (iz - N / 2.0) / R;
+                double r2 = x * x + y * y + z * z;
+                double D = 1.0 + r2;
+                double D2 = D * D;
+                double mx = (8 * x * z + 4 * y * (r2 - 1)) / D2;
+                double my = (8 * y * z - 4 * x * (r2 - 1)) / D2;
+                double mz = (-r2 * r2 + 6 * r2 - 8 * z * z - 1) / D2;
+                double n = sqrt(mx * mx + my * my + mz * mz);
+                m[3 * p + 0] = mx / n;
+                m[3 * p + 1] = my / n;
+                m[3 * p + 2] = mz / n;
+            }
+}
+
+static void test_hopf_charge_unit_hopfion_ansatz(void) {
+    /* On a 48³ lattice with R = 6, the texture is moderately well-
+     * resolved and approaches the +1 integer Hopf charge with finite-
+     * difference + PBC-truncation errors. */
+    int     N  = 48;
+    double *m  = malloc((size_t)3 * N * N * N * sizeof *m);
+    fill_unit_hopfion_(m, N, /*R=*/6.0);
+    double H = NAN;
+    irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 8 * N * N, &H);
+    /* H should be near +1 within ~15% on this lattice. */
+    ASSERT(H > 0.0, "unit Hopfion ansatz: H is positive");
+    ASSERT(H < 1.0, "unit Hopfion ansatz: H is sub-integer (lattice + PBC truncation)");
+    ASSERT(H > 0.7,
+           "unit Hopfion ansatz: H ≳ 0.7 on 48³, approaching +1 in continuum");
+    free(m);
+}
+
 /* (72b) Chern parameter sweep + boundary detection: build a kagome FM
  * factory with D as the swept parameter, sweep across D ∈ [-0.3, +0.3]
  * skipping D = 0 (bands touch there), and verify
@@ -3035,6 +3081,7 @@ int main(void) {
     test_hopf_charge_untwisted_skyrmion_tube();
     test_hopf_charge_linearity_in_twist();
     test_hopf_charge_twist_antisymmetry();
+    test_hopf_charge_unit_hopfion_ansatz();
     test_chern_sweep_kagome();
     test_chern_sweep_no_boundary();
     test_heisenberg_decay_rate_collinear_zero();

@@ -525,9 +525,9 @@ static void test_wilson_winding_kagome(void) {
 
     /* Expected Chern (-1, 0, +1). Wilson winding has the same sign
      * convention as Chern (FHS). */
-    ASSERT_NEAR(winding[0], -1.0, 0.05, "Wilson winding band 0 = -1");
-    ASSERT_NEAR(winding[1], 0.0, 0.05, "Wilson winding band 1 = 0");
-    ASSERT_NEAR(winding[2], +1.0, 0.05, "Wilson winding band 2 = +1");
+    ASSERT_NEAR(winding[0], -1.0, 1e-9, "Wilson winding band 0 = -1");
+    ASSERT_NEAR(winding[1],  0.0, 1e-9, "Wilson winding band 1 = 0");
+    ASSERT_NEAR(winding[2], +1.0, 1e-9, "Wilson winding band 2 = +1");
 
     irrep_magnon_lsw_free(L);
 }
@@ -785,9 +785,9 @@ static void test_3d_chern_layered_kagome(void) {
     double              chern[3];
     /* k_z = 0 slice: the in-plane (-1, 0, +1) topology should survive. */
     irrep_magnon_chern_3d_slice_kz(L, a3, 0.0, 32, 32, chern);
-    ASSERT_NEAR(chern[0], -1.0, 0.05, "layered kagome k_z=0: lower band Chern -1");
-    ASSERT_NEAR(chern[1], 0.0, 0.05, "layered kagome k_z=0: middle band Chern 0");
-    ASSERT_NEAR(chern[2], +1.0, 0.05, "layered kagome k_z=0: upper band Chern +1");
+    ASSERT_NEAR(chern[0], -1.0, 1e-12, "layered kagome k_z=0: lower band Chern -1");
+    ASSERT_NEAR(chern[1],  0.0, 1e-12, "layered kagome k_z=0: middle band Chern 0");
+    ASSERT_NEAR(chern[2], +1.0, 1e-12, "layered kagome k_z=0: upper band Chern +1");
     irrep_magnon_lsw_free(L);
 }
 
@@ -1310,12 +1310,24 @@ static void test_afm_zero_point_square(void) {
     int    signs[2] = {+1, -1};
     irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(2, 0.5, a1, a2, 4, bonds, 0);
 
-    double dm[2];
-    irrep_magnon_afm_zero_point(L, signs, /*Nx=*/64, /*Ny=*/64, dm);
-    /* Anderson: ⟨n⟩ ≈ 0.1966; tolerance ±0.02 for a 64×64 grid. */
-    ASSERT_NEAR(dm[0], 0.197, 0.02, "AFM square: ⟨n_A⟩_GS ≈ 0.197 (Anderson)");
-    ASSERT_NEAR(dm[1], 0.197, 0.02, "AFM square: ⟨n_B⟩_GS ≈ 0.197 (Anderson)");
-    ASSERT_NEAR(dm[0], dm[1], 1e-3, "AFM square: A and B equal by C_4 symmetry");
+    /* Anderson: ⟨n⟩ ≈ 0.196602. Raw uniform-grid sum has dominant O(1/N)
+     * error from the Goldstone-mode singularity at k = 0 (where v(k)²
+     * ~ 1/k diverges). Richardson extrapolation 2·⟨n⟩(2N) - ⟨n⟩(N)
+     * cancels the leading 1/N piece and gives ~1e-4 precision at the
+     * (64, 128) grid pair. */
+    double dm64[2], dm128[2];
+    irrep_magnon_afm_zero_point(L, signs, /*Nx=*/ 64, /*Ny=*/ 64, dm64);
+    irrep_magnon_afm_zero_point(L, signs, /*Nx=*/128, /*Ny=*/128, dm128);
+    double dm_R[2] = {2.0 * dm128[0] - dm64[0], 2.0 * dm128[1] - dm64[1]};
+    /* Anderson 1952 reference value to 6 digits = 0.196602. */
+    ASSERT_NEAR(dm_R[0], 0.196602, 5e-4,
+                "AFM square: ⟨n_A⟩_R = 0.1966 (Anderson, Richardson-extrapolated 64+128)");
+    ASSERT_NEAR(dm_R[1], 0.196602, 5e-4,
+                "AFM square: ⟨n_B⟩_R = 0.1966 (Anderson, Richardson-extrapolated 64+128)");
+    ASSERT_NEAR(dm64[0], dm64[1], 1e-9,
+                "AFM square: A and B equal by C_4 symmetry (raw N=64)");
+    ASSERT_NEAR(dm_R[0], dm_R[1], 1e-9,
+                "AFM square: A and B equal by C_4 symmetry (Richardson)");
     irrep_magnon_lsw_free(L);
 }
 

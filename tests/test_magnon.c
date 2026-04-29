@@ -662,9 +662,9 @@ static void test_structure_factor_kagome_gamma(void) {
     double              omega[3], S_perp[3];
     /* At Γ avoid the exact Goldstone numerical issue. */
     irrep_magnon_structure_factor(L, 1e-6, 1e-6, omega, S_perp);
-    ASSERT_NEAR(S_perp[0], 2.0 * S * 3.0, 0.01, "kagome FM Goldstone band: S_perp = 6S");
-    ASSERT(S_perp[1] < 0.01, "kagome FM second band at Γ: dark (S_perp ≈ 0)");
-    ASSERT(S_perp[2] < 0.01, "kagome FM third band at Γ: dark (S_perp ≈ 0)");
+    ASSERT_NEAR(S_perp[0], 2.0 * S * 3.0, 1e-11, "kagome FM Goldstone band: S_perp = 6S");
+    ASSERT(S_perp[1] < 1e-10, "kagome FM second band at Γ: dark (S_perp ≈ 0)");
+    ASSERT(S_perp[2] < 1e-10, "kagome FM third band at Γ: dark (S_perp ≈ 0)");
 
     /* Sum rule: Σ_b S_perp = 2S·n_sub, independent of q. Test at three q. */
     double q_pts[3][2] = {{0.5, 0.3}, {1.5, 0.7}, {2.0, 1.0}};
@@ -810,7 +810,7 @@ static void test_specific_heat_limits(void) {
 
     /* High-T: equipartition C_V → n_sub = 1. */
     double cv_high = irrep_magnon_specific_heat(L, /*T=*/100.0, 32, 32);
-    ASSERT(fabs(cv_high - 1.0) < 0.01, "high-T C_V → n_sub = 1 (equipartition)");
+    ASSERT(fabs(cv_high - 1.0) < 5e-3, "high-T C_V → n_sub = 1 (equipartition)");
 
     /* Intermediate-T monotonic increase from low to high. */
     double cv_mid = irrep_magnon_specific_heat(L, /*T=*/0.5, 32, 32);
@@ -836,8 +836,10 @@ static void test_magnetization_low_T(void) {
     };
     irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(1, 0.5, a1, a2, 2, bonds, /*Kz=*/0.5);
     double M_low = irrep_magnon_magnetization(L, 0.05, 32, 32);
-    /* M(T=0.05) should be 0.5 minus exponentially-small population. */
-    ASSERT(fabs(M_low - 0.5) < 1e-3, "M(T → 0) → S = 0.5");
+    /* M(T=0.05) should be 0.5 minus exponentially-small population.
+     * With gap = 2·Kz·S = 0.5 and T=0.05 (gap/T = 10), the Bose factor
+     * is exp(-10) ≈ 4.5e-5, giving M ≈ 0.5 to ~4e-7 precision. */
+    ASSERT(fabs(M_low - 0.5) < 1e-6, "M(T → 0) → S = 0.5 (BE-suppressed to ~4e-7)");
     irrep_magnon_lsw_free(L);
 }
 
@@ -957,7 +959,7 @@ static void test_susceptibility_gapped_fm(void) {
 
     /* T = 0.05 is 10× below the gap → exp(-10) ~ 5e-5 suppression. */
     double chi_low = irrep_magnon_susceptibility(L, 0.05, 32, 32);
-    ASSERT(chi_low < 1e-3, "χ(T → 0) → 0 for gapped FM (BE-suppressed)");
+    ASSERT(chi_low < 1e-4, "χ(T → 0) → 0 for gapped FM (BE-suppressed, ~7e-6 actual)");
 
     /* T = 0.5 ~ gap energy → χ has risen substantially. */
     double chi_gap = irrep_magnon_susceptibility(L, 0.5, 32, 32);
@@ -985,7 +987,8 @@ static void test_free_energy_monotonic(void) {
 
     /* T = 0.05 (well below gap): F ≈ 0 (exponentially small). */
     double F_low = irrep_magnon_free_energy(L, 0.05, 32, 32);
-    ASSERT(F_low < 0.0 && fabs(F_low) < 1e-3, "F(T → 0) → 0⁻ (exp. small)");
+    ASSERT(F_low < 0.0 && fabs(F_low) < 1e-6,
+           "F(T → 0) → 0⁻ (exp. small, ~2e-8 actual on gap=0.5 / T=0.05)");
 
     /* T = 0.5 (~ gap): F is negative and substantial. */
     double F_gap = irrep_magnon_free_energy(L, 0.5, 32, 32);
@@ -1210,7 +1213,8 @@ static void test_internal_energy_consistency(void) {
 
     /* U(T → 0) → 0 exponentially (gapped FM) */
     double U_low = irrep_magnon_internal_energy(L, 0.05, 32, 32);
-    ASSERT(U_low > 0 && U_low < 1e-3, "U(T → 0) → 0⁺ exponentially small");
+    ASSERT(U_low > 0 && U_low < 1e-5,
+           "U(T → 0) → 0⁺ exponentially small (~2e-7 actual on gap=0.5 / T=0.05)");
 
     /* U(T) is monotonically increasing in T */
     double U_mid = irrep_magnon_internal_energy(L, 0.5, 32, 32);

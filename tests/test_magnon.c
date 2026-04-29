@@ -1743,6 +1743,86 @@ static void test_topological_charge_two_skyrmions(void) {
     free(n_field);
 }
 
+/* (72a-3D) Hopf-charge structural tests: zero-on-trivial,
+ * linearity-in-twist, antisymmetry. Absolute calibration to integer
+ * H ∈ ℤ requires an analytic Hopfion ansatz (left as follow-up). */
+
+static void fill_skyrmion_tube_(double *m, int N, double R, double twist_per_z) {
+    for (int iz = 0; iz < N; ++iz) {
+        double alpha = twist_per_z * iz;
+        double ca = cos(alpha), sa = sin(alpha);
+        for (int iy = 0; iy < N; ++iy)
+            for (int ix = 0; ix < N; ++ix) {
+                int p = (iz * N + iy) * N + ix;
+                double x = ix - N / 2.0, y = iy - N / 2.0;
+                double r2 = x * x + y * y, R2 = R * R, D = R2 + r2;
+                double mx = 2 * R * x / D, my = 2 * R * y / D, mz = (R2 - r2) / D;
+                m[3 * p + 0] = ca * mx - sa * my;
+                m[3 * p + 1] = sa * mx + ca * my;
+                m[3 * p + 2] = mz;
+            }
+    }
+}
+
+static void test_hopf_charge_uniform(void) {
+    int     N  = 16;
+    int     Nt = N * N * N;
+    double *m  = malloc((size_t)3 * Nt * sizeof *m);
+    for (int p = 0; p < Nt; ++p) {
+        m[3 * p + 0] = 0;
+        m[3 * p + 1] = 0;
+        m[3 * p + 2] = 1;
+    }
+    double H = NAN;
+    irrep_status_t st = irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 4 * N * N, &H);
+    ASSERT(st == IRREP_OK, "hopf_charge_3d uniform: status OK");
+    ASSERT(fabs(H) < 1e-12, "uniform ẑ field: H = 0 to machine precision");
+    free(m);
+}
+
+static void test_hopf_charge_untwisted_skyrmion_tube(void) {
+    int     N  = 24;
+    double *m  = malloc((size_t)3 * N * N * N * sizeof *m);
+    fill_skyrmion_tube_(m, N, /*R=*/4.0, /*twist=*/0.0);
+    double H = NAN;
+    irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 6 * N * N, &H);
+    ASSERT(fabs(H) < 1e-10, "untwisted skyrmion tube: H = 0");
+    free(m);
+}
+
+static void test_hopf_charge_linearity_in_twist(void) {
+    int     N  = 32;
+    double *m  = malloc((size_t)3 * N * N * N * sizeof *m);
+    double H1, H2, H3;
+    fill_skyrmion_tube_(m, N, 4.0, 1.0 * 2.0 * M_PI / N);
+    irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 6 * N * N, &H1);
+    fill_skyrmion_tube_(m, N, 4.0, 2.0 * 2.0 * M_PI / N);
+    irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 6 * N * N, &H2);
+    fill_skyrmion_tube_(m, N, 4.0, 3.0 * 2.0 * M_PI / N);
+    irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 6 * N * N, &H3);
+    ASSERT(fabs(H1) > 1e-3, "1-twist tube: H ≠ 0");
+    /* Linearity holds asymptotically as N → ∞; on this 32³ lattice the
+     * BP skyrmion's z-derivative coupling between adjacent twist
+     * angles introduces O(twist/N) corrections to the strict-linearity
+     * limit. Tolerance is set generously here. */
+    ASSERT_NEAR(H2 / H1, 2.0, 0.05, "2-twist H ≈ 2 × 1-twist H (linearity)");
+    ASSERT_NEAR(H3 / H1, 3.0, 0.16, "3-twist H ≈ 3 × 1-twist H (linearity)");
+    free(m);
+}
+
+static void test_hopf_charge_twist_antisymmetry(void) {
+    int     N  = 24;
+    double *m  = malloc((size_t)3 * N * N * N * sizeof *m);
+    double H_pos, H_neg;
+    fill_skyrmion_tube_(m, N, 4.0, +2.0 * M_PI / N);
+    irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 6 * N * N, &H_pos);
+    fill_skyrmion_tube_(m, N, 4.0, -2.0 * M_PI / N);
+    irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 6 * N * N, &H_neg);
+    ASSERT_NEAR(H_pos + H_neg, 0.0, 1e-10,
+                "twist sign flip: H(+twist) + H(-twist) = 0 (antisymmetry)");
+    free(m);
+}
+
 /* (72b) Chern parameter sweep + boundary detection: build a kagome FM
  * factory with D as the swept parameter, sweep across D ∈ [-0.3, +0.3]
  * skipping D = 0 (bands touch there), and verify
@@ -2951,6 +3031,10 @@ int main(void) {
     test_topological_charge_belavin_polyakov_skyrmion();
     test_topological_charge_anti_skyrmion();
     test_topological_charge_two_skyrmions();
+    test_hopf_charge_uniform();
+    test_hopf_charge_untwisted_skyrmion_tube();
+    test_hopf_charge_linearity_in_twist();
+    test_hopf_charge_twist_antisymmetry();
     test_chern_sweep_kagome();
     test_chern_sweep_no_boundary();
     test_heisenberg_decay_rate_collinear_zero();

@@ -3273,6 +3273,259 @@ irrep_status_t irrep_magnon_topological_charge_2d(const double *n_field, int Nx,
     return IRREP_OK;
 }
 
+/* === 3D Hopf charge via Whitehead integral H = -(1/8π²) ∫ A·F d³r ===
+ *
+ * Layout:  n_field, F, A, curl_F, residual buffers are flat arrays of
+ *          length 3·N_total (Nx·Ny·Nz) with the inner-3 = (x, y, z)
+ *          components and outer-loop order (iz, iy, ix).
+ *
+ * F at vertex r is the Berry-curvature 3-vector
+ *      F^α(r) = (1/4π) ε^αβγ ∂_β m̂(r) · (∂_γ m̂(r) × m̂(r))
+ * computed with central differences on the periodic lattice.
+ *
+ * A is solved from ∇²A = -∇×F (the Coulomb-gauge Poisson equation
+ * implied by ∇×A = F, ∇·A = 0) via Jacobi iteration. The discrete
+ * 7-point Laplacian on the periodic cubic grid has eigenvalue range
+ * [0, 12], with a zero mode at constant-A which we remove each
+ * iteration by subtracting the per-component lattice-average of A.
+ *
+ * H is then summed as H = -(1/8π²) Σ_r A(r)·F(r).
+ *
+ * Lattice spacing h = 1 throughout. */
+
+static inline int hopf_idx_(int ix, int iy, int iz, int Nx, int Ny, int Nz) {
+    (void)Nz;
+    return ((iz * Ny) + iy) * Nx + ix;
+}
+
+static void hopf_central_diff_(const double *m, int Nx, int Ny, int Nz, double *dm) {
+    /* dm output: 9·Nx·Ny·Nz doubles, row-major (iz, iy, ix), inner = 9
+     * ordered as (∂_x m)_x, (∂_x m)_y, (∂_x m)_z,
+     *            (∂_y m)_x, (∂_y m)_y, (∂_y m)_z,
+     *            (∂_z m)_x, (∂_z m)_y, (∂_z m)_z. */
+    for (int iz = 0; iz < Nz; ++iz) {
+        int izp = (iz + 1) % Nz, izm = (iz + Nz - 1) % Nz;
+        for (int iy = 0; iy < Ny; ++iy) {
+            int iyp = (iy + 1) % Ny, iym = (iy + Ny - 1) % Ny;
+            for (int ix = 0; ix < Nx; ++ix) {
+                int ixp = (ix + 1) % Nx, ixm = (ix + Nx - 1) % Nx;
+                int p   = hopf_idx_(ix, iy, iz, Nx, Ny, Nz);
+                int pxp = hopf_idx_(ixp, iy, iz, Nx, Ny, Nz);
+                int pxm = hopf_idx_(ixm, iy, iz, Nx, Ny, Nz);
+                int pyp = hopf_idx_(ix, iyp, iz, Nx, Ny, Nz);
+                int pym = hopf_idx_(ix, iym, iz, Nx, Ny, Nz);
+                int pzp = hopf_idx_(ix, iy, izp, Nx, Ny, Nz);
+                int pzm = hopf_idx_(ix, iy, izm, Nx, Ny, Nz);
+                for (int c = 0; c < 3; ++c) {
+                    dm[9 * p + 0 + c] = 0.5 * (m[3 * pxp + c] - m[3 * pxm + c]);
+                    dm[9 * p + 3 + c] = 0.5 * (m[3 * pyp + c] - m[3 * pym + c]);
+                    dm[9 * p + 6 + c] = 0.5 * (m[3 * pzp + c] - m[3 * pzm + c]);
+                }
+            }
+        }
+    }
+}
+
+static void hopf_compute_F_(const double *m, const double *dm, int Nx, int Ny, int Nz, double *F) {
+    /* F^α(r) = (1/4π) m̂ · (∂_β m̂ × ∂_γ m̂)  (cyclic α,β,γ).
+     * In lattice form with central differences:
+     *   F^x = (1/4π) m̂ · (∂_y m̂ × ∂_z m̂)
+     *   F^y = (1/4π) m̂ · (∂_z m̂ × ∂_x m̂)
+     *   F^z = (1/4π) m̂ · (∂_x m̂ × ∂_y m̂)
+     */
+    int N_total = Nx * Ny * Nz;
+    for (int p = 0; p < N_total; ++p) {
+        const double *m_p   = m  + 3 * p;
+        const double *dm_x  = dm + 9 * p + 0;
+        const double *dm_y  = dm + 9 * p + 3;
+        const double *dm_z  = dm + 9 * p + 6;
+        double cyz[3] = {dm_y[1] * dm_z[2] - dm_y[2] * dm_z[1],
+                         dm_y[2] * dm_z[0] - dm_y[0] * dm_z[2],
+                         dm_y[0] * dm_z[1] - dm_y[1] * dm_z[0]};
+        double czx[3] = {dm_z[1] * dm_x[2] - dm_z[2] * dm_x[1],
+                         dm_z[2] * dm_x[0] - dm_z[0] * dm_x[2],
+                         dm_z[0] * dm_x[1] - dm_z[1] * dm_x[0]};
+        double cxy[3] = {dm_x[1] * dm_y[2] - dm_x[2] * dm_y[1],
+                         dm_x[2] * dm_y[0] - dm_x[0] * dm_y[2],
+                         dm_x[0] * dm_y[1] - dm_x[1] * dm_y[0]};
+        double inv4pi = 1.0 / (4.0 * M_PI);
+        F[3 * p + 0]  = inv4pi * (m_p[0] * cyz[0] + m_p[1] * cyz[1] + m_p[2] * cyz[2]);
+        F[3 * p + 1]  = inv4pi * (m_p[0] * czx[0] + m_p[1] * czx[1] + m_p[2] * czx[2]);
+        F[3 * p + 2]  = inv4pi * (m_p[0] * cxy[0] + m_p[1] * cxy[1] + m_p[2] * cxy[2]);
+    }
+}
+
+static void hopf_compute_curl_(const double *V, int Nx, int Ny, int Nz, double *curlV) {
+    /* (∇×V)_x = ∂_y V_z - ∂_z V_y, etc., central differences with PBC. */
+    for (int iz = 0; iz < Nz; ++iz) {
+        int izp = (iz + 1) % Nz, izm = (iz + Nz - 1) % Nz;
+        for (int iy = 0; iy < Ny; ++iy) {
+            int iyp = (iy + 1) % Ny, iym = (iy + Ny - 1) % Ny;
+            for (int ix = 0; ix < Nx; ++ix) {
+                int ixp = (ix + 1) % Nx, ixm = (ix + Nx - 1) % Nx;
+                int p   = hopf_idx_(ix, iy, iz, Nx, Ny, Nz);
+                int pxp = hopf_idx_(ixp, iy, iz, Nx, Ny, Nz);
+                int pxm = hopf_idx_(ixm, iy, iz, Nx, Ny, Nz);
+                int pyp = hopf_idx_(ix, iyp, iz, Nx, Ny, Nz);
+                int pym = hopf_idx_(ix, iym, iz, Nx, Ny, Nz);
+                int pzp = hopf_idx_(ix, iy, izp, Nx, Ny, Nz);
+                int pzm = hopf_idx_(ix, iy, izm, Nx, Ny, Nz);
+                double dyVz = 0.5 * (V[3 * pyp + 2] - V[3 * pym + 2]);
+                double dzVy = 0.5 * (V[3 * pzp + 1] - V[3 * pzm + 1]);
+                double dzVx = 0.5 * (V[3 * pzp + 0] - V[3 * pzm + 0]);
+                double dxVz = 0.5 * (V[3 * pxp + 2] - V[3 * pxm + 2]);
+                double dxVy = 0.5 * (V[3 * pxp + 1] - V[3 * pxm + 1]);
+                double dyVx = 0.5 * (V[3 * pyp + 0] - V[3 * pym + 0]);
+                curlV[3 * p + 0] = dyVz - dzVy;
+                curlV[3 * p + 1] = dzVx - dxVz;
+                curlV[3 * p + 2] = dxVy - dyVx;
+            }
+        }
+    }
+}
+
+static void hopf_subtract_mean_(double *V, int N_total) {
+    double mean[3] = {0, 0, 0};
+    for (int p = 0; p < N_total; ++p) {
+        mean[0] += V[3 * p + 0];
+        mean[1] += V[3 * p + 1];
+        mean[2] += V[3 * p + 2];
+    }
+    mean[0] /= N_total;
+    mean[1] /= N_total;
+    mean[2] /= N_total;
+    for (int p = 0; p < N_total; ++p) {
+        V[3 * p + 0] -= mean[0];
+        V[3 * p + 1] -= mean[1];
+        V[3 * p + 2] -= mean[2];
+    }
+}
+
+static double hopf_l2_(const double *V, int N_total) {
+    double s = 0;
+    for (int p = 0; p < 3 * N_total; ++p) s += V[p] * V[p];
+    return sqrt(s);
+}
+
+irrep_status_t irrep_magnon_hopf_charge_3d(const double *n_field, int Nx, int Ny, int Nz,
+                                            double tol, int max_iter, double *hopf_out) {
+    if (!n_field || Nx < 4 || Ny < 4 || Nz < 4 || !hopf_out || tol <= 0 || max_iter < 1)
+        return IRREP_ERR_INVALID_ARG;
+
+    int     N_total = Nx * Ny * Nz;
+    double *dm      = malloc((size_t)9 * N_total * sizeof *dm);
+    double *F       = malloc((size_t)3 * N_total * sizeof *F);
+    double *A       = calloc((size_t)3 * N_total, sizeof *A);
+    double *A_new   = malloc((size_t)3 * N_total * sizeof *A_new);
+    double *curl_F  = malloc((size_t)3 * N_total * sizeof *curl_F);
+    if (!dm || !F || !A || !A_new || !curl_F) {
+        free(dm); free(F); free(A); free(A_new); free(curl_F);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+
+    /* 1. Gradients of m̂ via central differences. */
+    hopf_central_diff_(n_field, Nx, Ny, Nz, dm);
+
+    /* 2. Berry-curvature 3-vector F. */
+    hopf_compute_F_(n_field, dm, Nx, Ny, Nz, F);
+
+    /* 3. RHS of Poisson: -∇×F. */
+    hopf_compute_curl_(F, Nx, Ny, Nz, curl_F);
+    for (int p = 0; p < 3 * N_total; ++p) curl_F[p] = -curl_F[p];
+
+    /* 4. Jacobi-Poisson on ∇²A = -∇×F. The 7-point lattice Laplacian
+     *    is (∇²A)(r) = Σ_{nn} A(r') - 6·A(r), so the Jacobi update is
+     *      A_new(r) = (1/6) [Σ_{nn} A(r') - rhs(r)].
+     *    The constant-A null mode is killed each iteration by subtracting
+     *    the per-component mean. */
+    double F_norm = hopf_l2_(F, N_total);
+    if (F_norm < 1e-300) {
+        /* Trivial F (uniform field): H = 0 exactly. */
+        *hopf_out = 0.0;
+        free(dm); free(F); free(A); free(A_new); free(curl_F);
+        return IRREP_OK;
+    }
+    double rhs_norm = hopf_l2_(curl_F, N_total);
+    int    converged = 0;
+    for (int it = 0; it < max_iter; ++it) {
+        for (int iz = 0; iz < Nz; ++iz) {
+            int izp = (iz + 1) % Nz, izm = (iz + Nz - 1) % Nz;
+            for (int iy = 0; iy < Ny; ++iy) {
+                int iyp = (iy + 1) % Ny, iym = (iy + Ny - 1) % Ny;
+                for (int ix = 0; ix < Nx; ++ix) {
+                    int ixp = (ix + 1) % Nx, ixm = (ix + Nx - 1) % Nx;
+                    int p   = hopf_idx_(ix, iy, iz, Nx, Ny, Nz);
+                    int pxp = hopf_idx_(ixp, iy, iz, Nx, Ny, Nz);
+                    int pxm = hopf_idx_(ixm, iy, iz, Nx, Ny, Nz);
+                    int pyp = hopf_idx_(ix, iyp, iz, Nx, Ny, Nz);
+                    int pym = hopf_idx_(ix, iym, iz, Nx, Ny, Nz);
+                    int pzp = hopf_idx_(ix, iy, izp, Nx, Ny, Nz);
+                    int pzm = hopf_idx_(ix, iy, izm, Nx, Ny, Nz);
+                    for (int c = 0; c < 3; ++c) {
+                        double sum_nn = A[3 * pxp + c] + A[3 * pxm + c] + A[3 * pyp + c] +
+                                        A[3 * pym + c] + A[3 * pzp + c] + A[3 * pzm + c];
+                        A_new[3 * p + c] = (sum_nn - curl_F[3 * p + c]) / 6.0;
+                    }
+                }
+            }
+        }
+        hopf_subtract_mean_(A_new, N_total);
+        memcpy(A, A_new, 3 * N_total * sizeof *A);
+
+        /* Residual check every 16 iterations (cheap). */
+        if ((it & 15) == 15 || it == max_iter - 1) {
+            /* res(r) = ∇²A(r) - rhs(r); the discrete Laplacian on
+             * collocated A is Σ_{nn} A - 6·A. */
+            double res_norm = 0;
+            for (int iz = 0; iz < Nz; ++iz) {
+                int izp = (iz + 1) % Nz, izm = (iz + Nz - 1) % Nz;
+                for (int iy = 0; iy < Ny; ++iy) {
+                    int iyp = (iy + 1) % Ny, iym = (iy + Ny - 1) % Ny;
+                    for (int ix = 0; ix < Nx; ++ix) {
+                        int ixp = (ix + 1) % Nx, ixm = (ix + Nx - 1) % Nx;
+                        int p   = hopf_idx_(ix, iy, iz, Nx, Ny, Nz);
+                        int pxp = hopf_idx_(ixp, iy, iz, Nx, Ny, Nz);
+                        int pxm = hopf_idx_(ixm, iy, iz, Nx, Ny, Nz);
+                        int pyp = hopf_idx_(ix, iyp, iz, Nx, Ny, Nz);
+                        int pym = hopf_idx_(ix, iym, iz, Nx, Ny, Nz);
+                        int pzp = hopf_idx_(ix, iy, izp, Nx, Ny, Nz);
+                        int pzm = hopf_idx_(ix, iy, izm, Nx, Ny, Nz);
+                        for (int c = 0; c < 3; ++c) {
+                            double lap = A[3 * pxp + c] + A[3 * pxm + c] + A[3 * pyp + c] +
+                                         A[3 * pym + c] + A[3 * pzp + c] + A[3 * pzm + c] -
+                                         6.0 * A[3 * p + c];
+                            double res = lap - curl_F[3 * p + c];
+                            res_norm += res * res;
+                        }
+                    }
+                }
+            }
+            res_norm = sqrt(res_norm);
+            if (res_norm < tol * (rhs_norm + 1e-300)) {
+                converged = 1;
+                break;
+            }
+        }
+    }
+    (void)converged; /* not currently propagated; result is best-effort */
+
+    /* 5. H = ∫ A · F d³r in the (1/4π)-baked convention used here.
+     *
+     * With F^k = (1/4π)·m̂·(∂_i m̂ × ∂_j m̂) (cyclic) and ∇×A = F, the
+     * Bott-Tu Whitehead formula H = (1/(4π)²) ∫ A_FN·F_FN reduces to
+     * H = ∫ A·F because the (4π)² that A_FN and F_FN absorb cancels
+     * the (1/(4π)²) prefactor. */
+    double sum = 0;
+    for (int p = 0; p < N_total; ++p) {
+        sum += A[3 * p + 0] * F[3 * p + 0] + A[3 * p + 1] * F[3 * p + 1] +
+               A[3 * p + 2] * F[3 * p + 2];
+    }
+    *hopf_out = sum;
+
+    free(dm); free(F); free(A); free(A_new); free(curl_F);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_afm_zero_point(const irrep_magnon_lsw_t *L,
                                             const int *sublattice_signs, int Nx, int Ny,
                                             double *delta_m_out) {

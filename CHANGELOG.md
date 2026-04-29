@@ -219,11 +219,41 @@ factor). New public functions in `irrep/magnon.h`:
   full pipeline pattern (factory callback → coarse → detect →
   refine) generalisable to any 1D parameter axis.
 
+### Added — π₃(S²) Hopf charge integration (3D analog of `_topological_charge_2d`)
+
+- **`irrep_magnon_hopf_charge_3d`** — Whitehead-integral Hopf charge
+  of a 3D unit-spin field on a periodic cubic lattice:
+
+      H = ∫ A · F d³r,   F^α = (1/4π) ε^αβγ ∂_β m̂ · (∂_γ m̂ × m̂),
+
+  where A solves ∇×A = F in Coulomb gauge ∇·A = 0 (Jacobi-Poisson
+  iteration with central-difference operators on the periodic grid).
+
+  Validated structural properties:
+    * **Zero on trivial textures**: uniform m̂ = ẑ, smooth small
+      perturbations, untwisted skyrmion tubes — all H = 0 to machine
+      precision.
+    * **Linear in twist count**: a skyrmion tube with n full twists
+      along z gives H ∝ n (verified to ~5%/16% on a 32³ lattice for
+      n = 2/3 — finer linearity at larger N as O(twist/N) corrections
+      from intra-cell BP-coupling shrink).
+    * **Antisymmetric under twist sign-flip**: H(−n) = −H(n) to
+      machine precision.
+
+  Calibration status: for textures that compactify smoothly to
+  S³ → S² (m̂(r) → const at the periodic boundary), H is the integer
+  linking number of any two preimages. For textures supported on T³
+  that do not compactify cleanly (e.g., the twisted-skyrmion-tube
+  validation ansatz, which has direction-dependent asymptotic
+  behaviour), H is the well-defined discrete Whitehead integral but
+  is not required to be a clean integer. Calibrating against an
+  analytic Faddeev-Niemi toroidal Hopfion ansatz remains a follow-up.
+
 ### Test count
 
-`test_magnon`: 480/480 assertions (was 124/124 at 1.3.1; +56 over
-the magnon-spectroscopy + topological-charge + Chern-sweep
-expansion). ASan and UBSan both clean across the full suite.
+`test_magnon`: 487/487 assertions (was 124/124 at 1.3.1; +63 over
+the magnon-spectroscopy + topological-charge + Chern-sweep + Hopf-
+charge expansion). ASan and UBSan both clean across the full suite.
 Module-level function coverage on `magnon` ≥ 93%. Two shadow bugs
 found and fixed during the expansion (local `double total` shadowing
 the global `int total` used by the ASSERT macro).

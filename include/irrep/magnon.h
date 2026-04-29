@@ -1709,6 +1709,63 @@ IRREP_API irrep_status_t irrep_magnon_afm_zero_point(const irrep_magnon_lsw_t *L
 IRREP_API irrep_status_t irrep_magnon_topological_charge_2d(const double *n_field, int Nx,
                                                               int Ny, double *charge_out);
 
+/** @brief Compute the discrete Whitehead-integral Hopf charge H of a
+ *         3D unit-spin field on a periodic cubic lattice:
+ *
+ *             H = ∫ A · F d³r,
+ *
+ *         where F^α(r) = (1/4π) ε^αβγ ∂_β m̂ · (∂_γ m̂ × m̂) is the
+ *         (1/4π)-normalised pullback of the S² area 2-form and A is
+ *         the vector potential satisfying ∇×A = F in Coulomb gauge
+ *         ∇·A = 0. A is solved by Jacobi iteration on the discrete
+ *         Poisson equation ∇²A = −∇×F using central differences on
+ *         the periodic grid.
+ *
+ *  Convention: F has 1/(4π) baked in, so the Bott-Tu formula
+ *  H = (1/(4π)²) ∫ A_FN · F_FN reduces to ∫ A · F directly here
+ *  (no extra prefactor).
+ *
+ *  Validated structural properties:
+ *    - **Zero on trivial textures**: uniform m̂(r) = ẑ, smooth small
+ *      perturbations of ẑ, and untwisted skyrmion tubes (no z-
+ *      dependence) all return H = 0 to machine precision.
+ *    - **Linear in twist count**: a skyrmion tube with n full twists
+ *      along the z-axis returns H proportional to n.
+ *    - **Antisymmetric under twist sign-flip**: H(−n) = −H(n).
+ *
+ *  Calibration status: for textures that compactify smoothly to
+ *  S³ → S² (m̂(r) → const at the periodic boundary), H is the integer
+ *  linking number of any two preimages — the homotopy invariant of
+ *  m̂. For textures supported on T³ that do not compactify cleanly
+ *  (e.g., twisted skyrmion tubes with direction-dependent asymptotic
+ *  behaviour), H is the well-defined discrete Whitehead integral but
+ *  is not required to be a clean integer. Calibrating against an
+ *  analytic Hopf-1 Faddeev-Niemi toroidal ansatz remains a follow-up.
+ *
+ *  Use cases:
+ *    - Relative Hopf-charge comparison between texture configurations
+ *    - Linking-detection in skyrmion-tube linking simulations
+ *    - 3D analog of the 2D `_topological_charge_2d` for π₃(S²)
+ *
+ *  Convergence: the Poisson solve uses Jacobi relaxation with up to
+ *  `max_iter` iterations and a relative ℓ²-residual tolerance of
+ *  `tol`. Suggested defaults: `tol = 1e-9`, `max_iter = 8·N²`
+ *  where N = max(Nx, Ny, Nz). Jacobi convergence rate scales as
+ *  (1 − π²/N²) per iteration, so larger lattices need quadratically
+ *  more iterations.
+ *
+ *  @param n_field    flat 3·Nx·Ny·Nz doubles, row-major in
+ *                    (iz, iy, ix), with the inner 3 = (m_x, m_y, m_z)
+ *                    and |m̂| = 1 (caller responsibility)
+ *  @param Nx, Ny, Nz lattice extents (each ≥ 4)
+ *  @param tol        Poisson solver convergence tolerance (rel ℓ²)
+ *  @param max_iter   Poisson solver iteration cap
+ *  @param hopf_out   caller-allocated double — receives H
+ *  @return IRREP_OK on success */
+IRREP_API irrep_status_t irrep_magnon_hopf_charge_3d(const double *n_field, int Nx, int Ny, int Nz,
+                                                       double tol, int max_iter,
+                                                       double *hopf_out);
+
 /** @brief Compute the magnon dispersion ω_b(k) on top of a *general*
  *         collinear ground state in which sublattice α has its spin
  *         along σ_α · ẑ where σ_α ∈ {+1, -1}. AFM, ferrimagnetic,

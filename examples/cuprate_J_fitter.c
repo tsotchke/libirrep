@@ -137,9 +137,9 @@ int main(void) {
     printf("  Final χ² = %.4e   (per-point RMS: %.3f meV)\n", chi2,
            sqrt(chi2 / N_OBS));
     printf("\n");
-    printf("  Recovered:    J  = %.2f ± %.2f meV  (true %.1f, error %.1f%%)\n",
+    printf("  Recovered:    J  = %.4f ± %.4f meV  (true %.1f, error %.3f%%)\n",
            J_fit_avg, J_spread, J_true, 100 * fabs(J_fit_avg - J_true) / fabs(J_true));
-    printf("                J' = %.2f ± %.2f meV  (true %.1f, error %.1f%%)\n",
+    printf("                J' = %.4f ± %.4f meV  (true %.1f, error %.3f%%)\n",
            Jp_fit_avg, Jp_spread, Jp_true, 100 * fabs(Jp_fit_avg - Jp_true) / fabs(Jp_true));
     printf("\n");
 

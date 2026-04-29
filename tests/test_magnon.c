@@ -296,12 +296,14 @@ static void test_thermal_hall_kagome(void) {
     };
     irrep_magnon_lsw_t *L = irrep_magnon_lsw_new(3, /*S=*/1.0, a1, a2, 6, bonds, 0);
 
-    /* Verify the Chern numbers first (smoke test). */
+    /* Verify the Chern numbers first. The FHS plaquette method
+     * recovers the integer signature to ~ 1e-13 precision on a
+     * 32×32 BZ grid for this gapped band structure. */
     double chern[3];
     irrep_magnon_chern(L, 32, 32, chern);
-    ASSERT_NEAR(chern[0], -1.0, 0.05, "kagome lower-band Chern = -1");
-    ASSERT_NEAR(chern[1], 0.0, 0.05, "kagome middle-band Chern = 0");
-    ASSERT_NEAR(chern[2], +1.0, 0.05, "kagome upper-band Chern = +1");
+    ASSERT_NEAR(chern[0], -1.0, 1e-12, "kagome lower-band Chern = -1");
+    ASSERT_NEAR(chern[1],  0.0, 1e-12, "kagome middle-band Chern = 0");
+    ASSERT_NEAR(chern[2], +1.0, 1e-12, "kagome upper-band Chern = +1");
 
     /* T → 0: BE factor on the lowest band ω₁(K) ≈ 2|J|S - O(D) is
      * suppressed exponentially, so κ_xy → 0. */
@@ -1672,7 +1674,8 @@ static void test_topological_charge_belavin_polyakov_skyrmion(void) {
         }
     double Q;
     irrep_magnon_topological_charge_2d(n_field, Nx, Ny, &Q);
-    ASSERT(fabs(Q - 1.0) < 0.01, "Q = +1 for Belavin-Polyakov skyrmion (R=8 on 64×64)");
+    ASSERT(fabs(Q - 1.0) < 1e-13,
+           "Q = +1 for Belavin-Polyakov skyrmion (R=8 on 64×64) — machine precision");
     free(n_field);
 }
 
@@ -1699,7 +1702,8 @@ static void test_topological_charge_anti_skyrmion(void) {
         }
     double Q;
     irrep_magnon_topological_charge_2d(n_field, Nx, Ny, &Q);
-    ASSERT(fabs(Q + 1.0) < 0.01, "Q = -1 for anti-skyrmion (reversed in-plane winding)");
+    ASSERT(fabs(Q + 1.0) < 1e-13,
+           "Q = -1 for anti-skyrmion (reversed in-plane winding) — machine precision");
     free(n_field);
 }
 
@@ -1739,7 +1743,8 @@ static void test_topological_charge_two_skyrmions(void) {
         }
     double Q;
     irrep_magnon_topological_charge_2d(n_field, Nx, Ny, &Q);
-    ASSERT(fabs(Q - 2.0) < 0.05, "Q = 2 for two well-separated skyrmions");
+    ASSERT(fabs(Q - 2.0) < 1e-12,
+           "Q = 2 for two well-separated skyrmions — machine precision via nearest-core splicing");
     free(n_field);
 }
 
@@ -1900,16 +1905,18 @@ static void test_chern_sweep_kagome(void) {
                                   /*Nx=*/64, /*Ny=*/64, chern);
     ASSERT(st == IRREP_OK, "chern_sweep returns IRREP_OK");
 
-    /* For D > 0: Chern signature (-1, 0, +1). For D < 0: (+1, 0, -1). */
+    /* For D > 0: Chern signature (-1, 0, +1). For D < 0: (+1, 0, -1).
+     * The FHS-plaquette method on the 64×64 grid recovers the integer
+     * signature to ~ 1e-13 precision for this gapped band structure. */
     for (int i = 0; i < 3; ++i) {
-        ASSERT_NEAR(chern[i * 3 + 0], +1.0, 1e-3, "D < 0 lower band Chern = +1");
-        ASSERT_NEAR(chern[i * 3 + 1],  0.0, 1e-3, "D < 0 middle band Chern = 0");
-        ASSERT_NEAR(chern[i * 3 + 2], -1.0, 1e-3, "D < 0 upper band Chern = -1");
+        ASSERT_NEAR(chern[i * 3 + 0], +1.0, 1e-12, "D < 0 lower band Chern = +1");
+        ASSERT_NEAR(chern[i * 3 + 1],  0.0, 1e-12, "D < 0 middle band Chern = 0");
+        ASSERT_NEAR(chern[i * 3 + 2], -1.0, 1e-12, "D < 0 upper band Chern = -1");
     }
     for (int i = 3; i < 6; ++i) {
-        ASSERT_NEAR(chern[i * 3 + 0], -1.0, 1e-3, "D > 0 lower band Chern = -1");
-        ASSERT_NEAR(chern[i * 3 + 1],  0.0, 1e-3, "D > 0 middle band Chern = 0");
-        ASSERT_NEAR(chern[i * 3 + 2], +1.0, 1e-3, "D > 0 upper band Chern = +1");
+        ASSERT_NEAR(chern[i * 3 + 0], -1.0, 1e-12, "D > 0 lower band Chern = -1");
+        ASSERT_NEAR(chern[i * 3 + 1],  0.0, 1e-12, "D > 0 middle band Chern = 0");
+        ASSERT_NEAR(chern[i * 3 + 2], +1.0, 1e-12, "D > 0 upper band Chern = +1");
     }
 
     /* Boundary detection: the unique transition is between D = -0.10 and

@@ -21,18 +21,28 @@
  *   - T → 0: κ_xy → 0 (no magnons populated below the gap)
  *   - T ~ gap: rising
  *   - T ~ bandwidth: saturating
- *   - T → ∞: κ_xy → −Σ_b ∫_BZ ω_b · F_b(k) d²k
+ *   - T → ∞: κ_xy → −Σ_b ∫_BZ ω_b · F_b(k) d²k / (A_uc · (2π)²)
  *
  * The high-T plateau follows from the c₂ asymptotic c₂(g) = π²/3 − 1/g
  * + O(1/g²): the leading π²/3 term cancels by the Σ_b C_b = 0 sum rule,
  * leaving the band-energy-weighted Berry-curvature integral
  *   κ_∞ = −Σ_b ∫_BZ ω_b(k) · F_b(k) d²k / (A_uc · (2π)²)
- * as a finite constant. Two regimes:
- *   - small D (Berry curvature sharply localised near K-point):
- *     κ_∞ → ω_K(D=0) · |C| · const, weakly D-dependent
- *   - moderate D (Berry curvature spread across band):
- *     κ_∞ acquires bandwidth-scale corrections, becoming sub-linear
- *     in D (empirical κ_∞ ~ D^0.5 over D ∈ [0.05, 0.30] for kagome FM).
+ * as a finite constant.
+ *
+ * Empirical D-dependence on the kagome FM with NN J = −1, S = 1, NN
+ * out-of-plane DMI Dz: κ_∞ is monotone increasing in D over four
+ * decades (D ∈ [0.001, 0.5]) but does NOT follow a clean power law.
+ * Local slope of log κ_∞ vs log D varies with D regime:
+ *   D ∈ [0.001, 0.01]:    κ_∞ ∼ D^0.52
+ *   D ∈ [0.01,  0.10]:    κ_∞ ∼ D^0.66
+ *   D ∈ [0.10,  0.50]:    κ_∞ ∼ D^0.46
+ * The aggregate slope across [0.001, 0.5] is ~0.56. Underlying
+ * structure: κ_∞ has band contributions Σ_b ω_b(k) C_b weighted by
+ * the Berry curvature distribution F_b(k), which sharpens at K and
+ * K′ Dirac points as D → 0 but spreads across the band as D grows.
+ * Neither the sharp-peak limit nor the spread-out limit gives a
+ * single-power-law D-dependence — the empirical exponent ~ 0.5 is
+ * a coarse summary of multi-scale band-structure physics.
  *
  * κ_∞ is NOT a topological invariant — it is a Hamiltonian-specific
  * band-structure quantity — but is robust against gap-preserving
@@ -82,7 +92,9 @@ int main(void) {
 
     const double J = -1.0;
     const double S = 1.0;
-    const double D_set[] = {0.05, 0.10, 0.15, 0.20, 0.25, 0.30};
+    /* Extended D-range: 4 decades from D = 0.001 to D = 0.5, plus the
+     * original moderate-D points for the κ_xy(T) phase-diagram tables. */
+    const double D_set[] = {0.001, 0.003, 0.01, 0.03, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.50};
     const int n_D = (int)(sizeof D_set / sizeof D_set[0]);
 
     /* === Part 1: Chern-signature robustness across D sweep === */
@@ -151,25 +163,31 @@ int main(void) {
 
     /* === Part 3: extract saturation amplitude per D, check D scaling === */
     printf("  PART 3 — High-T saturation amplitude κ_∞(D) and gap scale\n\n");
-    printf("  %-7s   %-12s   %-12s   %-12s   %-12s\n",
-           "D", "K-gap = 2√3DS", "κ_∞ (T=64)", "κ_∞ / D", "κ_∞ / gap");
-    printf("  ──────────────────────────────────────────────────────────────\n");
+    printf("  %-8s   %-12s   %-14s   %-10s   %-10s   %-10s\n",
+           "D", "K-gap = 2√3DS", "κ_∞ (T=64)", "κ_∞ / D", "κ_∞ / gap", "log slope");
+    printf("  ──────────────────────────────────────────────────────────────────────────\n");
     int j_max = n_T - 1;
     for (int i = 0; i < n_D; ++i) {
         double gap = 2.0 * sqrt(3.0) * D_set[i] * S;
         double kappa_inf = kxy_table[i][j_max];
-        printf("  %-7.3f   %-12.6f   %+12.4e   %-12.4f   %-12.4f\n",
-               D_set[i], gap, kappa_inf, kappa_inf / D_set[i], kappa_inf / gap);
+        double log_slope = 0.0;
+        if (i > 0 && D_set[i - 1] > 0.0 && kxy_table[i - 1][j_max] > 0.0) {
+            log_slope =
+                log(kappa_inf / kxy_table[i - 1][j_max]) / log(D_set[i] / D_set[i - 1]);
+        }
+        printf("  %-8.4f   %-12.6f   %+14.6e   %-10.4f   %-10.4f   %s%-10.3f\n",
+               D_set[i], gap, kappa_inf, kappa_inf / D_set[i], kappa_inf / gap,
+               (i == 0 ? "  " : ""), log_slope);
     }
-    printf("\n  → κ_∞ grows sub-linearly with D (empirically ~ D^0.5 over\n");
-    printf("    this range): κ_∞/D drops monotonically from 5.26 at\n");
-    printf("    D = 0.05 to 2.34 at D = 0.30. The Berry curvature is\n");
-    printf("    sharply localised near the K-point at small D (giving a\n");
-    printf("    nearly D-independent contribution from ω_K · |C|), but\n");
-    printf("    spreads across the band as D grows, picking up bandwidth-\n");
-    printf("    scale corrections. The κ_∞/gap ratio is a Hamiltonian-\n");
-    printf("    specific dimensionless number characteristic of the\n");
-    printf("    kagome-FM Berry-curvature distribution.\n\n");
+    printf("\n  → κ_∞ is monotone-increasing in D but does NOT follow a clean\n");
+    printf("    power law. Local log-slope varies with D regime:\n");
+    printf("      small D (Berry curvature sharply peaked at K): slope ≈ 0.5\n");
+    printf("      mid-range D (curvature broadens onto band):    slope ≈ 0.6-0.7\n");
+    printf("      larger D (curvature fully spread, ω_b matters): slope ≈ 0.4-0.5\n");
+    printf("    Aggregate over [0.001, 0.5]: slope ≈ 0.56 — a coarse summary,\n");
+    printf("    not a fundamental power law. The κ_∞/gap ratio is the\n");
+    printf("    Hamiltonian-specific dimensionless number characteristic of\n");
+    printf("    the kagome-FM Berry-curvature distribution weighted by ω_b.\n\n");
 
     printf("══════════════════════════════════════════════════════════════════\n");
     printf("  EXPERIMENTAL TAKEAWAY\n");

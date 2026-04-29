@@ -172,10 +172,50 @@ factor). New public functions in `irrep/magnon.h`:
 - New examples for the damping stack: `kagome_kinematic_damping`,
   `born_damping_demo`.
 
+### Added — π₂(S²) topological-charge integration
+
+- **`irrep_magnon_topological_charge_2d`** — Berg-Lüscher signed-
+  solid-angle integration of the integer topological charge of any
+  2D unit-spin-vector field on a square lattice with periodic
+  boundary conditions. Computes the exact spherical-triangle solid
+  angle per plaquette (four-vector arctan form) and sums to give
+  Q ∈ ℤ. Validated against uniform field (Q = 0), Belavin-Polyakov
+  skyrmion (Q = +1), anti-skyrmion (Q = -1), two well-separated
+  skyrmions (Q = +2). Foundational tool for any skyrmion-number
+  measurement on lattice spin output.
+
+### Added — Chern parameter-sweep + boundary detector
+
+- **`irrep_magnon_chern_sweep`** — sweep band Chern numbers across
+  a 1D parameter axis using a user-supplied factory callback
+  `(double param, void *ud) → irrep_magnon_lsw_t *`. Calls the
+  factory at each parameter value, runs the FHS Chern integration,
+  and frees the LSW handle after use. Output is a row-major
+  n_params × n_sub Chern table.
+
+- **`irrep_magnon_chern_detect_boundaries`** — scan a Chern table
+  for parameter-axis indices where the rounded integer Chern
+  signature changes between adjacent samples. Returns boundary
+  indices for refinement; resolution is the parameter grid spacing.
+
+  Together these support topological phase-diagram construction:
+  feed any factory (vary D, J', K_z, applied field, etc.) and find
+  the gap-closing transitions automatically. Validated on the
+  kagome FM with sign-flipped Dz: signature flips from (+1, 0, -1)
+  at D < 0 to (-1, 0, +1) at D > 0; the unique boundary at D = 0
+  is detected.
+
+- New example: `kagome_thermal_hall_phase_diagram` — D ∈ [0.05,
+  0.30] sweep with Chern-robustness check + κ_xy(T) on a 10-point
+  T grid, plus the high-T saturation amplitude κ_∞(D) tabulated as
+  a back-extraction guide for measured κ_xy(T) plateaux on
+  Cu(1,3-bdc) and Fe₃Sn₂.
+
 ### Test count
 
-`test_magnon`: 439/439 assertions (was 124/124 at 1.3.1, ~3.5×
-growth). ASan and UBSan both clean across the full suite.
+`test_magnon`: 480/480 assertions (was 124/124 at 1.3.1; +56 over
+the magnon-spectroscopy + topological-charge + Chern-sweep
+expansion). ASan and UBSan both clean across the full suite.
 Module-level function coverage on `magnon` ≥ 93%. Two shadow bugs
 found and fixed during the expansion (local `double total` shadowing
 the global `int total` used by the ASSERT macro).

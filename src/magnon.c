@@ -396,6 +396,56 @@ irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
     return IRREP_OK;
 }
 
+irrep_status_t irrep_magnon_chern_sweep(irrep_magnon_lsw_factory_fn factory, void *ud,
+                                         const double *params, int n_params, int n_sub, int Nx,
+                                         int Ny, double *chern_out) {
+    if (!factory || !params || !chern_out || n_params <= 0 || n_sub <= 0 || Nx <= 0 || Ny <= 0)
+        return IRREP_ERR_INVALID_ARG;
+    for (int i = 0; i < n_params; ++i) {
+        irrep_magnon_lsw_t *L = factory(params[i], ud);
+        if (!L)
+            return IRREP_ERR_INVALID_ARG;
+        if (irrep_magnon_lsw_num_bands(L) != n_sub) {
+            irrep_magnon_lsw_free(L);
+            return IRREP_ERR_INVALID_ARG;
+        }
+        irrep_status_t st = irrep_magnon_chern(L, Nx, Ny, chern_out + i * n_sub);
+        irrep_magnon_lsw_free(L);
+        if (st != IRREP_OK)
+            return st;
+    }
+    return IRREP_OK;
+}
+
+irrep_status_t irrep_magnon_chern_detect_boundaries(const double *chern_in, int n_params, int n_sub,
+                                                     int *boundary_indices_out, int max_boundaries,
+                                                     int *n_boundaries_out) {
+    if (!chern_in || !boundary_indices_out || !n_boundaries_out || n_params <= 0 || n_sub <= 0 ||
+        max_boundaries < 0)
+        return IRREP_ERR_INVALID_ARG;
+    int found = 0;
+    for (int i = 0; i + 1 < n_params; ++i) {
+        int changed = 0;
+        for (int b = 0; b < n_sub; ++b) {
+            long ci0 = lround(chern_in[i * n_sub + b]);
+            long ci1 = lround(chern_in[(i + 1) * n_sub + b]);
+            if (ci0 != ci1) {
+                changed = 1;
+                break;
+            }
+        }
+        if (changed) {
+            if (found >= max_boundaries) {
+                *n_boundaries_out = found;
+                return IRREP_ERR_INVALID_ARG;
+            }
+            boundary_indices_out[found++] = i;
+        }
+    }
+    *n_boundaries_out = found;
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_neutron_qomega_map(const irrep_magnon_lsw_t *L,
                                                 const double (*qpath)[2], int n_q,
                                                 double omega_min, double omega_max, int n_omega,

@@ -163,6 +163,71 @@ IRREP_API irrep_status_t irrep_magnon_berry(const irrep_magnon_lsw_t *L, double 
 IRREP_API irrep_status_t irrep_magnon_chern(const irrep_magnon_lsw_t *L, int Nx, int Ny,
                                              double *chern_out);
 
+/** @brief Factory callback for Chern parameter sweeps. Constructs a
+ *         fresh LSW handle from a single scalar parameter value. The
+ *         caller of `irrep_magnon_chern_sweep` will free the returned
+ *         handle via `irrep_magnon_lsw_free` after each Chern call.
+ *
+ *  @param param   the parameter value
+ *  @param ud      user-data pointer forwarded from the sweep call
+ *  @return        a fresh LSW handle, or NULL on construction failure */
+typedef irrep_magnon_lsw_t *(*irrep_magnon_lsw_factory_fn)(double param, void *ud);
+
+/** @brief Sweep band Chern numbers across a 1D parameter axis. For
+ *         each value `params[i]`, calls `factory(params[i], ud)` to
+ *         build an LSW handle, runs `irrep_magnon_chern` on a
+ *         Nx × Ny BZ grid, and stores the per-band Chern numbers in
+ *         `chern_out`. Frees each LSW handle after use.
+ *
+ *  Output `chern_out` is row-major n_params × n_sub: entry
+ *  `chern_out[i * n_sub + b]` is the Chern number of band b at
+ *  parameter value `params[i]`.
+ *
+ *  Use case: parameter scans of a topological phase diagram (vary D,
+ *  J', K_z, applied field, etc.). Combine with
+ *  `irrep_magnon_chern_detect_boundaries` to find Chern-changing
+ *  transitions automatically.
+ *
+ *  @param factory     factory callback (see typedef above)
+ *  @param ud          user data forwarded to factory
+ *  @param params      array of n_params parameter values
+ *  @param n_params    number of parameter samples (≥ 1)
+ *  @param n_sub       number of bands per LSW handle (must match
+ *                     factory output)
+ *  @param Nx, Ny      BZ grid for the Chern integration
+ *  @param chern_out   caller buffer of size n_params · n_sub doubles */
+IRREP_API irrep_status_t irrep_magnon_chern_sweep(irrep_magnon_lsw_factory_fn factory, void *ud,
+                                                    const double *params, int n_params, int n_sub,
+                                                    int Nx, int Ny, double *chern_out);
+
+/** @brief Detect Chern-integer-changing boundaries in a 1D parameter
+ *         sweep. Given a Chern table `chern_in` (n_params × n_sub),
+ *         returns the parameter-axis indices where the rounded integer
+ *         Chern signature changes between adjacent samples — i.e.
+ *         where `round(C[i, *])` and `round(C[i+1, *])` differ.
+ *
+ *  Each boundary index i marks the start of an interval `[params[i],
+ *  params[i+1]]` containing a Chern-changing gap closing. Refine with
+ *  a denser sweep on that sub-interval if a sharper boundary location
+ *  is needed (the resolution of this detector is the parameter grid
+ *  spacing).
+ *
+ *  Output `boundary_indices_out[k]` is the lower-index `i` of the
+ *  k-th detected boundary. At most `max_boundaries` are written; if
+ *  more boundaries exist than the buffer can hold, the function
+ *  returns `IRREP_ERR_INVALID_ARG`.
+ *
+ *  @param chern_in              n_params × n_sub Chern table (row-major)
+ *  @param n_params, n_sub       table dimensions
+ *  @param boundary_indices_out  caller buffer for boundary indices
+ *  @param max_boundaries        size of `boundary_indices_out`
+ *  @param n_boundaries_out      number of boundaries found */
+IRREP_API irrep_status_t irrep_magnon_chern_detect_boundaries(const double *chern_in, int n_params,
+                                                                int n_sub,
+                                                                int *boundary_indices_out,
+                                                                int max_boundaries,
+                                                                int *n_boundaries_out);
+
 /** @brief Read out the number of magnon bands (= number of magnetic
  *         sublattices). */
 IRREP_API int irrep_magnon_lsw_num_bands(const irrep_magnon_lsw_t *L);

@@ -1743,6 +1743,80 @@ static void test_topological_charge_two_skyrmions(void) {
     free(n_field);
 }
 
+/* (72b) Chern parameter sweep + boundary detection: build a kagome FM
+ * factory with D as the swept parameter, sweep across D ∈ [-0.3, +0.3]
+ * skipping D = 0 (bands touch there), and verify
+ *   - per-band Chern numbers come out at machine precision;
+ *   - the sign-flip in D produces a Chern-signature change that the
+ *     boundary detector picks up (exactly one boundary, between the
+ *     largest negative D and the smallest positive D). */
+static irrep_magnon_lsw_t *kagome_fm_dmi_factory_(double D, void *ud) {
+    (void)ud;
+    double a1[2] = {1.0, 0.0};
+    double a2[2] = {0.5, 0.5 * sqrt(3.0)};
+    irrep_magnon_bond_t bonds[6] = {
+        {.bi = 0, .bj = 1, .delta_x =  0, .delta_y =  0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 2, .delta_x =  0, .delta_y =  0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 2, .bj = 0, .delta_x =  0, .delta_y =  0, .J = -1.0, .D = {0, 0, +D}},
+        {.bi = 1, .bj = 0, .delta_x =  1, .delta_y =  0, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 0, .bj = 2, .delta_x =  0, .delta_y = -1, .J = -1.0, .D = {0, 0, -D}},
+        {.bi = 2, .bj = 1, .delta_x = -1, .delta_y =  1, .J = -1.0, .D = {0, 0, -D}},
+    };
+    return irrep_magnon_lsw_new(/*n_sub=*/3, /*S=*/1.0, a1, a2, /*n_bonds=*/6, bonds, /*Kz=*/0);
+}
+
+static void test_chern_sweep_kagome(void) {
+    /* Symmetric sweep around D = 0, skipping D = 0 itself (bands touch). */
+    double D_set[6] = {-0.30, -0.20, -0.10, +0.10, +0.20, +0.30};
+    int    n_params = 6;
+    double chern[18]; /* n_params × n_sub = 6 × 3 */
+
+    irrep_status_t st =
+        irrep_magnon_chern_sweep(kagome_fm_dmi_factory_, NULL, D_set, n_params, /*n_sub=*/3,
+                                  /*Nx=*/64, /*Ny=*/64, chern);
+    ASSERT(st == IRREP_OK, "chern_sweep returns IRREP_OK");
+
+    /* For D > 0: Chern signature (-1, 0, +1). For D < 0: (+1, 0, -1). */
+    for (int i = 0; i < 3; ++i) {
+        ASSERT_NEAR(chern[i * 3 + 0], +1.0, 1e-3, "D < 0 lower band Chern = +1");
+        ASSERT_NEAR(chern[i * 3 + 1],  0.0, 1e-3, "D < 0 middle band Chern = 0");
+        ASSERT_NEAR(chern[i * 3 + 2], -1.0, 1e-3, "D < 0 upper band Chern = -1");
+    }
+    for (int i = 3; i < 6; ++i) {
+        ASSERT_NEAR(chern[i * 3 + 0], -1.0, 1e-3, "D > 0 lower band Chern = -1");
+        ASSERT_NEAR(chern[i * 3 + 1],  0.0, 1e-3, "D > 0 middle band Chern = 0");
+        ASSERT_NEAR(chern[i * 3 + 2], +1.0, 1e-3, "D > 0 upper band Chern = +1");
+    }
+
+    /* Boundary detection: the unique transition is between D = -0.10 and
+     * D = +0.10 (i.e., at index 2 in the sweep). */
+    int boundaries[6];
+    int n_boundaries = -1;
+    st = irrep_magnon_chern_detect_boundaries(chern, n_params, /*n_sub=*/3, boundaries,
+                                                /*max_boundaries=*/6, &n_boundaries);
+    ASSERT(st == IRREP_OK, "detect_boundaries returns IRREP_OK");
+    ASSERT(n_boundaries == 1, "exactly one Chern boundary detected");
+    ASSERT(boundaries[0] == 2, "boundary index = 2 (between D = -0.1 and +0.1)");
+}
+
+static void test_chern_sweep_no_boundary(void) {
+    /* All-positive sweep: no transition, no boundaries. */
+    double D_set[5] = {+0.05, +0.10, +0.15, +0.20, +0.30};
+    int    n_params = 5;
+    double chern[15];
+    irrep_status_t st =
+        irrep_magnon_chern_sweep(kagome_fm_dmi_factory_, NULL, D_set, n_params, /*n_sub=*/3,
+                                  /*Nx=*/64, /*Ny=*/64, chern);
+    ASSERT(st == IRREP_OK, "chern_sweep all-positive D returns IRREP_OK");
+
+    int boundaries[5];
+    int n_boundaries = -1;
+    st = irrep_magnon_chern_detect_boundaries(chern, n_params, /*n_sub=*/3, boundaries,
+                                                /*max_boundaries=*/5, &n_boundaries);
+    ASSERT(st == IRREP_OK, "detect_boundaries returns IRREP_OK");
+    ASSERT(n_boundaries == 0, "no Chern boundary detected for monotone-D sweep");
+}
+
 /* (73) _dispersion_noncollinear_full: ω_out should match what
  * _dispersion_noncollinear returns; the additional Bogoliubov
  * uv_out is non-zero and contains finite finite amplitudes. */
@@ -2877,6 +2951,8 @@ int main(void) {
     test_topological_charge_belavin_polyakov_skyrmion();
     test_topological_charge_anti_skyrmion();
     test_topological_charge_two_skyrmions();
+    test_chern_sweep_kagome();
+    test_chern_sweep_no_boundary();
     test_heisenberg_decay_rate_collinear_zero();
     test_heisenberg_decay_rate_noncollinear_finite();
     test_heisenberg_decay_rate_grid_convergence();

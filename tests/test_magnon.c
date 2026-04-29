@@ -1884,6 +1884,64 @@ static void test_hopf_charge_unit_hopfion_ansatz(void) {
     free(m);
 }
 
+/* Charge-4 Hopfion via composition with the degree-2 self-map of S²:
+ * if f: S³ → S² has Hopf charge H, then (deg-N self-map of S²) ∘ f
+ * has Hopf charge N²·H. So the unit Hopfion composed with z → z² in
+ * stereographic coordinates gives a Hopf-4 texture. */
+static void fill_hopf4_via_deg2_(double *m, int N_lat, double R) {
+    for (int iz = 0; iz < N_lat; ++iz)
+        for (int iy = 0; iy < N_lat; ++iy)
+            for (int ix = 0; ix < N_lat; ++ix) {
+                int    p  = (iz * N_lat + iy) * N_lat + ix;
+                double x  = (ix - N_lat / 2.0) / R;
+                double y  = (iy - N_lat / 2.0) / R;
+                double z  = (iz - N_lat / 2.0) / R;
+                double r2 = x * x + y * y + z * z;
+                double D  = 1.0 + r2;
+                double D2 = D * D;
+                /* Unit Hopfion m̂_1(r). */
+                double mx = (8 * x * z + 4 * y * (r2 - 1)) / D2;
+                double my = (8 * y * z - 4 * x * (r2 - 1)) / D2;
+                double mz = (-r2 * r2 + 6 * r2 - 8 * z * z - 1) / D2;
+                double n  = sqrt(mx * mx + my * my + mz * mz);
+                mx /= n; my /= n; mz /= n;
+                /* Stereographic w = (m_x + i m_y)/(1 − m_z), w → w², then
+                 * inverse stereographic. */
+                double denom = 1.0 - mz;
+                if (denom < 1e-12) {
+                    m[3 * p + 0] = 0;
+                    m[3 * p + 1] = 0;
+                    m[3 * p + 2] = +1.0;
+                    continue;
+                }
+                double w_re = mx / denom, w_im = my / denom;
+                double w2_re = w_re * w_re - w_im * w_im;
+                double w2_im = 2 * w_re * w_im;
+                double w2_2  = w2_re * w2_re + w2_im * w2_im;
+                double Dout  = w2_2 + 1.0;
+                m[3 * p + 0] = 2 * w2_re / Dout;
+                m[3 * p + 1] = 2 * w2_im / Dout;
+                m[3 * p + 2] = (w2_2 - 1.0) / Dout;
+            }
+}
+
+static void test_hopf_charge_charge4_via_degree2_composition(void) {
+    /* On a 64³ lattice with R = 6, the degree-2 composition produces a
+     * texture with Hopf invariant 4 (the H = N² rule). The texture
+     * has finer features than the unit Hopfion, so finite-difference
+     * error is larger than the 0.6% achieved on H = 1. */
+    int     N  = 64;
+    double *m  = malloc((size_t)3 * N * N * N * sizeof *m);
+    fill_hopf4_via_deg2_(m, N, /*R=*/6.0);
+    double H = NAN;
+    irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 8 * N * N, &H);
+    ASSERT(H > 3.0, "charge-4 Hopfion (deg-2 composition): H well-separated from 3");
+    ASSERT(H < 4.5, "charge-4 Hopfion (deg-2 composition): H well-separated from 5");
+    ASSERT_NEAR(H, 4.0, 0.30,
+                "charge-4 Hopfion: H ≈ 4 within finite-difference budget on 64³ (4th-order)");
+    free(m);
+}
+
 /* (72b) Chern parameter sweep + boundary detection: build a kagome FM
  * factory with D as the swept parameter, sweep across D ∈ [-0.3, +0.3]
  * skipping D = 0 (bands touch there), and verify
@@ -3099,6 +3157,7 @@ int main(void) {
     test_hopf_charge_linearity_in_twist();
     test_hopf_charge_twist_antisymmetry();
     test_hopf_charge_unit_hopfion_ansatz();
+    test_hopf_charge_charge4_via_degree2_composition();
     test_chern_sweep_kagome();
     test_chern_sweep_no_boundary();
     test_heisenberg_decay_rate_collinear_zero();

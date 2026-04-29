@@ -257,11 +257,20 @@ factor). New public functions in `irrep/magnon.h`:
   Test `test_hopf_charge_unit_hopfion_ansatz` exercises this on a
   48³ lattice with R = 6 and asserts H ≈ +1 to 5%.
 
+  Multi-charge validation: a Hopf-4 texture is constructed by
+  composing the unit Hopfion m̂_1 with the degree-2 self-map of S²
+  (z → z² in stereographic coordinates). The composition rule
+  H_composed = N² · H_original gives H = 4. Numerically H ≈ 3.74
+  on 64³ (R = 6) — within 7% of the integer, and well-separated
+  from H = 3 and H = 5. Test `test_hopf_charge_charge4_via_degree2_
+  composition` asserts H ∈ (3.0, 4.5) and H ≈ 4 to 30%.
+
 ### Test count
 
-`test_magnon`: 490/490 assertions (was 124/124 at 1.3.1; +66 over
+`test_magnon`: 493/493 assertions (was 124/124 at 1.3.1; +69 over
 the magnon-spectroscopy + topological-charge + Chern-sweep + Hopf-
-charge expansion). ASan and UBSan both clean across the full suite.
+charge expansion, including the charge-4 deg-2-composition test).
+ASan and UBSan both clean across the full suite.
 Module-level function coverage on `magnon` ≥ 93%. Two shadow bugs
 found and fixed during the expansion (local `double total` shadowing
 the global `int total` used by the ASSERT macro).

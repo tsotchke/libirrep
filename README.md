@@ -220,6 +220,38 @@ k-resolved (see `examples/pyrochlore16_heisenberg.c`,
 Partial trace; cyclic-Jacobi Hermitian eigendecomposition (no LAPACK
 dependency); von Neumann / Rényi entropies; Kitaev–Preskill γ formula.
 
+**Magnon spectroscopy.** Linear spin-wave theory (LSW) with full
+Bogoliubov-Colpa for collinear AFM/FM/ferri ground states and a
+non-collinear local-frame engine for arbitrary unit-vector m̂_α
+sublattice configurations (helices, 120° Néel, skyrmion textures).
+Per-band Berry curvature and Chern numbers via the FHS plaquette
+method; thermal Hall conductivity κ_xy(T) and spin Nernst α^s_xy(T)
+in the Matsumoto-Murakami formulation. Single- and two-magnon
+neutron-scattering structure factors S^(1)(q,ω) and S^(2)(q,ω) with
+Lorentzian broadening + finite-T Stokes/anti-Stokes detailed balance
++ polarised channels. Cubic-vertex Born linewidth Γ_b(k) for
+non-collinear models (all 48 γ†γ†γ sub-cases per bond from the four
+HP cubic-operator types) with explicit `gap_floor` IR regularisation.
+Levenberg-Marquardt fitter `irrep_magnon_fit_J` extracts exchange
+parameters from INS dispersion data (validated to ~5e-5 rel on a
+12-point synthetic Coldea-Hayden La₂CuO₄ benchmark with 5% noise).
+
+**Topological-charge integration.** π₂(S²) skyrmion charge for any
+2D unit-spin field on a periodic square lattice via the Berg-Lüscher
+exact spherical-triangle solid-angle formula
+(`irrep_magnon_topological_charge_2d`); integer Q recovered to
+machine precision (≤ 4e-14) on smooth analytic textures.
+π₃(S²) Hopf charge for any 3D unit-spin field on a periodic cubic
+lattice via the discrete Whitehead integral with 4th-order central-
+difference F and Jacobi-Poisson Coulomb-gauge A
+(`irrep_magnon_hopf_charge_3d`); calibrated against the analytic
+charge-1 stereographic Hopf-1 ansatz to 0.6% on 64³, with multi-
+charge validation (degree-N composition, H = N²) confirming
+inter-class distinguishability for H ∈ {1, 4, 9}. Composable Chern-
+sweep + boundary-detection pipeline (`_chern_sweep` +
+`_chern_detect_boundaries`) for automated topological-phase-diagram
+construction.
+
 **Release engineering.** Stable ABI tracked by SHA-256 over the
 exported-symbol set, baked into the binary (`irrep_abi_hash()`) and
 the installed pkg-config variable. Portable across Mach-O / ELF / PE.

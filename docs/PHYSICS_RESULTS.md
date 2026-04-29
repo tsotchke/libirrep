@@ -2161,7 +2161,179 @@ side (T_skx, deposition stack engineering) lies downstream.
 
 ---
 
-## 8. Citation
+## 8. Magnon spectroscopy + topological invariants (1.3.2 cycle)
+
+The 1.3.2 cycle expanded the magnon stack from "dispersion + Berry +
+Chern + thermal Hall" to a full INS-prediction loop and added two
+topological-charge integrators (π₂ skyrmion charge, π₃ Hopf charge).
+This section catalogues the validated quantitative results.
+
+### 8.1. Textbook validation reference points
+
+All of the following ship as `examples/*.c` and reproduce the
+published value to the listed precision.
+
+| Result | Reference | Library value | Method |
+|---|---|---|---|
+| Anderson 1952 ⟨n⟩ | 0.196602 | 0.1966020 (3.5e-7 rel) | Richardson on (N=128, 2N=256) BdG zero-point sum |
+| Anderson 1952 ω_max = 2J | 2.0 | 2.000000 (5e-11 rel) | direct BdG dispersion at q = (π, 0) |
+| Anderson 1952 c_s = √2·J·z·S/2 | √2 | 1.4142136 (1.4e-6 rel) | Goldstone-slope fit |
+| Mook 2014 K-point gap = 2√3·D·S | analytic | 2.88e-15 rel @ D=0.05 | direct dispersion |
+| Mook 2014 Chern (-1, 0, +1) | analytic | <1e-13 worst-band | FHS plaquette on 64×64 |
+| Chubukov-Senthil 1992 flat zero mode | ω₁ ≡ 0 | 1.22e-5 (set by √eps_psd) | non-collinear Bogoliubov-Colpa |
+| Coldea-Hayden 2001 La₂CuO₄ J | 138 meV | 138.0061 ± 0.0032 (4e-5 rel, 0.004%) | LM fitter on 12 noisy q-points |
+| Coldea-Hayden 2001 La₂CuO₄ J' | -18 meV | -18.0035 ± 0.0102 (2e-4 rel, 0.019%) | same |
+
+### 8.2. π₂(S²) skyrmion charge — Berg-Lüscher integration
+
+`irrep_magnon_topological_charge_2d` computes the integer winding of
+a 2D unit-spin field on a periodic square lattice via the Berg-Lüscher
+signed-solid-angle formula:
+
+    Q = (1/4π) Σ_plaquette Ω(m̂_a, m̂_b, m̂_c),    Ω(a,b,c) = 2 atan2(a·(b×c), 1+a·b+b·c+c·a)
+
+The four-vector arctan form returns the *exact* spherical-triangle
+solid angle on each plaquette. For smooth textures with m̂ → const at
+the boundary, Q recovers the integer winding number to machine
+precision.
+
+| Texture | Q expected | Measured |\|Q − Q_exp\|| Lattice |
+|---|---|---|---|
+| Uniform m̂ = ẑ | 0 | 0 (exact) | 64×64 |
+| Belavin-Polyakov skyrmion (R=8) | +1 | 1.78e-15 | 64×64 |
+| Anti-skyrmion | -1 | 1.78e-15 | 64×64 |
+| Two-skyrmion splice (R=6) | +2 | 2.26e-14 | 96×64 |
+
+The T2.1 numerical homotopy-invariance test (private, but using only
+this public function) drives 10 representatives across three
+families (BP at varying R; profile shapes ρ²/(1+ρ²), arctan, tanh;
+charge-N stereographic) on lattices 64×64–128×128. All 10 cases
+reproduce the integer Q to ≤ 4e-14.
+
+### 8.3. π₃(S²) Hopf charge — discrete Whitehead integral
+
+`irrep_magnon_hopf_charge_3d` computes the Hopf charge on a 3D
+periodic cubic lattice:
+
+    H = ∫ A · F d³r,   F^α = (1/4π) ε^αβγ ∂_β m̂ · (∂_γ m̂ × m̂)
+
+with A solved from ∇×A = F (Coulomb gauge ∇·A = 0) by Jacobi
+iteration on the discrete Poisson equation. **4th-order central
+differences** on the periodic grid for ∂m̂ and ∇×F.
+
+Calibrated against the analytic charge-1 Hopfion via stereographic
+R³ → S³ → S² (Hopf map):
+
+| Lattice | R | Measured H | \|H − 1\| |
+|---|---|---|---|
+| 32³ | 3.0 | 0.8957 | 0.10 |
+| 48³ | 4.5 | 0.9784 | 0.022 |
+| 64³ | 6.0 | **0.9936** | **0.006** |
+| 64³ | 8.0 | 0.9872 | 0.013 |
+
+Multi-charge validation via degree-N self-map composition of S²
+(rule: H(deg-N ∘ f) = N²·H(f)):
+
+| Hopf class | Measured H | \|H − N²\| |
+|---|---|---|
+| H = 1 (deg-1) | 0.9936 | 0.006 |
+| H = 4 (deg-2) | 3.7360 | 0.264 |
+| H = 9 (deg-3) | 7.0349 | 1.965 |
+
+Inter-class gaps measured: H(N=2) − H(N=1) = 2.74, H(N=3) − H(N=2) =
+3.30 — all integer classes are well-separated. Per-class error grows
+with N as the texture acquires finer features that the lattice
+cannot fully resolve at fixed N_lat = 64.
+
+The 4th-order discretisation gives a 15× error reduction over the
+2nd-order central-difference scheme used in the initial
+implementation: H_R6 went from 0.872 (8.7% off integer) to 0.994
+(0.6% off integer) on 64³.
+
+### 8.4. Chern parameter sweep + topological-boundary detection
+
+`irrep_magnon_chern_sweep(factory, ud, params, …)` runs the FHS
+plaquette Chern computation across a 1D parameter axis. The factory
+callback constructs an LSW handle from a single scalar parameter,
+keeping the parametrisation logic in caller hands.
+
+`irrep_magnon_chern_detect_boundaries` then scans the resulting
+Chern table for parameter-axis indices where the rounded integer
+signature changes between adjacent samples — flagging
+gap-closing transitions automatically.
+
+Validated on the kagome FM under D → -D sign flip (canonical magnon
+Dirac-cone gap closing):
+
+| Stage | Range | Refinement | Detected boundary |
+|---|---|---|---|
+| Coarse | D ∈ {-0.30, …, +0.30}, 6 pts | 64×64 | bracketed by [-0.10, +0.10] |
+| Refine | 6 evenly-spaced in bracket | 96×96 | re-bracketed to [-0.017, +0.017] |
+
+Chern signatures: (+1, 0, -1) at D < 0, (-1, 0, +1) at D > 0, with
+machine-precision integers (≤ 3e-15 Σ-rule deviation) at every
+sampled D. Workflow generalises to any 1D LSW factory (vary J, J',
+K_z, applied field, DMI components, or any combination).
+
+### 8.5. Thermal Hall κ_xy(T) phase diagram
+
+`examples/kagome_thermal_hall_phase_diagram.c` sweeps Dz over four
+decades (D ∈ [0.001, 0.5]) at 10 temperatures spanning T ∈ [0.05, 64]
+units of |J|. Reports:
+
+- Chern signature (-1, 0, +1) robust at machine precision (deviation
+  < 4e-15) across the entire D sweep.
+- κ_xy(T) curves are monotone-saturating, not unimodal. The high-T
+  plateau κ_∞ = -Σ_b ∫_BZ ω_b · F_b(k) d²k / (A_uc · (2π)²) is a
+  finite Hamiltonian-specific quantity (not a topological invariant
+  but robust against gap-preserving deformations).
+- κ_∞(D) is sub-linear with varying local exponent: 0.65 at moderate
+  D, dropping to 0.37 at large D. Aggregate slope over [0.001, 0.5]
+  is ~0.56. Underlying physics: F_b(k) sharpens at K and K' Dirac
+  points as D → 0, then spreads onto the band as D grows.
+- κ_∞ tabulated as a back-extraction guide for measured κ_xy(T)
+  plateaux on Cu(1,3-bdc) (Chisnell et al, PRL 115, 147201, 2015)
+  and Fe₃Sn₂ (Yin et al, Nature 562, 91, 2018).
+
+### 8.6. Cubic-vertex Born linewidth
+
+`irrep_magnon_heisenberg_decay_rate` is the full Heisenberg + DMI
+cubic-vertex Born self-energy on non-collinear LSW models — all 48
+γ†γ†γ sub-cases per bond from the four cubic-operator HP types
+(a_α·a_β†·a_β, a_α†·a_β†·a_β, a_α†·a_α·a_β, a_α†·a_α·a_β†).
+
+Validated symmetry constraints:
+- Γ ≡ 0 on collinear FM (U(1) preserved): < 1e-9
+- Γ_b(+k) = Γ_b(-k) — TR symmetry: machine precision
+- Γ invariant under bond reversal ⟨α,β,t,J,D⟩ ↔ ⟨β,α,-t,J,-D⟩: 1e-9
+- Γ_b(k) ≥ 0 per band (unitarity)
+- Grid convergence: stable to **<1%** under N=64 → N=96 refinement
+
+The function takes `gap_floor` as an explicit user parameter (no
+hardcoded IR cutoff) — the Born self-energy is logarithmically
+IR-divergent on Goldstone-having models, so the regularisation is
+exposed rather than baked in. This makes the function usable for
+principled quantitative work on gapped models and qualitative work
+on gapless ones (with documented gap_floor → 0 divergence).
+
+### 8.7. Quantitative La₂CuO₄ INS prediction
+
+`examples/la2cuo4_two_magnon_shoulder.c` predicts the η-stable
+shoulder-weight ratio R(q) = ∫_{ω_max}^{2ω_max} S^(2) / ∫_0^{ω_max} S^(1)
+on the Coldea-Hayden 2001 J = 138, J' = -18 meV parameterisation:
+
+| q | η-stable R | Spread across η ∈ {2.5, 5, 10} |
+|---|---|---|
+| (π/2, 0) | 0.514 | ± 0.011 |
+| (π, 0) | 0.896 | ± 0.004 |
+
+Testable on contemporary INS spectrometers; the η-stability
+documents the spectral integral as an instrument-resolution-robust
+observable.
+
+---
+
+## 9. Citation
 
 If this stack produces results in your work, please cite the library
 (see [`../README.md`](../README.md) § Citation for BibTeX) and the

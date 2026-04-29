@@ -552,6 +552,57 @@ See the 1.3 CHANGELOG.
  `_dispersion_3d`, `_dispersion_general`, `_berry`, `_chern`,
  `_thermal_hall_kxy`, `_strip_dispersion`, `_wilson_spectrum`,
  `_num_bands`).
+- [x] **Magnon-spectroscopy expansion (1.3.2 cycle)**. Closed the loop
+ from "dispersion + Chern + thermal Hall" to a full INS-prediction
+ stack:
+ * AFM-aware Bogoliubov structure factor; one- and two-magnon
+   dynamical SF S^(1)(q,ω) and S^(2)(q,ω); finite-T Stokes/anti-
+   Stokes detailed balance; polarised-channel SFs.
+ * Cubic-vertex Born linewidth `_heisenberg_decay_rate` for non-
+   collinear LSW models — all 48 γ†γ†γ sub-cases per bond from the
+   four HP cubic-operator types, with explicit `gap_floor` IR
+   cutoff. Grid convergence: stable to <1% under N=64 → N=96 (was
+   originally 5%, tightened in this cycle).
+ * Levenberg-Marquardt fitter `_fit_J` extracts exchange parameters
+   from synthetic INS data; recovers J = 138 / J' = -18 meV at
+   ~5e-5 / 2e-4 relative precision under 5% Gaussian noise.
+ * Three textbook validations shipping: `anderson_1952_square_afm`
+   (with Richardson extrapolation: 0.196602 to 3.5e-7),
+   `chubukov_senthil_kagome_flat_zero_mode`, `mook_2014_kagome_
+   topological_gap`. Plus two quantitative-prediction examples:
+   `la2cuo4_two_magnon_shoulder` (η-stable INS shoulder ratios for
+   La₂CuO₄), `kagome_thermal_hall_phase_diagram` (κ_xy(T) sweep,
+   high-T saturation κ_∞ tabulated as back-extraction guide for
+   Cu(1,3-bdc) and Fe₃Sn₂).
+- [x] **π₂(S²) topological-charge integrator**
+ `irrep_magnon_topological_charge_2d` — Berg-Lüscher exact
+ spherical-triangle solid-angle integration of the integer skyrmion
+ charge of a 2D unit-spin field on a periodic square lattice. Q
+ recovered to machine precision (≤ 4e-14) on smooth analytic
+ textures. Foundational tool for skyrmion-number measurement on
+ lattice spin output.
+- [x] **π₃(S²) Hopf-charge integrator**
+ `irrep_magnon_hopf_charge_3d` — discrete Whitehead integral with
+ 4th-order central differences for F + Jacobi-Poisson Coulomb-gauge
+ A on a periodic cubic lattice. Calibrated against the analytic
+ stereographic Hopf-1 ansatz: H = +0.9936 on 64³ with R = 6 (0.6%
+ from integer; 15× error reduction over the 2nd-order initial
+ implementation). Multi-charge validation via degree-N S²
+ composition (rule H = N²): H = 1, 4, 9 distinguished on the same
+ lattice. Structural tests: zero-on-trivial textures (machine
+ precision), linear-in-twist on twisted-skyrmion tubes, antisymmetry
+ under twist sign-flip.
+- [x] **Chern parameter-sweep + boundary-detection pipeline**
+ `irrep_magnon_chern_sweep` (factory-callback over a 1D parameter
+ axis) and `_chern_detect_boundaries` (scan integer-signature
+ changes between adjacent samples). Demonstrated on the kagome FM
+ D → -D Dirac-cone gap closing: coarse sweep brackets the
+ transition to [-0.10, +0.10], refinement narrows to [-0.017,
+ +0.017]. Generalises to any 1D LSW factory. ABI refreshed to
+ `d799e9f0…` for the cumulative 1.3.2 surface (new public symbols:
+ `_topological_charge_2d`, `_hopf_charge_3d`, `_chern_sweep`,
+ `_chern_detect_boundaries`, `_lsw_factory_fn` typedef, plus the
+ magnon-spectroscopy stack listed above).
 
 ## Deferred past 1.3
 

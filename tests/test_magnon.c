@@ -1626,6 +1626,123 @@ static void test_heisenberg_decay_rate_gap_floor_divergence(void) {
     irrep_magnon_lsw_free(L);
 }
 
+/* (80) Topological charge — uniform field n̂ = ẑ should give Q = 0
+ * exactly (constant texture, trivial homotopy class). */
+static void test_topological_charge_uniform(void) {
+    int Nx = 32, Ny = 32;
+    double *n_field = malloc((size_t)3 * Nx * Ny * sizeof *n_field);
+    for (int p = 0; p < Nx * Ny; ++p) {
+        n_field[3 * p + 0] = 0;
+        n_field[3 * p + 1] = 0;
+        n_field[3 * p + 2] = 1;
+    }
+    double Q;
+    irrep_magnon_topological_charge_2d(n_field, Nx, Ny, &Q);
+    ASSERT(fabs(Q) < 1e-12, "Q = 0 for uniform field n̂ = ẑ");
+    free(n_field);
+}
+
+/* (81) Topological charge — Belavin-Polyakov skyrmion profile
+ *
+ *     n_z(r) = (R² - r²) / (R² + r²)
+ *     n_x(r,φ) = 2Rr·cos(φ) / (R² + r²)
+ *     n_y(r,φ) = 2Rr·sin(φ) / (R² + r²)
+ *
+ * is the analytic Q = +1 skyrmion. Embedded on a sufficiently large
+ * lattice (so the boundary is far from the skyrmion core) the
+ * Berg-Lüscher integration recovers Q = +1 to high precision. */
+static void test_topological_charge_belavin_polyakov_skyrmion(void) {
+    int Nx = 64, Ny = 64;
+    double R = 8.0;   /* skyrmion radius in lattice spacings */
+    double *n_field = malloc((size_t)3 * Nx * Ny * sizeof *n_field);
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            /* Centre the skyrmion at the lattice middle. */
+            double x = ix - Nx / 2.0;
+            double y = iy - Ny / 2.0;
+            double r2 = x * x + y * y;
+            double R2 = R * R;
+            double denom = R2 + r2;
+            double nx = 2 * R * x / denom;
+            double ny = 2 * R * y / denom;
+            double nz = (R2 - r2) / denom;
+            n_field[3 * (iy * Nx + ix) + 0] = nx;
+            n_field[3 * (iy * Nx + ix) + 1] = ny;
+            n_field[3 * (iy * Nx + ix) + 2] = nz;
+        }
+    double Q;
+    irrep_magnon_topological_charge_2d(n_field, Nx, Ny, &Q);
+    ASSERT(fabs(Q - 1.0) < 0.01, "Q = +1 for Belavin-Polyakov skyrmion (R=8 on 64×64)");
+    free(n_field);
+}
+
+/* (82) Anti-skyrmion: same profile but with reversed in-plane
+ * orientation (φ → -φ), giving Q = -1. */
+static void test_topological_charge_anti_skyrmion(void) {
+    int Nx = 64, Ny = 64;
+    double R = 8.0;
+    double *n_field = malloc((size_t)3 * Nx * Ny * sizeof *n_field);
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            double x = ix - Nx / 2.0;
+            double y = iy - Ny / 2.0;
+            double r2 = x * x + y * y;
+            double R2 = R * R;
+            double denom = R2 + r2;
+            /* Anti-skyrmion: flip n_y → -n_y (reversed winding). */
+            double nx = 2 * R * x / denom;
+            double ny = -2 * R * y / denom;
+            double nz = (R2 - r2) / denom;
+            n_field[3 * (iy * Nx + ix) + 0] = nx;
+            n_field[3 * (iy * Nx + ix) + 1] = ny;
+            n_field[3 * (iy * Nx + ix) + 2] = nz;
+        }
+    double Q;
+    irrep_magnon_topological_charge_2d(n_field, Nx, Ny, &Q);
+    ASSERT(fabs(Q + 1.0) < 0.01, "Q = -1 for anti-skyrmion (reversed in-plane winding)");
+    free(n_field);
+}
+
+/* (83) Two well-separated skyrmions: total Q = 2 (additive over
+ * disjoint topological objects). */
+static void test_topological_charge_two_skyrmions(void) {
+    int Nx = 96, Ny = 64;
+    double R = 6.0;
+    double *n_field = malloc((size_t)3 * Nx * Ny * sizeof *n_field);
+    /* Two skyrmion cores at (Nx/4, Ny/2) and (3Nx/4, Ny/2). */
+    double cx[2] = {Nx / 4.0, 3.0 * Nx / 4.0};
+    double cy[2] = {Ny / 2.0, Ny / 2.0};
+    for (int iy = 0; iy < Ny; ++iy)
+        for (int ix = 0; ix < Nx; ++ix) {
+            /* Use the closer core to set the local skyrmion field;
+             * sum of two BP profiles isn't exactly normalised but the
+             * winding number is what matters and is preserved when
+             * we re-normalise. */
+            int    nearest = 0;
+            double d2_min  = (ix - cx[0]) * (ix - cx[0]) + (iy - cy[0]) * (iy - cy[0]);
+            double d2_1    = (ix - cx[1]) * (ix - cx[1]) + (iy - cy[1]) * (iy - cy[1]);
+            if (d2_1 < d2_min) {
+                nearest = 1;
+                d2_min  = d2_1;
+            }
+            double x = ix - cx[nearest];
+            double y = iy - cy[nearest];
+            double r2 = x * x + y * y;
+            double R2 = R * R;
+            double denom = R2 + r2;
+            double nx_v = 2 * R * x / denom;
+            double ny_v = 2 * R * y / denom;
+            double nz_v = (R2 - r2) / denom;
+            n_field[3 * (iy * Nx + ix) + 0] = nx_v;
+            n_field[3 * (iy * Nx + ix) + 1] = ny_v;
+            n_field[3 * (iy * Nx + ix) + 2] = nz_v;
+        }
+    double Q;
+    irrep_magnon_topological_charge_2d(n_field, Nx, Ny, &Q);
+    ASSERT(fabs(Q - 2.0) < 0.05, "Q = 2 for two well-separated skyrmions");
+    free(n_field);
+}
+
 /* (73) _dispersion_noncollinear_full: ω_out should match what
  * _dispersion_noncollinear returns; the additional Bogoliubov
  * uv_out is non-zero and contains finite finite amplitudes. */
@@ -2756,6 +2873,10 @@ int main(void) {
     test_polarized_sf_collinear_FM();
     test_polarized_sf_relates_to_S_perp();
     test_dispersion_noncollinear_full_recovers_omega();
+    test_topological_charge_uniform();
+    test_topological_charge_belavin_polyakov_skyrmion();
+    test_topological_charge_anti_skyrmion();
+    test_topological_charge_two_skyrmions();
     test_heisenberg_decay_rate_collinear_zero();
     test_heisenberg_decay_rate_noncollinear_finite();
     test_heisenberg_decay_rate_grid_convergence();

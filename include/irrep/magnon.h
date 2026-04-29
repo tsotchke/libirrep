@@ -1598,6 +1598,52 @@ IRREP_API irrep_status_t irrep_magnon_afm_zero_point(const irrep_magnon_lsw_t *L
                                                       const int *sublattice_signs, int Nx, int Ny,
                                                       double *delta_m_out);
 
+/** @brief Compute the 2D topological charge (skyrmion number) of a
+ *         spin-vector field on a square lattice via the Berg-Lüscher
+ *         signed-solid-angle method.
+ *
+ *  The continuum topological charge of a 2D unit-vector field n̂(r)
+ *  is
+ *
+ *      Q = (1/4π) ∫ d²r · n̂ · (∂_x n̂ × ∂_y n̂)
+ *
+ *  classifying the field by its π₂(S²) homotopy class (Q ∈ ℤ for
+ *  smooth boundary-condition-respecting textures). On a discrete
+ *  lattice the Berg-Lüscher (1981) discretisation evaluates the
+ *  integral as a sum of signed solid angles, one per triangular
+ *  half-plaquette:
+ *
+ *      Ω(a, b, c) = 2 · atan2( a · (b × c),
+ *                              1 + a·b + b·c + c·a )
+ *
+ *      Q = (1/4π) Σ_plaquettes [Ω(n_00, n_10, n_11) + Ω(n_00, n_11, n_01)]
+ *
+ *  This formula gives ℤ-valued results for smoothly-varying spin
+ *  fields up to lattice-discretisation errors on rapidly-varying
+ *  textures.
+ *
+ *  Use cases:
+ *    - Skyrmion-number measurement on real-space spin textures
+ *    - Verification of topological-charge conservation in dynamical
+ *      simulations
+ *    - Identification of monopole / skyrmion / hopfion features in
+ *      lattice-spin output from MC, MD, or LSW relaxation
+ *    - Numerical tests of homotopy classification (e.g., π₂(S²)
+ *      degree-counting on interpolating Hamiltonians)
+ *
+ *  PERIODIC BOUNDARY CONDITIONS are assumed: the spin field is
+ *  treated as wrapping around in both directions.
+ *
+ *  @param n_field    flat 3·Nx·Ny doubles — unit spin vectors per
+ *                    site in row-major order (site index = iy·Nx + ix);
+ *                    each (n_x, n_y, n_z) triple should be unit-length
+ *                    (caller's responsibility)
+ *  @param Nx, Ny     lattice dimensions
+ *  @param charge_out caller-allocated double — receives Q
+ *  @return IRREP_OK on success */
+IRREP_API irrep_status_t irrep_magnon_topological_charge_2d(const double *n_field, int Nx,
+                                                              int Ny, double *charge_out);
+
 /** @brief Compute the magnon dispersion ω_b(k) on top of a *general*
  *         collinear ground state in which sublattice α has its spin
  *         along σ_α · ẑ where σ_α ∈ {+1, -1}. AFM, ferrimagnetic,

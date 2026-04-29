@@ -3184,6 +3184,45 @@ irrep_status_t irrep_magnon_dispersion_general_3d(const irrep_magnon_lsw_t *L,
     return IRREP_OK;
 }
 
+/* Berg-Lüscher signed-solid-angle for a triangle of three unit vectors:
+ *   Ω(a, b, c) = 2 · atan2( a · (b × c), 1 + a·b + b·c + c·a )
+ * The result is the signed area of the spherical triangle (a, b, c)
+ * on S², in [-2π, +2π]. Sums over plaquette triangles give the
+ * 4π·Q skyrmion-charge integral. */
+static double bl_solid_angle_(const double a[3], const double b[3], const double c[3]) {
+    double cross[3] = {b[1] * c[2] - b[2] * c[1], b[2] * c[0] - b[0] * c[2],
+                       b[0] * c[1] - b[1] * c[0]};
+    double tprod    = a[0] * cross[0] + a[1] * cross[1] + a[2] * cross[2];
+    double ab       = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    double bc       = b[0] * c[0] + b[1] * c[1] + b[2] * c[2];
+    double ca       = c[0] * a[0] + c[1] * a[1] + c[2] * a[2];
+    return 2.0 * atan2(tprod, 1.0 + ab + bc + ca);
+}
+
+irrep_status_t irrep_magnon_topological_charge_2d(const double *n_field, int Nx, int Ny,
+                                                    double *charge_out) {
+    if (!n_field || Nx <= 0 || Ny <= 0 || !charge_out) return IRREP_ERR_INVALID_ARG;
+    double total = 0;
+    for (int iy = 0; iy < Ny; ++iy) {
+        int iy1 = (iy + 1) % Ny;
+        for (int ix = 0; ix < Nx; ++ix) {
+            int ix1 = (ix + 1) % Nx;
+            const double *n00 = n_field + 3 * (iy  * Nx + ix );
+            const double *n10 = n_field + 3 * (iy  * Nx + ix1);
+            const double *n01 = n_field + 3 * (iy1 * Nx + ix );
+            const double *n11 = n_field + 3 * (iy1 * Nx + ix1);
+            /* Two triangles per plaquette; the diagonal split (n00, n11)
+             * is the standard Berg-Lüscher convention. The two triangles
+             * share an oriented diagonal, so their contributions sum to
+             * the plaquette's signed contribution to 4π·Q. */
+            total += bl_solid_angle_(n00, n10, n11);
+            total += bl_solid_angle_(n00, n11, n01);
+        }
+    }
+    *charge_out = total / (4.0 * M_PI);
+    return IRREP_OK;
+}
+
 irrep_status_t irrep_magnon_afm_zero_point(const irrep_magnon_lsw_t *L,
                                             const int *sublattice_signs, int Nx, int Ny,
                                             double *delta_m_out) {

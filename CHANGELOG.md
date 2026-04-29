@@ -211,6 +211,14 @@ factor). New public functions in `irrep/magnon.h`:
   a back-extraction guide for measured κ_xy(T) plateaux on
   Cu(1,3-bdc) and Fe₃Sn₂.
 
+- New example: `kagome_dmi_topological_transition` — full Chern-
+  sweep + boundary-detection + iterative refinement workflow on the
+  D → -D Dirac-cone gap closing. Coarse sweep over D ∈ [-0.3, 0.3]
+  flags the unique boundary in [-0.1, +0.1]; refinement on a
+  6-point sub-grid narrows it to [-0.017, +0.017]. Demonstrates the
+  full pipeline pattern (factory callback → coarse → detect →
+  refine) generalisable to any 1D parameter axis.
+
 ### Test count
 
 `test_magnon`: 480/480 assertions (was 124/124 at 1.3.1; +56 over

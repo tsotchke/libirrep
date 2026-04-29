@@ -93,17 +93,45 @@ int main(void) {
     printf("  %-4s   %-12s   %-12s   %-12s\n",
            "N", "⟨n_A⟩", "⟨n_B⟩", "rel. error");
     int Ns[5] = {32, 64, 128, 192, 256};
+    double avgs[5];
     for (int i = 0; i < 5; ++i) {
         double n_alpha[2];
         irrep_magnon_afm_zero_point(L, signs, Ns[i], Ns[i], n_alpha);
-        double avg = 0.5 * (n_alpha[0] + n_alpha[1]);
-        double err = fabs(avg - anderson_exact) / anderson_exact;
+        avgs[i] = 0.5 * (n_alpha[0] + n_alpha[1]);
+        double err = fabs(avgs[i] - anderson_exact) / anderson_exact;
         printf("  %-4d   %-12.6f   %-12.6f   %-12.2e\n",
                Ns[i], n_alpha[0], n_alpha[1], err);
     }
-    printf("\n  Anderson exact: ⟨n⟩ = 0.196602\n");
-    printf("  Library at N=256: agrees to ~5 digits — textbook validation passes.\n");
-    printf("  Implied M(T=0) = 0.500 - 0.197 = 0.303 (70%% of classical),\n");
+    printf("\n  Anderson exact: ⟨n⟩ = 0.196602\n\n");
+
+    /* Convergence in N: dominant term is O(1/N) from the Goldstone mode at
+     * k = 0 (where v(k)² ~ 1/k diverges). The 2D integral of this
+     * singular integrand converges, but the discrete sum on a uniform
+     * grid contributes ~ 1/k_min · k_min² = 1/N at the smallest k.
+     *
+     * Richardson extrapolation: if ⟨n⟩(N) = ⟨n⟩∞ + a/N + O(1/N²), then
+     *
+     *     ⟨n⟩∞ ≈ 2·⟨n⟩(2N) − ⟨n⟩(N)
+     *
+     * This recovers the continuum value to MUCH better than the raw
+     * uniform-grid result. Demonstrated below. */
+    printf("  Richardson extrapolation ⟨n⟩∞ ≈ 2·⟨n⟩(2N) − ⟨n⟩(N):\n\n");
+    printf("  %-12s   %-14s   %-12s\n", "(N, 2N)", "⟨n⟩_R", "rel. error");
+    /* Richardson assumes 2N = 2·N exactly. Pairs from Ns[5]: (32,64),
+     * (64,128), (128,256). */
+    int rich_pairs[3][2] = {{0, 1}, {1, 2}, {2, 4}};
+    int rich_N[3][2]     = {{32, 64}, {64, 128}, {128, 256}};
+    for (int i = 0; i < 3; ++i) {
+        int    a = rich_pairs[i][0], b = rich_pairs[i][1];
+        double rich = 2.0 * avgs[b] - avgs[a];
+        double err  = fabs(rich - anderson_exact) / anderson_exact;
+        printf("  (%-3d, %-3d)    %-14.10f   %-12.2e\n", rich_N[i][0], rich_N[i][1], rich, err);
+    }
+    printf("\n  → Library at N=256 agrees to ~3 digits (5e-3 rel error);\n");
+    printf("    Richardson with (N=128, 2N=256) recovers the continuum\n");
+    printf("    Anderson value to ~7 digits (3.5e-7 rel error) — four\n");
+    printf("    orders of magnitude tighter than the raw N=256 result.\n");
+    printf("  Implied M(T=0) = 0.500 - 0.196602 = 0.303398 (70%% of classical),\n");
     printf("  matching cuprate experiment (La₂CuO₄: M_obs ≈ 0.30 ± 0.02).\n\n");
 
     /* Result 2: Spin-wave bandwidth ω_max = 2zJS = 4JS = 2J at S=1/2.

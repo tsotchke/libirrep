@@ -3299,31 +3299,49 @@ static inline int hopf_idx_(int ix, int iy, int iz, int Nx, int Ny, int Nz) {
 }
 
 static void hopf_central_diff_(const double *m, int Nx, int Ny, int Nz, double *dm) {
-    /* dm output: 9·Nx·Ny·Nz doubles, row-major (iz, iy, ix), inner = 9
+    /* 4th-order central differences with PBC:
+     *    ∂_α m̂(r) ≈ ( -m̂(r+2ê_α) + 8 m̂(r+ê_α) - 8 m̂(r-ê_α) + m̂(r-2ê_α) ) / 12
+     * Discretization error is O(h⁴); on Hopf-charge integrals this gives a
+     * dramatic improvement over the 2nd-order O(h²) scheme.
+     *
+     * dm output: 9·Nx·Ny·Nz doubles, row-major (iz, iy, ix), inner = 9
      * ordered as (∂_x m)_x, (∂_x m)_y, (∂_x m)_z,
      *            (∂_y m)_x, (∂_y m)_y, (∂_y m)_z,
      *            (∂_z m)_x, (∂_z m)_y, (∂_z m)_z. */
     for (int iz = 0; iz < Nz; ++iz) {
-        int izp = (iz + 1) % Nz, izm = (iz + Nz - 1) % Nz;
+        int izp1 = (iz + 1) % Nz, izm1 = (iz + Nz - 1) % Nz;
+        int izp2 = (iz + 2) % Nz, izm2 = (iz + Nz - 2) % Nz;
         for (int iy = 0; iy < Ny; ++iy) {
-            int iyp = (iy + 1) % Ny, iym = (iy + Ny - 1) % Ny;
+            int iyp1 = (iy + 1) % Ny, iym1 = (iy + Ny - 1) % Ny;
+            int iyp2 = (iy + 2) % Ny, iym2 = (iy + Ny - 2) % Ny;
             for (int ix = 0; ix < Nx; ++ix) {
-                int ixp = (ix + 1) % Nx, ixm = (ix + Nx - 1) % Nx;
-                int p   = hopf_idx_(ix, iy, iz, Nx, Ny, Nz);
-                int pxp = hopf_idx_(ixp, iy, iz, Nx, Ny, Nz);
-                int pxm = hopf_idx_(ixm, iy, iz, Nx, Ny, Nz);
-                int pyp = hopf_idx_(ix, iyp, iz, Nx, Ny, Nz);
-                int pym = hopf_idx_(ix, iym, iz, Nx, Ny, Nz);
-                int pzp = hopf_idx_(ix, iy, izp, Nx, Ny, Nz);
-                int pzm = hopf_idx_(ix, iy, izm, Nx, Ny, Nz);
+                int ixp1 = (ix + 1) % Nx, ixm1 = (ix + Nx - 1) % Nx;
+                int ixp2 = (ix + 2) % Nx, ixm2 = (ix + Nx - 2) % Nx;
+                int p     = hopf_idx_(ix, iy, iz, Nx, Ny, Nz);
+                int pxp1  = hopf_idx_(ixp1, iy, iz, Nx, Ny, Nz);
+                int pxm1  = hopf_idx_(ixm1, iy, iz, Nx, Ny, Nz);
+                int pxp2  = hopf_idx_(ixp2, iy, iz, Nx, Ny, Nz);
+                int pxm2  = hopf_idx_(ixm2, iy, iz, Nx, Ny, Nz);
+                int pyp1  = hopf_idx_(ix, iyp1, iz, Nx, Ny, Nz);
+                int pym1  = hopf_idx_(ix, iym1, iz, Nx, Ny, Nz);
+                int pyp2  = hopf_idx_(ix, iyp2, iz, Nx, Ny, Nz);
+                int pym2  = hopf_idx_(ix, iym2, iz, Nx, Ny, Nz);
+                int pzp1  = hopf_idx_(ix, iy, izp1, Nx, Ny, Nz);
+                int pzm1  = hopf_idx_(ix, iy, izm1, Nx, Ny, Nz);
+                int pzp2  = hopf_idx_(ix, iy, izp2, Nx, Ny, Nz);
+                int pzm2  = hopf_idx_(ix, iy, izm2, Nx, Ny, Nz);
                 for (int c = 0; c < 3; ++c) {
-                    dm[9 * p + 0 + c] = 0.5 * (m[3 * pxp + c] - m[3 * pxm + c]);
-                    dm[9 * p + 3 + c] = 0.5 * (m[3 * pyp + c] - m[3 * pym + c]);
-                    dm[9 * p + 6 + c] = 0.5 * (m[3 * pzp + c] - m[3 * pzm + c]);
+                    dm[9 * p + 0 + c] = (-m[3 * pxp2 + c] + 8.0 * m[3 * pxp1 + c] -
+                                          8.0 * m[3 * pxm1 + c] + m[3 * pxm2 + c]) / 12.0;
+                    dm[9 * p + 3 + c] = (-m[3 * pyp2 + c] + 8.0 * m[3 * pyp1 + c] -
+                                          8.0 * m[3 * pym1 + c] + m[3 * pym2 + c]) / 12.0;
+                    dm[9 * p + 6 + c] = (-m[3 * pzp2 + c] + 8.0 * m[3 * pzp1 + c] -
+                                          8.0 * m[3 * pzm1 + c] + m[3 * pzm2 + c]) / 12.0;
                 }
             }
         }
     }
+    (void)Nz;
 }
 
 static void hopf_compute_F_(const double *m, const double *dm, int Nx, int Ny, int Nz, double *F) {
@@ -3356,32 +3374,49 @@ static void hopf_compute_F_(const double *m, const double *dm, int Nx, int Ny, i
 }
 
 static void hopf_compute_curl_(const double *V, int Nx, int Ny, int Nz, double *curlV) {
-    /* (∇×V)_x = ∂_y V_z - ∂_z V_y, etc., central differences with PBC. */
+    /* (∇×V)_x = ∂_y V_z - ∂_z V_y, etc., 4th-order central differences with PBC.
+     *    ∂_α V(r) ≈ (-V(r+2ê_α) + 8 V(r+ê_α) - 8 V(r-ê_α) + V(r-2ê_α)) / 12 */
     for (int iz = 0; iz < Nz; ++iz) {
-        int izp = (iz + 1) % Nz, izm = (iz + Nz - 1) % Nz;
+        int izp1 = (iz + 1) % Nz, izm1 = (iz + Nz - 1) % Nz;
+        int izp2 = (iz + 2) % Nz, izm2 = (iz + Nz - 2) % Nz;
         for (int iy = 0; iy < Ny; ++iy) {
-            int iyp = (iy + 1) % Ny, iym = (iy + Ny - 1) % Ny;
+            int iyp1 = (iy + 1) % Ny, iym1 = (iy + Ny - 1) % Ny;
+            int iyp2 = (iy + 2) % Ny, iym2 = (iy + Ny - 2) % Ny;
             for (int ix = 0; ix < Nx; ++ix) {
-                int ixp = (ix + 1) % Nx, ixm = (ix + Nx - 1) % Nx;
-                int p   = hopf_idx_(ix, iy, iz, Nx, Ny, Nz);
-                int pxp = hopf_idx_(ixp, iy, iz, Nx, Ny, Nz);
-                int pxm = hopf_idx_(ixm, iy, iz, Nx, Ny, Nz);
-                int pyp = hopf_idx_(ix, iyp, iz, Nx, Ny, Nz);
-                int pym = hopf_idx_(ix, iym, iz, Nx, Ny, Nz);
-                int pzp = hopf_idx_(ix, iy, izp, Nx, Ny, Nz);
-                int pzm = hopf_idx_(ix, iy, izm, Nx, Ny, Nz);
-                double dyVz = 0.5 * (V[3 * pyp + 2] - V[3 * pym + 2]);
-                double dzVy = 0.5 * (V[3 * pzp + 1] - V[3 * pzm + 1]);
-                double dzVx = 0.5 * (V[3 * pzp + 0] - V[3 * pzm + 0]);
-                double dxVz = 0.5 * (V[3 * pxp + 2] - V[3 * pxm + 2]);
-                double dxVy = 0.5 * (V[3 * pxp + 1] - V[3 * pxm + 1]);
-                double dyVx = 0.5 * (V[3 * pyp + 0] - V[3 * pym + 0]);
+                int ixp1 = (ix + 1) % Nx, ixm1 = (ix + Nx - 1) % Nx;
+                int ixp2 = (ix + 2) % Nx, ixm2 = (ix + Nx - 2) % Nx;
+                int p    = hopf_idx_(ix, iy, iz, Nx, Ny, Nz);
+                int pxp1 = hopf_idx_(ixp1, iy, iz, Nx, Ny, Nz);
+                int pxm1 = hopf_idx_(ixm1, iy, iz, Nx, Ny, Nz);
+                int pxp2 = hopf_idx_(ixp2, iy, iz, Nx, Ny, Nz);
+                int pxm2 = hopf_idx_(ixm2, iy, iz, Nx, Ny, Nz);
+                int pyp1 = hopf_idx_(ix, iyp1, iz, Nx, Ny, Nz);
+                int pym1 = hopf_idx_(ix, iym1, iz, Nx, Ny, Nz);
+                int pyp2 = hopf_idx_(ix, iyp2, iz, Nx, Ny, Nz);
+                int pym2 = hopf_idx_(ix, iym2, iz, Nx, Ny, Nz);
+                int pzp1 = hopf_idx_(ix, iy, izp1, Nx, Ny, Nz);
+                int pzm1 = hopf_idx_(ix, iy, izm1, Nx, Ny, Nz);
+                int pzp2 = hopf_idx_(ix, iy, izp2, Nx, Ny, Nz);
+                int pzm2 = hopf_idx_(ix, iy, izm2, Nx, Ny, Nz);
+                double dyVz = (-V[3 * pyp2 + 2] + 8 * V[3 * pyp1 + 2] -
+                                8 * V[3 * pym1 + 2] + V[3 * pym2 + 2]) / 12.0;
+                double dzVy = (-V[3 * pzp2 + 1] + 8 * V[3 * pzp1 + 1] -
+                                8 * V[3 * pzm1 + 1] + V[3 * pzm2 + 1]) / 12.0;
+                double dzVx = (-V[3 * pzp2 + 0] + 8 * V[3 * pzp1 + 0] -
+                                8 * V[3 * pzm1 + 0] + V[3 * pzm2 + 0]) / 12.0;
+                double dxVz = (-V[3 * pxp2 + 2] + 8 * V[3 * pxp1 + 2] -
+                                8 * V[3 * pxm1 + 2] + V[3 * pxm2 + 2]) / 12.0;
+                double dxVy = (-V[3 * pxp2 + 1] + 8 * V[3 * pxp1 + 1] -
+                                8 * V[3 * pxm1 + 1] + V[3 * pxm2 + 1]) / 12.0;
+                double dyVx = (-V[3 * pyp2 + 0] + 8 * V[3 * pyp1 + 0] -
+                                8 * V[3 * pym1 + 0] + V[3 * pym2 + 0]) / 12.0;
                 curlV[3 * p + 0] = dyVz - dzVy;
                 curlV[3 * p + 1] = dzVx - dxVz;
                 curlV[3 * p + 2] = dxVy - dyVx;
             }
         }
     }
+    (void)Nz;
 }
 
 static void hopf_subtract_mean_(double *V, int N_total) {

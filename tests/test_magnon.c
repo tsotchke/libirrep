@@ -1801,12 +1801,10 @@ static void test_hopf_charge_linearity_in_twist(void) {
     fill_skyrmion_tube_(m, N, 4.0, 3.0 * 2.0 * M_PI / N);
     irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 6 * N * N, &H3);
     ASSERT(fabs(H1) > 1e-3, "1-twist tube: H ≠ 0");
-    /* Linearity holds asymptotically as N → ∞; on this 32³ lattice the
-     * BP skyrmion's z-derivative coupling between adjacent twist
-     * angles introduces O(twist/N) corrections to the strict-linearity
-     * limit. Tolerance is set generously here. */
-    ASSERT_NEAR(H2 / H1, 2.0, 0.05, "2-twist H ≈ 2 × 1-twist H (linearity)");
-    ASSERT_NEAR(H3 / H1, 3.0, 0.16, "3-twist H ≈ 3 × 1-twist H (linearity)");
+    /* With 4th-order central differences the linearity is much
+     * tighter than the original 2nd-order result. */
+    ASSERT_NEAR(H2 / H1, 2.0, 0.01, "2-twist H ≈ 2 × 1-twist H (linearity)");
+    ASSERT_NEAR(H3 / H1, 3.0, 0.05, "3-twist H ≈ 3 × 1-twist H (linearity)");
     free(m);
 }
 
@@ -1861,11 +1859,11 @@ static void test_hopf_charge_unit_hopfion_ansatz(void) {
     fill_unit_hopfion_(m, N, /*R=*/6.0);
     double H = NAN;
     irrep_magnon_hopf_charge_3d(m, N, N, N, 1e-10, 8 * N * N, &H);
-    /* H should be near +1 within ~15% on this lattice. */
+    /* With 4th-order central differences, H is within ~3% of integer
+     * on this 48³ lattice with R = 6. */
     ASSERT(H > 0.0, "unit Hopfion ansatz: H is positive");
-    ASSERT(H < 1.0, "unit Hopfion ansatz: H is sub-integer (lattice + PBC truncation)");
-    ASSERT(H > 0.7,
-           "unit Hopfion ansatz: H ≳ 0.7 on 48³, approaching +1 in continuum");
+    ASSERT_NEAR(H, 1.0, 0.05,
+                "unit Hopfion ansatz: H = +1 to within ~5% on 48³ (4th-order F)");
     free(m);
 }
 

@@ -250,12 +250,12 @@ factor). New public functions in `irrep/magnon.h`:
   This texture has m̂(0) = m̂(∞) = −ẑ uniformly, so the boundary
   closes cleanly under PBC, and H = +1 is the analytic linking
   number of the m̂ = +ẑ preimage (unit circle in xy-plane) with the
-  m̂ = −ẑ preimage (z-axis). Numerically H ≈ +0.91 on 64³ with R = 8
-  — within 9% of integer; the residual is central-difference O(h²)
-  error + PBC truncation at the lattice boundary. Convergent toward
-  +1 with finer resolution. Test
-  `test_hopf_charge_unit_hopfion_ansatz` exercises this on a 48³
-  lattice with R = 6 and asserts H ∈ (0.7, 1.0).
+  m̂ = −ẑ preimage (z-axis). With **4th-order** central differences
+  numerically H = +0.9936 on 64³ with R = 6 — within 0.6% of integer.
+  An earlier 2nd-order-difference draft hit ~9% sub-integer at the
+  same lattice; the 4th-order upgrade gave a 15× error reduction.
+  Test `test_hopf_charge_unit_hopfion_ansatz` exercises this on a
+  48³ lattice with R = 6 and asserts H ≈ +1 to 5%.
 
 ### Test count
 

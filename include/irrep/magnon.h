@@ -1718,8 +1718,10 @@ IRREP_API irrep_status_t irrep_magnon_topological_charge_2d(const double *n_fiel
  *         (1/4π)-normalised pullback of the S² area 2-form and A is
  *         the vector potential satisfying ∇×A = F in Coulomb gauge
  *         ∇·A = 0. A is solved by Jacobi iteration on the discrete
- *         Poisson equation ∇²A = −∇×F using central differences on
- *         the periodic grid.
+ *         Poisson equation ∇²A = −∇×F using **4th-order central
+ *         differences** on the periodic grid (∂_α m̂(r) ≈
+ *         (-m̂(r+2ê_α) + 8m̂(r+ê_α) - 8m̂(r-ê_α) + m̂(r-2ê_α))/12,
+ *         O(h⁴) error).
  *
  *  Convention: F has 1/(4π) baked in, so the Bott-Tu formula
  *  H = (1/(4π)²) ∫ A_FN · F_FN reduces to ∫ A · F directly here
@@ -1739,13 +1741,14 @@ IRREP_API irrep_status_t irrep_magnon_topological_charge_2d(const double *n_fiel
  *  D = 1 + r². This ansatz has m̂(0) = m̂(∞) = −ẑ uniformly in any
  *  direction, so the texture closes cleanly under PBC; the integer
  *  H = +1 (linking number of the unit-circle m̂ = +ẑ preimage and
- *  the z-axis m̂ = −ẑ preimage). Numerically H ≈ +0.91 on 64³ with
- *  R = 8 — about 9% from integer due to central-difference O(h²)
- *  errors and PBC truncation; convergent toward +1 with finer
- *  resolution. For textures that do not compactify cleanly on T³
- *  (e.g., twisted skyrmion tubes with direction-dependent asymptotic
- *  behaviour), H is the well-defined discrete Whitehead integral but
- *  is not required to be a clean integer.
+ *  the z-axis m̂ = −ẑ preimage). With 4th-order central differences
+ *  the numerical result is H = +0.9936 on 64³ with R = 6 — within
+ *  0.6% of integer; H = +0.987 at R = 8. Worst-case across R ∈
+ *  [4, 12] is ~8% (boundary truncation at R = 12). For textures
+ *  that do not compactify cleanly on T³ (e.g., twisted skyrmion
+ *  tubes with direction-dependent asymptotic behaviour), H is the
+ *  well-defined discrete Whitehead integral but is not required to
+ *  be a clean integer.
  *
  *  Use cases:
  *    - Relative Hopf-charge comparison between texture configurations

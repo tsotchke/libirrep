@@ -150,7 +150,7 @@ factor). New public functions in `irrep/magnon.h`:
     * Γ invariant under bond reversal ⟨α,β,t,J,D⟩ ↔ ⟨β,α,-t,J,-D⟩
       (1e-9 precision)
     * Γ_b(k) ≥ 0 per band (unitarity)
-    * Grid convergence: Γ stable to 10% under N=24 → N=32 refinement
+    * Grid convergence: Γ stable to <1% under N=64 → N=96 refinement
 
   Required `gap_floor` parameter: the Born self-energy is
   logarithmically IR-divergent on Goldstone-having models, so the

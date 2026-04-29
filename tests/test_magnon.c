@@ -1596,14 +1596,17 @@ static void test_heisenberg_decay_rate_grid_convergence(void) {
     double k_set[3][2] = {{1.5, 0.7}, {M_PI, M_PI/sqrt(3.0)}, {4*M_PI/3, 0}};
     for (int q = 0; q < 3; ++q) {
         double k_one[1][2] = {{k_set[q][0], k_set[q][1]}};
-        double gam_32[3], gam_48[3];
-        irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_one, 1, 32, 32, 0.1, 0.1, gam_32);
-        irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_one, 1, 48, 48, 0.1, 0.1, gam_48);
+        double gam_64[3], gam_96[3];
+        /* Use the larger (64, 96) grid pair for a tighter convergence
+         * assertion. The small-grid (32, 48) pair shows ~3% per-band
+         * relative change; (64, 96) tightens to <1% on this k. */
+        irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_one, 1, 64, 64, 0.1, 0.1, gam_64);
+        irrep_magnon_heisenberg_decay_rate(L, n_vecs, k_one, 1, 96, 96, 0.1, 0.1, gam_96);
         for (int b = 0; b < 3; ++b) {
-            double rel = fabs(gam_32[b] - gam_48[b]) /
-                         (fabs(gam_32[b]) + fabs(gam_48[b]) + 1e-12);
-            ASSERT(rel < 0.05,
-                   "Γ stable to 5% under grid refinement N=32 → N=48 at fixed gap_floor");
+            double rel = fabs(gam_64[b] - gam_96[b]) /
+                         (fabs(gam_64[b]) + fabs(gam_96[b]) + 1e-12);
+            ASSERT(rel < 0.01,
+                   "Γ stable to 1% under grid refinement N=64 → N=96 at fixed gap_floor");
         }
     }
     irrep_magnon_lsw_free(L);

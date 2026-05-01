@@ -58,3 +58,6 @@ CMakeFiles/
 cmake_install.cmake
 Makefile.cmake
 compile_commands.json
+
+# Third-party HEP tools (lhapdf etc.) auto-installed by MG5_aMC
+HEPTools/

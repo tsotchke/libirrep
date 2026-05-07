@@ -27,7 +27,7 @@ NEON / AVX2 kernels on the hot paths.
 | Magnetic point groups via `antiunitary` flag | **framework only** | sign rules verified per Moriya/Shubnikov; no pre-tabulated 122-group set yet |
 | 3D space groups (P2_1 3, Fd-3m, etc.) | **deferred past 1.3** | only 2D wallpaper + 3D point groups in 1.3.0-alpha |
 | Pyrochlore N≥32 sector ED | **out of reach** | requires the deferred 3D space-group machinery |
-| Downstream consumer linkage | **live (SbNN)** | `spin_based_neural_network` pins `LIBIRREP_MIN=1.3.0-alpha`, integrates via `src/libirrep_bridge.c` and `tests/test_libirrep_bridge.c`. Currently consumes the multiset, NequIP layer, real spherical harmonics, CG, and small-d kernels; the 1.3 lattice / DMI / cubic-PG additions are available for future bridge expansion. |
+| Downstream consumer linkage | **live (SbNN)** | `spin_based_neural_network` v0.5.0 pins `LIBIRREP_MIN=1.3.0-alpha`, integrates via `src/libirrep_bridge.c` and `tests/test_libirrep_bridge.c`. Bridge surface: 68 `irrep_bridge_*` symbols spanning multiset, NequIP (with reverse-mode backward pass), real spherical harmonics, CG, RDM + partial-trace, von-Neumann + Rényi entropy, the LSW magnon stack (`lsw_dispersion`, `lsw_chern`, `lsw_berry`, `lsw_one_magnon_qomega_general`, `lsw_neutron_qomega_map`, `lsw_fit_*`), and the topology stack (`hopf_charge_*`). The 1.3 wallpaper-group / 3D-lattice / DMI / cubic-PG additions are available for future bridge expansion. |
 
 ## Quickstart
 

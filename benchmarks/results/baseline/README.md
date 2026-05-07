@@ -9,6 +9,28 @@ regressions (a kernel that was 100 ns/op yesterday is now 1000 ns/op),
 not 1% variability. `scripts/perf_compare.sh` flags any regression > 5%
 against the matching baseline.
 
+## Notes on baseline currency
+
+- The 2026-04-20 baseline below predates the Schulten-Gordon
+  rewrite of the Wigner-3j core. That rewrite initially showed
+  as a +220 % regression on `cg_110_110_110` (~22 ns → ~71 ns)
+  because the recurrence path runs the full j₁-series even when
+  only one entry is requested. This was resolved 2026-05-06 by
+  adding a small-j Racah closed-form fast path
+  (`wigner_3j_racah_small_` in `src/clebsch_gordan.c`); the
+  recurrence is retained for j > 15 where its high-j stability
+  matters. Post-fix `cg_110_110_110` runs at ~13.7 ns/op,
+  ~38 % below the pre-rewrite baseline.
+
+- The `examples/bench_sparse_lanczos.c` demo used to silently
+  corrupt the JSON aggregate (mixed banner stdout into the
+  records); fixed in `benchmarks/run_benchmarks.sh` 2026-05-06.
+  Pre-fix baseline files may be missing post-line-135 records.
+
+Refresh the baseline (rerun `make bench` and copy the result
+into `baseline/`) once the v1.3 cycle is closed and a new
+single-run snapshot is acceptable.
+
 ## Files
 
 | file                          | host              | native?    | notes |

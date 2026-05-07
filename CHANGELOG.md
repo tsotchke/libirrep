@@ -4,6 +4,174 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+All eight new examples and the new benchmark in this section have
+been validated clean under both AddressSanitizer (ASan) and
+UndefinedBehaviorSanitizer (UBSan) with `-fno-sanitize-recover=undefined`.
+
+### Performance
+- **`irrep_wigner_6j` / `irrep_wigner_9j` / `irrep_racah_w`: small-j
+  factorial-table Racah path**.  The recoupling kernel was
+  evaluating 16 lgamma calls in the prefactor + (8 lgamma + 1 exp)
+  per t-loop iteration + 1 final exp — order(20–60) transcendental
+  calls per 6j evaluation. Replaced with direct factorial-table
+  reads dispatched when max(t-loop index +1) ≤ 127 (covers two_j ≤
+  about 60); the lgamma path is retained as a fallback for
+  configurations beyond the table cap. Measured on Apple M2 Ultra
+  via the new `benchmarks/bench_recoupling.c`:
+  - `wigner_6j_222222`: 232.8 → 15.4 ns/op (**15× faster**)
+  - `wigner_6j_664444`: 286.8 → 15.7 ns/op (**18× faster**)
+  - `wigner_9j_222222220`: 530.7 → 45.4 ns/op (**12× faster**)
+
+  Bit-exact agreement with the lgamma path on the existing
+  `tests/test_recoupling.c` suite; ASan + UBSan clean.
+
+- **`irrep_wigner_3j` / `irrep_cg`: small-j fast path via direct Racah
+  closed-form**.  The Schulten-Gordon recurrence (introduced for
+  high-j stability) ran the full j₁-series even when only one entry
+  was requested, which made `cg_110_110_110` ~3.2× slower than the
+  pre-rewrite single-sum baseline. Added `wigner_3j_racah_small_` in
+  `src/clebsch_gordan.c`, dispatched when max(2j) ≤ 30 (i.e. j ≤ 15);
+  the recurrence path is retained for higher j where its stability
+  matters. Bit-exact agreement with the recurrence over the existing
+  44-suite test bank (30,363 wigner_d_batch assertions, Sakurai hand
+  values, orthogonality sweeps); ASan + UBSan clean. Measured on
+  Apple M2 Ultra: `cg_110_110_110` 22.13 → 13.93 ns/op
+  (-37 % vs original April baseline; -80 % vs the post-rewrite peak
+  of ~71 ns).
+- **`irrep_wigner_d_small_2j`: small-j norm via factorial-table
+  lookup**. Replaced the per-element `0.5·(lgamma+lgamma−lgamma−lgamma)`
+  + `exp` with a single `sqrt(num/denom)` against a precomputed
+  factorial table (`wd_small_factorial_` in `src/wigner_d.c`),
+  dispatched when 2j ≤ 30. The lgamma path is retained for j > 15
+  where overflow margin matters. Each d-element saves 4 lgamma + 1
+  exp (~30 ns each on Apple M2). Measured speedup: `wigner_D_matrix_j4`
+  per-element 50.03 → 19.28 ns/op (-61.5 %), i.e. building the full
+  9×9 = 81-element matrix at j=4 drops from ~4.0 μs to ~1.5 μs (2.6×
+  speedup). Bit-exact with the lgamma path on the 30,363-assertion
+  wigner_d batch test; ASan + UBSan clean.
+
+### Fixed
+- `benchmarks/run_benchmarks.sh`: iterate `benchmarks/bench_*.c`
+  source files when collecting results instead of all
+  `build/bin/bench_*` binaries. The previous wildcard also picked
+  up `examples/bench_sparse_lanczos.c`, an example-style demo with
+  human-readable banner output that silently corrupted the
+  aggregated JSON (broke parse at line 135 in older results files).
+  All future `make bench` runs now produce valid JSON consumable by
+  `scripts/perf_compare.sh`.
+
+### Added
+- `benchmarks/bench_recoupling.c`: 6j/9j perf bench across four
+  representative small-j configurations (j=2 spin-orbit triple, mixed
+  d-electron LS, j=6 longer t-loop, j=2 9j composition). Establishes
+  a regression gate for the small-j Racah fast-path that's now the
+  primary 6j/9j evaluation kernel.
+- `examples/xy_chain_jordan_wigner.c`: 1D spin-½ XY chain ED via
+  `irrep_xy_new` + `irrep_lanczos_eigvals_reorth`, validated
+  against the exact Jordan-Wigner free-fermion ground-state
+  energy on PBC rings. All four lengths L ∈ {4, 6, 8, 10} agree
+  with the analytic E_0 = Σ_{ε(k)<0} cos(k) at machine precision
+  (worst-case 1.33e-14). Boundary-condition selection by N_↑
+  parity (antiperiodic for L mod 4 = 0, periodic for L mod 4 = 2)
+  is documented in the analytic comparison helper. Closes the
+  example-coverage gap on `irrep_xy_new`.
+- `examples/hartree_finite_T_renormalisation.c`: Bloch-Dyson Z(T)
+  factor on the spin-½ square FM via
+  `irrep_magnon_hartree_renormalisation`. Verifies Z(0.01) > 0.99
+  (LSW exact at low T), monotone-decrease across T ∈ [0.01, 2.0],
+  and Z(T = 1.0) < 0.7 (LSW breakdown at T ~ |J|S). Includes a
+  regime classifier (LSW exact / reliable / marginal / breakdown)
+  and BZ-convergence sweep that incidentally demonstrates the
+  Mermin-Wagner theorem — at fixed T the Goldstone IR drives
+  Z → 0 as Nx grows, consistent with the absence of spontaneous
+  magnetisation in 2D Heisenberg FM at any finite T. Closes the
+  example-coverage gap on `irrep_magnon_hartree_renormalisation`.
+- `examples/dispersion_noncollinear_3d_consistency.c`: consistency
+  tests for `irrep_magnon_dispersion_noncollinear_3d` on the simple-
+  cubic ferromagnet. Section 1 verifies that with collinear ground
+  state n̂ = ẑ the non-collinear API agrees with `_dispersion_3d`
+  and with the analytic ω = 4|J|S(3 − cos k_x − cos k_y − cos k_z)
+  at five 3D BZ points to 1e-10 (LSW numerical floor). Section 2
+  confirms rotational invariance: replacing ẑ with x̂, ŷ, the cube
+  diagonal (1,1,1)/√3, or an arbitrary direction (3,4,0)/5 leaves
+  ω(R) unchanged to 3.55e-15 — consistent with SO(3) symmetry of
+  the isotropic Heisenberg Hamiltonian. Closes the example-coverage
+  gap on `irrep_magnon_dispersion_noncollinear_3d`.
+- `examples/layered_kagome_chern_3d.c`: 3D Chern-slice scan on a
+  layered kagome ferromagnet stacked with intra-sublattice FM
+  inter-layer coupling. Exercises `irrep_magnon_chern_3d_slice_kz`
+  at five k_z values across the BZ; all five recover the
+  Mook-Henk-Mertig (-1, 0, +1) signature within 1.11e-15 of
+  integer with Σ C_b = 0 to machine precision. Demonstrates the
+  analytic result that intra-sublattice inter-layer bonds shift
+  ω(k_x, k_y; k_z) by k_z-dependent constants without mixing
+  in-plane eigenvectors, so Chern numbers are k_z-invariant.
+  Closes the example-coverage gap on `irrep_magnon_chern_3d_slice_kz`.
+- `examples/magnon_group_velocity_fm.c`: end-user demo of
+  `irrep_magnon_group_velocity` on the spin-½ square FM. Verifies
+  v_g = (sin q_x, sin q_y) at five k-points against the analytic
+  Holstein-Primakoff gradient (worst-case 1.67e-7, well inside
+  the O(h²) budget for h=1e-3) and demonstrates the quadratic-
+  Goldstone signature |v_g|/|q| → 1 as q → 0. The example also
+  documents that `irrep_magnon_group_velocity` is FM-track only
+  (no `_general` AFM-aware variant in v1.3.2); for AFM dispersions
+  the caller currently runs central differences on
+  `irrep_magnon_dispersion_general` directly. Closes the example-
+  coverage gap on `irrep_magnon_group_velocity`.
+- `examples/kagome_fm_powder_ins.c`: powder-averaged INS spectrum
+  on the kagome ferromagnet — exercises `irrep_magnon_powder_spectrum`
+  alongside `irrep_magnon_dos` to illustrate the dark-band signature
+  of the compact-localised hexagonal mode. Both sum rules verified
+  to machine precision (∫D dω = n_sub = 3 exact, ∫S_powder dω =
+  2S·n_sub = 3 to 8.88e-16). The flat band concentrates ~254× the
+  mid-band DOS density in a single bin while contributing zero
+  transverse INS weight at every k (compact-localised state ≡
+  uniform-mode orthogonal). Closes the example-coverage gap on
+  `irrep_magnon_powder_spectrum`.
+- `examples/square_fm_neutron_ins.c`: INS Q-ω map for the spin-½
+  square ferromagnet exercising `irrep_magnon_neutron_qomega_map`
+  (which previously had test coverage but no end-user example).
+  Verifies peak-tracking against the analytic Holstein-Primakoff
+  dispersion ω(q) = 2|J|S(2 − cos qx − cos qy) along the
+  Γ→X→M→Γ k-path (7 k-points, all within 3η of exact) and the
+  Lorentzian unit-area sum rule ∫ I(q,ω) dω = 2S = 1 (max 4.24e-3
+  truncation error on a [-2, 6] window with η = 0.02).
+- `examples/topology_skyrmion_hopfion.c`: end-user demo of the
+  v1.3.2 real-space topology stack on canonical analytic textures.
+  Section 1 verifies `irrep_magnon_topological_charge_2d` against
+  the Belavin-Polyakov 1975 instanton (Q = +1 to 1.78e-15), the
+  anti-skyrmion (Q = -1 to 1.78e-15), and a two-skyrmion
+  configuration (Q = +2 to 5.77e-15). Section 2 verifies
+  `irrep_magnon_hopf_charge_3d` against the analytic stereographic
+  charge-1 Hopfion ansatz (H = +0.983 on 48³, R = 6 — within 1.7 %
+  of the integer Whitehead-linking number) and a uniform-texture
+  zero-charge sanity check. Closes the example-coverage gap
+  identified post-1.3.2 (both topology entry points had test
+  coverage but no end-user-facing example).
+- `benchmarks/bench_kagome_sector_ed.c`: symmetry-resolved sparse
+  Lanczos benchmark on the 3×3 kagome torus (N = 27, p6mm,
+  popcount = 13 ≡ S_z = −1/2). Exercises the full sparse stack —
+  `irrep_rep_table` enumeration, (k, μ_k) sector build, Lanczos on
+  the cached CSR — and emits per-phase JSON records for regression
+  tracking. Dense path is infeasible at this size (≈ 2 GiB per
+  state vector); this is now the primary performance gate for the
+  sparse-stack hot path. Both N = 12 (kagome 2 × 2) and N = 27
+  (kagome 3 × 3) cases run under `make bench`.
+
+### Changed
+- `README.md`: refreshed the SbNN downstream-consumer entry to
+  reflect actual bridge surface as of SbNN v0.5.0 (68 unique
+  `irrep_bridge_*` symbols spanning multiset, NequIP with reverse-
+  mode backward pass, real spherical harmonics, CG, RDM +
+  partial-trace, von-Neumann + Rényi entropy, the LSW magnon stack
+  including `lsw_dispersion`, `lsw_chern`, `lsw_berry`,
+  `lsw_one_magnon_qomega_general`, `lsw_neutron_qomega_map`,
+  `lsw_fit_*`, and the topology stack `hopf_charge_*`). Earlier
+  copy understated SbNN's consumption by listing only the
+  multiset / NequIP / SH / CG / small-d kernels.
+
 ## [1.3.2] — 2026-04-28
 
 ### Added — magnon spectroscopy expansion (post-1.3.1)

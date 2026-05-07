@@ -26,11 +26,18 @@ echo "# cpu model        → ${CPU_MODEL}"
 # Each bench binary emits one or more `{"name":..., ...}` records per line.
 # We collect them all, drop blank lines, and join with commas so the final
 # file is a valid JSON array (consumable by scripts/perf_compare.sh).
+#
+# Iterate over benchmarks/bench_*.c sources rather than build/bin/bench_*
+# binaries so we pick up exactly the benchmark suite (not example-folder
+# demos that happen to share the `bench_` prefix and emit human-readable
+# banners on stdout — those would otherwise corrupt the JSON aggregate).
 TMP="$(mktemp)"
-for b in "${BIN_DIR}"/bench_*; do
-    [ -f "${b}" ] || continue        # skip .dSYM directories etc.
-    [ -x "${b}" ] || continue
-    "${b}" >> "${TMP}"
+for src in benchmarks/bench_*.c; do
+    [ -f "${src}" ] || continue
+    name=$(basename "${src}" .c)
+    bin="${BIN_DIR}/${name}"
+    [ -x "${bin}" ] || continue
+    "${bin}" >> "${TMP}"
 done
 
 {

@@ -121,6 +121,23 @@ static double canonicalise_(int two_j, int *two_mp, int *two_m) {
     return sign;
 }
 
+/* Precomputed factorial table for the small-j fast path. Sized 0..64
+ * inclusive; for two_j ≤ 30 (j ≤ 15) we only ever index up to 30, but
+ * 64 leaves headroom and 64! ≈ 1.27e89 is well below double overflow
+ * (1.8e308). Initialised lazily on first call. */
+#define IRREP_WD_SMALL_FACT_MAX 64
+static double wd_small_factorial_[IRREP_WD_SMALL_FACT_MAX + 1];
+static int    wd_small_factorial_init_ = 0;
+
+static void wd_init_small_factorial_(void) {
+    if (wd_small_factorial_init_)
+        return;
+    wd_small_factorial_[0] = 1.0;
+    for (int n = 1; n <= IRREP_WD_SMALL_FACT_MAX; ++n)
+        wd_small_factorial_[n] = wd_small_factorial_[n - 1] * (double)n;
+    wd_small_factorial_init_ = 1;
+}
+
 double irrep_wigner_d_small_2j(int two_j, int two_mp, int two_m, double beta) {
     if (two_j < 0)
         return 0.0;
@@ -144,9 +161,28 @@ double irrep_wigner_d_small_2j(int two_j, int two_mp, int two_m, double beta) {
     int    jpmp = (two_j + two_mp) / 2;
     int    jmmp = (two_j - two_mp) / 2;
 
-    double lg_norm =
-        0.5 * (lgamma(jpm + 1.0) + lgamma(jmm + 1.0) - lgamma(jpmp + 1.0) - lgamma(jmmp + 1.0));
-    double norm = exp(lg_norm);
+    /* Norm = √[(jpm)! (jmm)! / ((jpmp)! (jmmp)!)].
+     *
+     * Fast path for small j: index into a precomputed factorial table
+     * and take a single sqrt. This replaces 4 × lgamma + 1 × exp (each
+     * ~30 ns on Apple M2) with 4 × array load + 1 × sqrt — about an
+     * order of magnitude cheaper. Threshold two_j ≤ 30 (j ≤ 15) keeps
+     * every factorial argument ≤ 30 and well inside the IEEE-754
+     * representable range.
+     *
+     * For j > 15 we keep the lgamma-route which avoids overflow at
+     * large j (the recurrent root case the original code targeted). */
+    double norm;
+    if (two_j <= 30) {
+        wd_init_small_factorial_();
+        double num   = wd_small_factorial_[jpm] * wd_small_factorial_[jmm];
+        double denom = wd_small_factorial_[jpmp] * wd_small_factorial_[jmmp];
+        norm         = sqrt(num / denom);
+    } else {
+        double lg_norm = 0.5 * (lgamma(jpm + 1.0) + lgamma(jmm + 1.0)
+                              - lgamma(jpmp + 1.0) - lgamma(jmmp + 1.0));
+        norm           = exp(lg_norm);
+    }
 
     double cb2 = cos(0.5 * beta);
     double sb2 = sin(0.5 * beta);

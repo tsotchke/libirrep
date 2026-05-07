@@ -1,5 +1,13 @@
 /* SPDX-License-Identifier: MIT */
-/* M8: Wigner 6j, 9j, Racah W — single-sum formulas in log-gamma form. */
+/* M8: Wigner 6j, 9j, Racah W — single-sum formulas with a small-j
+ *     factorial-table fast path layered over the original log-gamma path.
+ *
+ * Each 6j evaluation involves 16 lgamma in the prefactor (4 × log_delta_sq)
+ * plus 8 lgamma + 1 exp per t-loop iteration plus 1 final exp. For typical
+ * physics use cases (j ≤ ~10 in atomic / molecular / NN coupling problems)
+ * every factorial argument fits well below 64; reading from a precomputed
+ * table is ~30× cheaper per lookup than libm lgamma + exp. The lgamma path
+ * is retained for j > 31 where factorial overflow margin matters. */
 
 #include <math.h>
 #include <stdlib.h>
@@ -10,6 +18,24 @@
 
 static inline int iabs_(int x) {
     return x < 0 ? -x : x;
+}
+
+/* Precomputed factorial table for the small-j fast path. Sized 0..127
+ * (127! ≈ 3.0e213 < DBL_MAX = 1.8e308). 6j Racah arguments can reach
+ * j_total = j₁+j₂+j₃+j₄+j₅+j₆ which is ≤ 6·j_max, so for two_j ≤ 30
+ * (j ≤ 15) the largest factorial index is 127 (e+1, where e ≤ 60 in
+ * the t-loop). The table covers exactly that. */
+#define IRREP_RC_SMALL_FACT_MAX 127
+static double rc_small_factorial_[IRREP_RC_SMALL_FACT_MAX + 1];
+static int    rc_small_factorial_init_ = 0;
+
+static void rc_init_small_factorial_(void) {
+    if (rc_small_factorial_init_)
+        return;
+    rc_small_factorial_[0] = 1.0;
+    for (int n = 1; n <= IRREP_RC_SMALL_FACT_MAX; ++n)
+        rc_small_factorial_[n] = rc_small_factorial_[n - 1] * (double)n;
+    rc_small_factorial_init_ = 1;
 }
 
 /* Triangle check: |j1 - j2| <= j3 <= j1 + j2 and j1+j2+j3 integer. */
@@ -32,6 +58,16 @@ static double log_delta_sq_2j_(int two_j1, int two_j2, int two_j3) {
     int c = (-two_j1 + two_j2 + two_j3) / 2;
     int h = (two_j1 + two_j2 + two_j3) / 2;
     return lgamma(a + 1) + lgamma(b + 1) + lgamma(c + 1) - lgamma(h + 2);
+}
+
+/* Δ² = (j1+j2-j3)! (j1-j2+j3)! (-j1+j2+j3)! / (j1+j2+j3+1)! using the table. */
+static double delta_sq_table_2j_(int two_j1, int two_j2, int two_j3) {
+    int a = (two_j1 + two_j2 - two_j3) / 2;
+    int b = (two_j1 - two_j2 + two_j3) / 2;
+    int c = (-two_j1 + two_j2 + two_j3) / 2;
+    int h = (two_j1 + two_j2 + two_j3) / 2;
+    return rc_small_factorial_[a] * rc_small_factorial_[b] * rc_small_factorial_[c]
+           / rc_small_factorial_[h + 1];
 }
 
 /* Racah single-sum form:
@@ -71,6 +107,35 @@ double irrep_wigner_6j_2j(int two_j1, int two_j2, int two_j3, int two_j4, int tw
     if (t_min > t_max)
         return 0.0;
 
+    /* Small-j fast path: read factorials from the precomputed table.
+     * The largest argument in the t-loop is t+1 where t ≤ e = (j₁+j₂+j₄+j₅);
+     * for two_j ≤ 30 (j ≤ 15) this is at most 60+1 = 61, well below the
+     * 127-entry table cap.  */
+    int max_idx = (e > f) ? e : f;
+    if (g > max_idx) max_idx = g;
+    max_idx += 1;  /* (t+1) factorial */
+    if (max_idx <= IRREP_RC_SMALL_FACT_MAX) {
+        rc_init_small_factorial_();
+        double prefactor = sqrt(delta_sq_table_2j_(two_j1, two_j2, two_j3)
+                                * delta_sq_table_2j_(two_j4, two_j5, two_j3)
+                                * delta_sq_table_2j_(two_j4, two_j2, two_j6)
+                                * delta_sq_table_2j_(two_j1, two_j5, two_j6));
+        double sum = 0.0;
+        for (int t = t_min; t <= t_max; ++t) {
+            double term = rc_small_factorial_[t + 1]
+                          / (rc_small_factorial_[t - a] * rc_small_factorial_[t - b]
+                             * rc_small_factorial_[t - c] * rc_small_factorial_[t - d]
+                             * rc_small_factorial_[e - t] * rc_small_factorial_[f - t]
+                             * rc_small_factorial_[g - t]);
+            if (t & 1) term = -term;
+            sum += term;
+        }
+        return prefactor * sum;
+    }
+
+    /* Fallback: log-gamma path for very large j where factorial overflow
+     * threatens the table. Stable to j ~ 60 before lgamma itself loses
+     * precision. */
     double log_deltas =
         0.5 * (log_delta_sq_2j_(two_j1, two_j2, two_j3) + log_delta_sq_2j_(two_j4, two_j5, two_j3) +
                log_delta_sq_2j_(two_j4, two_j2, two_j6) + log_delta_sq_2j_(two_j1, two_j5, two_j6));

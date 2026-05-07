@@ -1,8 +1,8 @@
 # libirrep
 
-> **Status: pre-release — `v1.3.0-alpha`.** Public API guarded by an ABI
+> **Status: pre-release — `v1.3.2`.** Public API guarded by an ABI
 > hash and a regression gate. Numerical kernels at machine precision across
-> every documented `j` regime. **31 public headers, 42 test suites, 0
+> every documented `j` regime. **33 public headers, 44 test suites, 0
 > Doxygen warnings, ASan + UBSan clean.** Active downstream consumer:
 > `spin_based_neural_network` (SbNN) pins `LIBIRREP_MIN=1.3.0-alpha`
 > and links via `src/libirrep_bridge.c` against the multiset / NequIP /

@@ -51,6 +51,26 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | `<irrep/tensor_product.h>` (half-int path, 1.3) | spinor tensor products | `tp_2j_descriptor_t` | `irrep_tp_2j_enumerate_paths`, `_build`, `_free`, `_apply`, `_apply_weighted`, `_apply_backward`, `_output_dim`, `_num_paths` |
 | `<irrep/dmi.h>` (1.3) | Bond + triangle exchange-tensor symmetry analyzers (DMI + symmetric exchange + scalar chirality + magnetic-point-group antiunitary) | `irrep_dmi_sym_op_t` | `irrep_dmi_allowed_basis`, `_from_pg`, `irrep_exchange_symmetric_basis`, `_from_pg`, `irrep_chirality_allowed`, `_from_pg`, `irrep_pg_element` |
 | `<irrep/dmi_hamiltonian.h>` (1.3) | spin-½ DMI apply operator (`H = Σ D · (S_i × S_j)`) | `irrep_dmi_hamiltonian_t` | `irrep_dmi_hamiltonian_new`, `_free`, `irrep_dmi_apply`, `irrep_dmi_hamiltonian_num_sites`, `_dim` |
+| `<irrep/stabilizer_group.h>` (1.4) | Symplectic Pauli + abstract stabilizer group | `irrep_pauli_t`, `irrep_pauli_sign_t`, `irrep_pauli_letter_t`, `irrep_stabilizer_group_t` | `irrep_pauli_new`, `_free`, `_set`, `_get`, `_symp_inner`, `_commute`, `_weight`, `irrep_stabilizer_group_new`, `_free`, `_check_commutativity`, `irrep_stabilizer_syndrome` |
+| `<irrep/css_code.h>` (1.4) | CSS code from `(H_X, H_Z)` parity-check pair | `irrep_parity_matrix_t`, `irrep_css_code_t` | `irrep_parity_matrix_new`, `_free`, `_set`, `_get`, `_row_inner`, `irrep_css_code_new`, `_free`, `_verify`, `_to_stabilizer_group` |
+| `<irrep/qec_distance.h>` (1.4) | Pauli arithmetic + brute-force code distance | — | `irrep_pauli_multiply`, `irrep_stabilizer_group_contains`, `irrep_qec_distance_brute` |
+| `<irrep/toric_code.h>` | Kitaev 2D toric code on `Lx × Ly` torus | `irrep_toric_params_t`, `irrep_toric_edge_t` | `irrep_toric_init`, `_edge_index`, `_edge_unpack`, `_vertex_edges`, `_plaquette_edges`, `_shared_edges` |
+| `<irrep/surface_code.h>` (1.4) | Rotated planar `[[d², 1, d]]` surface code | `irrep_surface_params_t` | `irrep_surface_init`, `irrep_surface_build` |
+| `<irrep/color_code.h>` (1.4) | Steane `[[7, 1, 3]]` color code | — | `irrep_color_steane` |
+| `<irrep/color_codes_2d.h>` (1.4) | Research-track stubs for 2D color codes | — | `irrep_color_hex_19_1_5`, `irrep_color_488_17_1_5` (currently `IRREP_ERR_NOT_IMPLEMENTED`; see `docs/qec_research_roadmap.md`) |
+| `<irrep/generic_color_code.h>` (1.4) | Face-list-driven 2D color code framework | `irrep_color_lattice_t`, `irrep_color_t` | `irrep_generic_color_build` |
+| `<irrep/bivariate_bicycle.h>` (1.4) | BB qLDPC over `F₂[x,y]/(xˡ-1, yᵐ-1)` (Bravyi *Nature* 2024) | `irrep_bb_poly_t` | `irrep_bb_poly_new`, `_free`, `_add_monomial`, `_get`, `irrep_bb_code_build` |
+| `<irrep/hypergraph_product.h>` (1.4) | Tillich-Zemor 2014 qLDPC from classical `(H_a, H_b)` | — | `irrep_hypergraph_product_build` |
+| `<irrep/lifted_product.h>` (1.4) | Panteleev-Kalachev 2022 abelian lifted product (with σ-antipode in `H_Z`) | `irrep_poly_matrix_t` | `irrep_poly_matrix_new`, `_free`, `_add_monomial`, `_get`, `irrep_lifted_product_build` |
+| `<irrep/floquet_code.h>` (1.4) | Time-periodic measurement-schedule abstraction | `irrep_floquet_code_t`, `irrep_floquet_round_t` | `irrep_floquet_code_new`, `_free`, `irrep_floquet_round_alloc`, `_check_commutativity`, `irrep_floquet_code_check`, `irrep_floquet_round_to_stabilizer_group` |
+| `<irrep/honeycomb_floquet.h>` (1.4) | Hastings-Haah 2021 honeycomb Floquet (3-coloured edge schedule) | — | `irrep_honeycomb_floquet_build` |
+| `<irrep/css_floquet.h>` (1.4) | Davydova-Tantivasadakarn-Balasubramanian 2023 4-round square-lattice Floquet | — | `irrep_css_floquet_square_build` |
+| `<irrep/toric3d.h>` (1.4) | 3D toric on `T³ = Lx × Ly × Lz` cubic lattice | `irrep_toric3d_params_t` | `irrep_toric3d_init`, `irrep_toric3d_build` |
+| `<irrep/xcube_code.h>` (1.4) | Vijay-Haah-Fu 2016 type-I X-cube fracton model | `irrep_xcube_params_t` | `irrep_xcube_init`, `irrep_xcube_build` |
+| `<irrep/happy_code.h>` (1.4) | Pastawski-Yoshida-Harlow-Preskill `[[5, 1, 3]]` perfect-tensor primitive | — | `irrep_happy_perfect_tensor_5_1_3` |
+| `<irrep/single_shot.h>` (1.4) | Quintavalle-Vasmer-Roffe-Campbell 2021 meta-check framework | `irrep_single_shot_code_t` | `irrep_single_shot_code_new`, `_free`, `_verify_meta`, `_meta_syndrome_X`, `_meta_syndrome_Z` |
+| `<irrep/subsystem_code.h>` (1.4) | Bacon-Shor `[[9, 1, 3]]` non-abelian gauge code | `irrep_subsystem_code_t` | `irrep_subsystem_code_new`, `_free`, `_in_centraliser`, `irrep_subsystem_bacon_shor_9_1_3` |
+| `<irrep/concatenated_code.h>` (1.4) | Knill-Laflamme inner ⊗ outer CSS composition | — | `irrep_css_concatenate` |
 | `<irrep/magnon.h>` (1.4-α) | Linearised spin-wave theory: FM + AFM 2D/3D dispersion ω(k), group velocity v_g(k), Hessian H_ij(k) / effective mass / spin stiffness, spin gap + bandwidth, softest-mode locator, Berry curvature, Chern numbers (2D and 3D-on-slice), thermal Hall κ_xy(T), spin Nernst α^s_xy(T), strip dispersion for chiral edge modes, Wilson-loop spectrum, transverse INS structure factor, magnon DOS, internal energy U(T), free energy F(T), specific heat C_V(T), finite-T magnetisation M(T), susceptibility χ(T), neutron Q-ω heatmap | `irrep_magnon_lsw_t`, `irrep_magnon_bond_t` | `irrep_magnon_lsw_new`, `_free`, `irrep_magnon_dispersion`, `irrep_magnon_dispersion_3d`, `irrep_magnon_dispersion_general`, `irrep_magnon_afm_zero_point`, `irrep_magnon_group_velocity`, `irrep_magnon_hessian`, `irrep_magnon_band_extrema`, `irrep_magnon_softest_mode`, `irrep_magnon_berry`, `irrep_magnon_chern`, `irrep_magnon_chern_3d_slice_kz`, `irrep_magnon_dos`, `irrep_magnon_free_energy`, `irrep_magnon_internal_energy`, `irrep_magnon_magnetization`, `irrep_magnon_neutron_qomega_map`, `irrep_magnon_specific_heat`, `irrep_magnon_spin_nernst`, `irrep_magnon_structure_factor`, `irrep_magnon_susceptibility`, `irrep_magnon_thermal_hall_kxy`, `irrep_magnon_strip_dispersion`, `irrep_magnon_wilson_spectrum`, `irrep_magnon_lsw_num_bands` |
 | `<irrep/irrep.h>` | umbrella | — | all of the above |
 
@@ -716,6 +736,85 @@ sector with `J = two_J_target/2`. Implementation: integrate
 quadrature on Euler angles, with `χ_J(R)` the SO(3) character.
 The Marshall sign-rule structure of `1/2`-singlets falls out of
 `two_J_target = 0`.
+
+### `stabilizer_group.h` — symplectic Pauli + abstract stabilizer group (1.4)
+
+The single foundation that every QEC code module specialises. An
+n-qubit Pauli is `(x ∈ F₂ⁿ, z ∈ F₂ⁿ, sign ∈ {±1, ±i})`; commutativity
+is the F₂ inner product `x_P · z_Q + z_P · x_Q (mod 2)`.
+
+Convention note: `irrep_pauli_set(p, i, IRREP_PAULI_LETTER_Y)` sets
+`x_i = z_i = 1` and **leaves `sign` untouched** — the resulting
+operator is `X_i · Z_i = -i · Y_i` in physics convention. For signed
+arithmetic that recovers Y² = +I, callers manually absorb the `+i`
+factor into `sign`. This trade-off keeps `irrep_pauli_set` reversible
+at the bit level.
+
+### `css_code.h` — CSS code from `(H_X, H_Z)` (1.4)
+
+CSS orthogonality is `H_X · H_Z^T ≡ 0 (mod 2)`. `irrep_css_code_verify`
+enumerates all `(i, j)` row pairs in `O(m_X · m_Z · n)`. The
+materialise-to-stabilizer-group routine is a `memcpy` per generator
+(layout matches by design).
+
+`m_X = 0` and `m_Z = 0` are both legitimate (degenerate CSS codes
+embedding classical-only codes).
+
+### `qec_distance.h` — Pauli arithmetic + brute-force distance (1.4)
+
+`irrep_pauli_multiply` carries the F₂ symplectic sign — `X · Z = +Y`
+vs `Z · X = -Y` emerges from the carry. `out` may safely alias `p`
+or `q`.
+
+`irrep_qec_distance_brute` enumerates `C(n, w) · 3^w` Paulis at each
+weight `w = 1, 2, …, max_weight`. Practical for `n ≤ 25` and weight
+up to ~6; uses `uint64_t` for the inner counter to avoid `int32`
+overflow at weights ≥ 20.
+
+### `surface_code.h`, `color_code.h`, `bivariate_bicycle.h`, `hypergraph_product.h`, `lifted_product.h`, `toric3d.h`, `xcube_code.h`, `single_shot.h`, `concatenated_code.h` (1.4)
+
+All build CSS codes via `irrep_css_code_t`. Each header documents the
+analytical counts (`n_qubits`, `n_X_stabs`, `n_Z_stabs`, `k`) and the
+references for the underlying construction. CSS-orthogonality is
+verified at build time; users get an explicit error rather than
+silent miscompilation if their input is malformed.
+
+The `lifted_product` `H_Z` uses the σ-antipode of the cyclic group:
+`σ(p)(x) = p(x⁻¹)`. This is required for CSS orthogonality at the
+F₂-lifted level (`(M_p)^T = M_{σ(p)}` for the lift).
+
+### `floquet_code.h`, `honeycomb_floquet.h`, `css_floquet.h` (1.4)
+
+`floquet_code` is a list of measurement rounds; each round is a list
+of mutually-commuting Paulis. `honeycomb_floquet_build` and
+`css_floquet_square_build` populate this for the two canonical
+families. Inter-round anti-commutation (the dynamics that drives the
+logical-qubit evolution) is verified against the analytical count
+in the test suites.
+
+### `subsystem_code.h` — gauge groups (1.4)
+
+A non-abelian gauge group plus an `_in_centraliser` test that returns
+1 iff a given Pauli commutes with every gauge generator. Bacon-Shor
+`[[9, 1, 3]]` is the bundled instance: 12 weight-2 gauge generators,
+4 weight-6 stabilizers in the centre, logical pair `L_X = X⊗column`
+and `L_Z = Z⊗row` anti-commute on the shared corner qubit.
+
+### `happy_code.h` — perfect tensor primitive (1.4)
+
+`[[5, 1, 3]]` Laflamme-Miquel-Paz-Zurek 1996 code, exposed as an
+abstract stabilizer group. The perfect-tensor property comes from the
+fact that any partition of the 6 legs (1 bulk + 5 boundary) into two
+halves is an isometry from the smaller half to the larger.
+
+### `generic_color_code.h`, `color_codes_2d.h` (1.4)
+
+The face-list framework (`irrep_color_lattice_t` + `_build`) accepts
+any 2D color-code lattice as a list of face supports and validates
+CSS orthogonality at construction. Concrete instances `[[19, 1, 5]]`
+hex and `[[17, 1, 5]]` 4.8.8 are presently research-track stubs (see
+`docs/qec_research_roadmap.md`); the framework is in place so that
+completion is mechanical.
 
 ---
 

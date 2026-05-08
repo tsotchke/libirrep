@@ -349,6 +349,63 @@ Error-handling convention:
 
 ---
 
+## 3.6. Quantum-error-correction substrate (1.4.0)
+
+The 1.4.0 cycle adds a quantum-error-correction layer that lives strictly
+*above* the existing lattice / configuration-space substrate and is
+otherwise independent of the angular-function core. Eighteen production
+modules + one face-list framework + two research-track stubs:
+
+```
+                    css_code (H_X / H_Z parity-check pair)
+                        │
+                        ▼
+     ┌─────────── stabilizer_group (symplectic Pauli) ───────────┐
+     │                  │           │            │               │
+     ▼                  ▼           ▼            ▼               ▼
+qec_distance    toric_code   surface_code   color_code   subsystem_code
+(Pauli mul +    toric3d      bivariate_     happy_code   (gauge group)
+ brute-force    xcube_code   bicycle        generic_                    
+ distance)                   hypergraph_    color_code
+                             product
+                             lifted_product
+                             concatenated_
+                             code
+                             single_shot
+     │                                            │
+     └── floquet_code (measurement schedule) ─────┘
+            │            │
+            ▼            ▼
+     honeycomb_       css_floquet
+     floquet
+```
+
+`stabilizer_group` is the single foundation everything else specialises:
+`css_code` is a thin wrapper over a pair of bit-packed parity matrices
+that materialises into `irrep_stabilizer_group_t` via memcpy;
+`floquet_code` is a list of measurement rounds (each round is itself a
+mini stabilizer group). Concrete code instances (`toric_code`,
+`bivariate_bicycle`, `surface_code`, `color_code`, `toric3d`, `xcube_code`,
+`hypergraph_product`, `lifted_product`, `honeycomb_floquet`,
+`css_floquet`, `subsystem_code`, `concatenated_code`, `happy_code`,
+`single_shot`, `generic_color_code`, `color_codes_2d`) all build CSS or
+stabilizer-group representations from their geometric / algebraic spec
+and validate via `irrep_css_code_verify` /
+`irrep_stabilizer_group_check_commutativity`.
+
+The QEC layer has zero new external dependencies (still pure C11 +
+libc + libm) and zero-touch on the angular-function code. Only `types.h`
+and `export.h` are shared with the existing substrate.
+
+For the deferred research-track items (triangular `[[19,1,5]]` hex,
+`[[17,1,5]]` 4.8.8, 3D Bombín gauge color, multi-tile HaPPY hyperbolic
+network), see `docs/qec_research_roadmap.md`. The 1.4.0 cycle ships
+honest stubs for the first two with comprehensive analytical
+consistency-check formulas; completion is mechanical once the
+published face-list tables are transcribed.
+
+---
+
 ## 4. Threading model
 
 - **Pure math functions** are reentrant and thread-safe by construction
@@ -409,7 +466,7 @@ out under `release/<version>/`:
 
 ```
 release/<version>/
-├── include/irrep/ # all 31 public headers (1.3.0-alpha)
+├── include/irrep/ # all 53 public headers (1.4.0)
 ├── lib/<triple>/ # static .a + shared .so|.dylib|.dll
 ├── pkgconfig/libirrep.pc # with baked abi_hash variable + embedded rpath
 ├── VERSION # plain text version string

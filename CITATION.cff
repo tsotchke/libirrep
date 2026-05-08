@@ -4,8 +4,8 @@ cff-version: 1.2.0
 message: "If you use libirrep in academic work, please cite it as below."
 title: "libirrep: SO(3)/SU(2)/O(3) representation-theory primitives for equivariant neural networks and spin systems"
 type: software
-version: 1.3.0-alpha
-date-released: "2026-04-19"
+version: 1.4.0
+date-released: "2026-05-08"
 repository-code: "https://github.com/tsotchke/libirrep"
 license: MIT
 authors:
@@ -25,6 +25,17 @@ keywords:
   - frustrated magnetism
   - kagome Heisenberg
   - neural quantum states
+  - quantum error correction
+  - stabilizer codes
+  - toric code
+  - surface code
+  - color code
+  - bivariate bicycle codes
+  - qLDPC
+  - Floquet codes
+  - X-cube fracton
+  - HaPPY holographic code
+  - subsystem codes
   - C11
 abstract: >-
   A pure-C11 library of SO(3) / SU(2) / O(3) representation-theory
@@ -41,4 +52,11 @@ abstract: >-
   inner kernel. Also ships a physics substrate — 2D lattices, wallpaper-
   group tables, reduced density matrices, Lanczos — for symmetric
   neural-quantum-state work on the kagome Heisenberg S = 1/2
-  ground-state-nature problem.
+  ground-state-nature problem. The 1.4.0 cycle adds an
+  eighteen-module quantum-error-correction substrate (toric, surface,
+  color, BB qLDPC, hypergraph and lifted product, honeycomb and CSS
+  Floquet, 3D toric, X-cube fracton, HaPPY perfect tensor, single-shot
+  meta-checks, Bacon-Shor subsystem, Steane-Steane concatenation) on
+  top of the existing representation-theory and lattice layer, with
+  CSS-orthogonality, materialised stabilizer-group commutativity, and
+  brute-force code-distance verification.

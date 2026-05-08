@@ -1,12 +1,17 @@
 # libirrep
 
-> **Status: pre-release — `v1.3.2`.** Public API guarded by an ABI
+> **Status: pre-release — `v1.4.0`.** Public API guarded by an ABI
 > hash and a regression gate. Numerical kernels at machine precision across
-> every documented `j` regime. **33 public headers, 44 test suites, 0
+> every documented `j` regime. **53 public headers, 63 test suites, 0
 > Doxygen warnings, ASan + UBSan clean.** Active downstream consumer:
 > `spin_based_neural_network` (SbNN) pins `LIBIRREP_MIN=1.3.0-alpha`
 > and links via `src/libirrep_bridge.c` against the multiset / NequIP /
-> spherical-harmonic / CG / Wigner-d API surfaces.
+> spherical-harmonic / CG / Wigner-d API surfaces. The v1.4.0 cycle
+> adds an 18-module quantum-error-correction substrate (toric, surface,
+> color, BB qLDPC, hypergraph + lifted product, honeycomb + CSS
+> Floquet, 3D toric, X-cube fracton, HaPPY perfect tensor, single-shot
+> meta-checks, Bacon-Shor subsystem, Steane⊗Steane concatenation) on
+> top of the existing representation-theory layer.
 
 A pure-C11 library of SO(3) / SU(2) / O(3) / SE(3) representation-theory
 primitives — spherical harmonics, Wigner-D rotation matrices, Clebsch–
@@ -27,6 +32,7 @@ NEON / AVX2 kernels on the hot paths.
 | Magnetic point groups via `antiunitary` flag | **framework only** | sign rules verified per Moriya/Shubnikov; no pre-tabulated 122-group set yet |
 | 3D space groups (P2_1 3, Fd-3m, etc.) | **deferred past 1.3** | only 2D wallpaper + 3D point groups in 1.3.0-alpha |
 | Pyrochlore N≥32 sector ED | **out of reach** | requires the deferred 3D space-group machinery |
+| QEC stabilizer-code substrate (1.4.0) | **production** | 18 modules: stabilizer_group, css_code, qec_distance, toric_code, surface_code, color_code, bivariate_bicycle, hypergraph_product, lifted_product, floquet_code, honeycomb_floquet, css_floquet, toric3d, xcube_code, happy_code, single_shot, subsystem_code, concatenated_code, generic_color_code. CSS-orthogonality + materialised stabilizer-group commutativity verified for every module; 7 codes have brute-force-verified textbook distance (Steane d=3, [[5,1,3]] d=3, surface d∈{2,3,4}, 2×2 toric d=2, 3D toric L=2 d=2). Hero instances: BB[[72,12,6]] from *Nature* 627 (2024) 778, X-cube fracton with 3-stab redundancy, single-shot 3D toric meta-checks decoupling data vs measurement errors. Research-track stubs for [[19,1,5]] hex / [[17,1,5]] 488 deliberately return `IRREP_ERR_NOT_IMPLEMENTED` — see `docs/qec_research_roadmap.md`. |
 | Downstream consumer linkage | **live (SbNN)** | `spin_based_neural_network` v0.5.0 pins `LIBIRREP_MIN=1.3.0-alpha`, integrates via `src/libirrep_bridge.c` and `tests/test_libirrep_bridge.c`. Bridge surface: 68 `irrep_bridge_*` symbols spanning multiset, NequIP (with reverse-mode backward pass), real spherical harmonics, CG, RDM + partial-trace, von-Neumann + Rényi entropy, the LSW magnon stack (`lsw_dispersion`, `lsw_chern`, `lsw_berry`, `lsw_one_magnon_qomega_general`, `lsw_neutron_qomega_map`, `lsw_fit_*`), and the topology stack (`hopf_charge_*`). The 1.3 wallpaper-group / 3D-lattice / DMI / cubic-PG additions are available for future bridge expansion. |
 
 ## Quickstart

@@ -172,6 +172,189 @@ UndefinedBehaviorSanitizer (UBSan) with `-fno-sanitize-recover=undefined`.
   copy understated SbNN's consumption by listing only the
   multiset / NequIP / SH / CG / small-d kernels.
 
+## [1.4.0] — 2026-05-08
+
+### Added — quantum error-correction substrate (Tier-1 through Tier-5 of QEC scoping doc)
+
+A research-grade QEC primitives layer built on top of the existing
+representation-theory and lattice infrastructure. Eighteen new
+production modules + one face-list-driven framework + two research-
+track stubs land together; all are validated through CSS-orthogonality,
+materialised stabilizer-group pairwise commutativity, and (for codes
+with `n ≤ 25`) brute-force code-distance computation to textbook value.
+
+#### Foundation primitives
+
+- **`stabilizer_group`**: symplectic Pauli representation `(x, z, sign ∈ {±1, ±i})`
+  with the F₂ inner product as the central commutativity primitive,
+  pairwise-commutativity check for stabilizer groups, and syndrome
+  extraction. The Y / X·Z convention is symplectic-only at the bit
+  level — callers manage the `i` factor of physical Y manually
+  (header docstring clarified explicitly).
+- **`css_code`**: bit-packed parity-check matrix pair `(H_X, H_Z)` with
+  CSS-orthogonality verifier. Materialises to `irrep_stabilizer_group_t`
+  via memcpy. Allows degenerate `m_X = 0` or `m_Z = 0` sides for
+  embedding classical-only codes.
+- **`qec_distance`**: Pauli multiplication with sign carry
+  (`X·Z = +Y`, `Z·X = -Y` emerges from the symplectic carry); F₂
+  Gaussian-elimination membership check for the stabilizer span;
+  brute-force code-distance enumeration up to weight `≤ n`. The carry
+  loop reads source words into locals before writing to `out`, so
+  `out` may safely alias `p` or `q`.
+
+#### Tier-1 hardware workhorses
+
+- **`toric_code`** (extended from existing): `Lx × Ly` PBC torus.
+- **`surface_code`**: rotated planar `[[d², 1, d]]` for arbitrary
+  `d ≥ 2` with explicit bulk plaquettes + boundary half-plaquettes;
+  hardware workhorse of Google + IBM superconducting devices.
+- **`color_code`**: Steane `[[7, 1, 3]]` as the canonical d=3
+  triangular color code (each face hosts X-stab + Z-stab on the same
+  Hamming-parity-row support).
+
+#### Tier-2 recent breakthroughs (2021–2024)
+
+- **`bivariate_bicycle`**: `BB[[n, k, d]]` qLDPC over the cyclic ring
+  `F₂[x, y] / (xˡ - 1, yᵐ - 1)`. The headline `[[72, 12, 6]]` instance
+  from Bravyi-Cross-Gambetta-Maslov-Rall-Yoder *Nature* 627 (2024) 778
+  is reproduced with the exact polynomial choice `A = x³ + y + y²`,
+  `B = y³ + x + x²` and verified weight-6 LDPC + full pairwise
+  stabilizer-group commutativity.
+- **`floquet_code`**: time-periodic measurement-schedule abstraction
+  underlying both honeycomb and CSS Floquet variants.
+- **`honeycomb_floquet`**: Hastings-Haah brick-wall hexagonal Floquet
+  code (PRX Quantum 2 (2021) 030328). Inter-round anti-commutation
+  count = `n_qubits` exactly — the algebraic signature of the 3-edge-
+  colour Floquet dynamics.
+- **`css_floquet`**: Davydova-Tantivasadakarn-Balasubramanian 2023
+  4-round square-lattice Floquet code. Round 0 (XX horiz) ⊥ round 1
+  (ZZ horiz) due to the 2-qubit overlap parity (CSS within rounds);
+  round 1 ⊥ round 2 anti-commutes exactly `2·Lx·Ly` times.
+
+#### Tier-3 qLDPC frameworks
+
+- **`hypergraph_product`**: Tillich-Zemor 2014 quantum LDPC from a
+  pair of classical parity-check matrices `(H_a, H_b)`. CSS
+  orthogonality automatic via the Kronecker-product algebra.
+- **`lifted_product`**: Panteleev-Kalachev 2022 abelian lifted product
+  over `F₂[x] / (xˡ - 1)`. Crucially, `H_Z` uses the σ-antipode of the
+  cyclic group (`σ(x^a) = x^{-a}`) so that CSS orthogonality holds at
+  the F₂-lifted level — `(M_p)^T = M_{σ(p)}` for the lift, so taking
+  the F₂ transpose corresponds to applying σ in `R`. This is the
+  family that achieves asymptotically-good `[[n, kn, dn]]` parameters.
+
+#### Tier-4 research frontier
+
+- **`toric3d`**: 3D toric on `T³`. Vertex stars (X) weight 6, face
+  plaquettes (Z) weight 4; each edge appears in exactly 2 vertex stars
+  (column-parity-zero verified) and exactly 4 face plaquettes;
+  distance verified `d = 2` for `L = 2`.
+- **`xcube_code`**: Vijay-Haah-Fu 2016 type-I fracton model. Three
+  weight-4 planar X-stabs per vertex (xy, xz, yz) + weight-12 cube
+  Z-stabs. Per-vertex 3-stab redundancy
+  `A_v^{xy} ⊕ A_v^{xz} ⊕ A_v^{yz} = 0` confirmed (the algebraic
+  signature of fracton sub-extensive ground-state degeneracy).
+- **`single_shot`**: Quintavalle-Vasmer-Roffe-Campbell 2021 meta-check
+  framework. Validated against 3D toric: vertex-redundancy +
+  cube-redundancy meta-checks satisfy `M · H = 0` over F₂; a single-
+  edge X data error produces a zero meta-syndrome (decoupling),
+  while a fabricated single-bit measurement-error pattern produces a
+  non-trivial meta-syndrome.
+
+#### Tier-5 theoretical / specialised
+
+- **`happy_code`**: Pastawski-Yoshida-Harlow-Preskill 2015 `[[5, 1, 3]]`
+  perfect-tensor primitive — the workhorse tensor of the holographic
+  HaPPY network. Cyclic XZZXI shifts; all 15 weight-1 errors detected
+  with non-zero syndrome; logical pair `X̄ = X⊗⁵` and `Z̄ = Z⊗⁵`
+  centralise the stabilizer group and mutually anti-commute.
+- **`subsystem_code`**: Bacon-Shor `[[9, 1, 3]]` non-abelian gauge code.
+  12 weight-2 gauge generators (X-row pairs + Z-column pairs);
+  4 weight-6 Bacon-Shor stabilizers in the centraliser;
+  logical pair `L_X` = X-column 0 and `L_Z` = Z-row 0 anti-commute on
+  the shared corner qubit.
+
+#### Composition and framework
+
+- **`concatenated_code`**: Knill-Laflamme inner ⊗ outer CSS composition.
+  `Steane ⊗ Steane = [[49, 1, ≥9]]` reproduced with full CSS-orthogonality
+  + materialised stabilizer-group commutativity. Caller supplies the
+  inner code's logical operators (must be pure-X and pure-Z to keep
+  the result CSS).
+- **`generic_color_code`**: face-list-driven 2D color code framework.
+  Caller supplies the lattice as a list of faces (each = list of qubit
+  indices); the framework verifies CSS orthogonality at construction
+  time. Steane reproduced bit-for-bit through the framework, validating
+  end-to-end.
+
+#### Research-track stubs
+
+- **`color_codes_2d`**: declarations for `[[19, 1, 5]]` hexagonal
+  (Landahl-Anderson-Rice 2011 Fig. 3) and `[[17, 1, 5]]` 4.8.8
+  (Pogorelov 2024 / Quantinuum Fig. 2) — both currently return
+  `IRREP_ERR_NOT_IMPLEMENTED` with comprehensive analytical
+  consistency-check formulas embedded in the docstrings. Completion
+  is mechanical once the published face_qubits[][] tables are
+  transcribed.
+
+#### Documentation
+
+- **`docs/qec_scoping.md`**: 5-tier code-family survey with primary
+  references for every Tier-1 through Tier-5 family.
+- **`docs/qec_research_roadmap.md`**: development plan for the four
+  deferred research-track items (R1 hex `[[19,1,5]]`, R2 488
+  `[[17,1,5]]`, R3 3D Bombín gauge color code, R4 multi-tile HaPPY
+  hyperbolic network) with bibliography (Bombín 2010, LAR 2011,
+  Pogorelov 2024, PYHP 2015, Kubica 2018).
+
+### Fixed — adversarial-audit findings
+
+Seven high/medium-severity bugs found by an adversarial production-
+audit pass and fixed in the same cycle:
+
+1. `irrep_pauli_multiply` aliasing UB — `out == p` corrupted the carry
+   computation because `p->z[w]` was overwritten in-place before the
+   carry sum read it. Fixed by reading source words into locals first.
+2. `irrep_qec_distance_brute` `int total *= 3` overflowed at weight
+   `≥ 20` (3²⁰ ≈ 3.49 × 10⁹ > INT32_MAX). Switched to `uint64_t`.
+3. `lifted_product.h` advertised `H_Z = [I ⊗ B | A^T ⊗ I]` (no σ);
+   the implementation builds `H_Z = [I ⊗ σ(B) | σ(A^T) ⊗ I]` (with σ).
+   Header corrected.
+4. `irrep_pauli_set` Y-letter case was documented to absorb the `i`
+   phase into the sign field, but the implementation only sets the
+   `x = z = 1` bits and leaves the sign untouched. Header docstring
+   clarified — convention is symplectic-only at the bit level.
+5. `irrep_single_shot_code_new` zombie-state on consumed CSS code:
+   `data` pointers were nulled but `n_rows`, `n_cols`, `n_words` were
+   left populated. A caller dereferencing the consumed CSS would hit
+   NULL with non-zero indices. All bookkeeping fields now zeroed.
+6. `pm_offset` in `lifted_product.c` returned `int`; for research-
+   scale lifts (`ℓ ≳ 100`, `n_a ≳ 100`) the offset overflows `int32`.
+   Switched to `size_t`.
+7. `irrep_css_code_new` over-rejected `m_X = 0` or `m_Z = 0`. Both
+   are valid for degenerate CSS codes embedding classical-only codes;
+   now allowed.
+
+### Validation — cycle exit gate
+
+- **63/63 test suites pass** (45 prior + 18 new QEC suites).
+- **30,363 wigner-d batched assertions** still green.
+- **53 public headers** compile self-contained.
+- **ASan + UBSan clean** on the full test suite.
+- **Code distance verified** for 7 codes via brute force: Steane
+  `[[7,1,3]]` d=3, HaPPY `[[5,1,3]]` d=3, surface d∈{2,3,4} verified
+  exactly, 2×2 toric d=2, 3D toric L=2 d=2.
+- **ABI baseline refreshed** — additive-only (no existing symbol
+  removed or modified). Bumped `MINOR` per semver.
+
+### Deferred to v1.5 / research track
+
+- `[[19, 1, 5]]` hex face-list completion (LAR 2011 Fig. 3 transcription).
+- `[[17, 1, 5]]` 488 face-list completion (Pogorelov 2024 Fig. 2 transcription).
+- 3D Bombín gauge color code on the rectified 3-cubic lattice.
+- Multi-tile HaPPY hyperbolic network with recursive `{5, 4}` tile
+  contraction.
+
 ## [1.3.2] — 2026-04-28
 
 ### Added — magnon spectroscopy expansion (post-1.3.1)

@@ -446,15 +446,18 @@ JAX (via `ctypes`), and any other language with a C FFI.
 
 The 1.3 cycle is structured around the 1.3 release gates:
 
-- **1.3.0-alpha** (current) — full research-substrate code + ED
- validation at 12, 18, 24 sites.
-- **1.3.0-beta** — non-Γ Bloch-wave projections + k-point-resolved
- adapted basis; enables full-Hilbert-space block ED.
-- **1.3.0-rc1** — downstream integration with
- `spin_based_neural_network` at 108-site kagome NQS scale.
-- **1.3.0 final** — paired publication: methods paper (this
- document as the technical backbone) + physics paper (the kagome
- result that actually settles the ground-state-nature question).
+- **1.3.0-alpha** — full research-substrate code + ED validation at
+ 12, 18, 24 sites.
+- **1.3.1** — magnon spectroscopy (LSW dispersion, Berry curvature,
+ thermal Hall, INS Q-ω) + topological-magnon stack.
+- **1.3.2** — INS-prediction loop closure on top of the magnon stack.
+- **1.4.0** (current) — quantum-error-correction substrate: 18
+ stabilizer-code modules covering toric, surface, color, BB qLDPC,
+ hypergraph and lifted product, honeycomb and CSS Floquet, 3D toric,
+ X-cube fracton, HaPPY perfect tensor, single-shot meta-checks,
+ Bacon-Shor subsystem, and Steane⊗Steane concatenation. The 1.3 → 1.4
+ transition is purely additive at the ABI level. See
+ `CHANGELOG.md` and `docs/qec_research_roadmap.md`.
 
 ## 8. Citation
 

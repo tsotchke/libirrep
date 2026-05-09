@@ -1,6 +1,6 @@
 # libirrep — Integration Report for Moonlab
 
-**Source**: `libirrep` 1.3.0-alpha (commit-of-record ABI: `f58cb703…9469f05`)
+**Source**: `libirrep` 1.4.0 (commit-of-record ABI: `f1573104…46866`; superseded prior 1.3.x release line, additive-only ABI extension carrying the new QEC substrate)
 **Audience**: Moonlab engineers (tensor-network + state-vector simulator at `~/Desktop/quantum_simulator`)
 **Purpose**: specify the integration surface that lets Moonlab use libirrep's symmetry
 infrastructure to target the spin-½ kagome-Heisenberg (KH) problem in joint work with SbNN.
@@ -149,10 +149,10 @@ at runtime:
 ```c
 #include <irrep/version.h>
 const char *hash = irrep_abi_hash();    /* baked at build time */
-const char *ver  = irrep_version();     /* "1.3.0-alpha" */
+const char *ver  = irrep_version();     /* "1.4.0" */
 ```
 
-**Current baseline** (1.3.0-alpha, post 3D-lattice + cubic-point-group + DMI-symmetry-analyzer additions): `113b96630e530184f37b5671955e402d299bf7607944b20dd36d0f878c6307b9`. Successive 1.3.0-alpha development baselines are documented in `release/BASELINE_ABI_HASH` and the [Unreleased] section of `CHANGELOG.md`; consumers tracking 1.3.0-alpha should re-pin on each refresh.
+**Current baseline** (1.4.0, post-QEC substrate cycle — 18 stabilizer-code modules layered above the 1.3.x lattice + DMI surface): `f1573104e4c266e1e4901e2ba3b5c73e24bd71d82b3d9b1c9bd10f7335546866`. Successive baselines are documented in `release/BASELINE_ABI_HASH` and the per-version sections of `CHANGELOG.md`; consumers should re-pin on each refresh. The 1.3 → 1.4 transition is purely additive (no existing symbol removed or modified), so existing Moonlab integrations continue to link unchanged.
 
 Moonlab should **pin the ABI hash** in a vendored `IRREP_EXPECTED_ABI_HASH`
 constant and assert at program start. Any divergence is either an
@@ -213,13 +213,14 @@ pkg-config --libs   libirrep    # -L... -llibirrep -Wl,-rpath,...
 **Option B — CMake** (preferred cross-platform):
 
 ```cmake
-find_package(libirrep 1.3.0 REQUIRED)
+find_package(libirrep 1.4 REQUIRED)
 target_link_libraries(moonlab_kagome PRIVATE libirrep::libirrep)
 ```
 
 **Option C — vendored tarball**: per-triple prebuilt tarballs land on
-GitHub Releases under `v1.3.0-alpha`. Moonlab's `vendor/libirrep/`
-directory carries a pinned version file; CI fetches the matching tarball.
+GitHub Releases under `v1.4.0` (and prior `v1.3.0-alpha`, `v1.3.1`).
+Moonlab's `vendor/libirrep/` directory carries a pinned version file;
+CI fetches the matching tarball.
 
 ### Supported triples (CI matrix, all green)
 
@@ -736,7 +737,7 @@ plots demonstrate this.
 ## 10. Contact points & references
 
 - Repo: `github.com/tsotchke/libirrep`
-- Current tag: `v1.3.0-alpha`
+- Current tag: `v1.4.0`
 - CI: 5 triples, ASan + UBSan green on every commit, 7 fuzz targets
 - Docs: `docs/{API,DESIGN,METHODS,PHYSICS_APPENDIX,PHYSICS_RESULTS,REFERENCES}.md`;
   Doxygen HTML bundled in release tarballs

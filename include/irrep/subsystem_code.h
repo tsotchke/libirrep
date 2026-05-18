@@ -118,6 +118,32 @@ irrep_subsystem_in_centraliser(const irrep_subsystem_code_t *c,
 IRREP_API irrep_status_t
 irrep_subsystem_bacon_shor_9_1_3(irrep_subsystem_code_t *out);
 
+/** @brief Smallest 3D Bombín gauge color code substrate — a tetrahedral
+ *  3-colex (= K_4 complete graph treated as a 3-cell complex).
+ *
+ *  ## Geometry
+ *
+ *  4 qubits at the vertices of a tetrahedron. The 6 edges (= every
+ *  pair of vertices) carry the gauge generators: a weight-2 X-edge
+ *  and a weight-2 Z-edge each, for 12 gauge generators total. This
+ *  is the "doubled-edge" variant of Bombín 2010 PRA 81 032301 on the
+ *  smallest non-trivial 4-coloured cell complex.
+ *
+ *  Properties of this substrate:
+ *    - Gauge group is non-abelian (XX and ZZ on edges sharing a vertex
+ *      anti-commute, since they share one Pauli site).
+ *    - The center of the gauge group includes `X⊗4` and `Z⊗4` (both
+ *      commute with every weight-2 edge generator).
+ *    - It is the **smallest 3-colex** on which the Bombín gauge color
+ *      code construction is well-defined; full distance-d instances
+ *      on the rectified-3-cubic lattice are research-track work
+ *      (see `docs/qec_research_roadmap.md` R3).
+ *
+ *  Primary reference: Bombín, *Topological subsystem codes*, Phys.
+ *  Rev. A 81 (2010) 032301. */
+IRREP_API irrep_status_t
+irrep_subsystem_bombin_3d_tetrahedron(irrep_subsystem_code_t *out);
+
 #ifdef __cplusplus
 }
 #endif

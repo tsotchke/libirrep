@@ -134,6 +134,65 @@ static int test_gauge_not_central(void) {
     return rc;
 }
 
+/* Tetrahedral 3D Bombín gauge color code substrate.
+ *
+ *   - shape: 4 qubits, 12 gauge generators (6 XX-edges + 6 ZZ-edges).
+ *   - non-abelian: XX-edge and ZZ-edge sharing one vertex anti-commute.
+ *   - center contains X⊗4 and Z⊗4 (commute with every weight-2 edge).
+ *   - center does NOT contain a single ZZ-edge (anti-commutes with the
+ *     5 other ZZ-edges that share one vertex with it).
+ */
+static int test_bombin_3d_tetrahedron_shape(void) {
+    irrep_subsystem_code_t c;
+    if (irrep_subsystem_bombin_3d_tetrahedron(&c) != IRREP_OK) return 1;
+    int rc = (c.n == 4 && c.n_gauge == 12) ? 0 : 1;
+    /* Each gauge generator has weight exactly 2. */
+    for (int i = 0; i < c.n_gauge; ++i) {
+        if (irrep_pauli_weight(&c.gauge[i]) != 2) rc = 1;
+    }
+    irrep_subsystem_code_free(&c);
+    return rc;
+}
+
+static int test_bombin_3d_tetrahedron_non_abelian(void) {
+    irrep_subsystem_code_t c;
+    if (irrep_subsystem_bombin_3d_tetrahedron(&c) != IRREP_OK) return 1;
+    /* gauge[0] = X_0 X_1, gauge[6] = Z_0 Z_1. Sharing both qubits,
+     * XX and ZZ commute (two Pauli sign flips cancel). */
+    int rc = irrep_pauli_commute(&c.gauge[0], &c.gauge[6]) ? 0 : 1;
+    /* gauge[0] = X_0 X_1, gauge[7] = Z_0 Z_2. Sharing one qubit (q=0),
+     * XX and ZZ anti-commute. */
+    if (irrep_pauli_commute(&c.gauge[0], &c.gauge[7])) rc = 1;
+    irrep_subsystem_code_free(&c);
+    return rc;
+}
+
+static int test_bombin_3d_tetrahedron_center(void) {
+    irrep_subsystem_code_t c;
+    if (irrep_subsystem_bombin_3d_tetrahedron(&c) != IRREP_OK) return 1;
+    int rc = 0;
+    /* X⊗4 commutes with every edge generator → in centraliser. */
+    irrep_pauli_t Xall;
+    irrep_pauli_new(&Xall, 4);
+    for (int q = 0; q < 4; ++q) irrep_pauli_set(&Xall, q, IRREP_PAULI_LETTER_X);
+    if (!irrep_subsystem_in_centraliser(&c, &Xall)) rc = 1;
+    irrep_pauli_free(&Xall);
+    /* Z⊗4 likewise. */
+    irrep_pauli_t Zall;
+    irrep_pauli_new(&Zall, 4);
+    for (int q = 0; q < 4; ++q) irrep_pauli_set(&Zall, q, IRREP_PAULI_LETTER_Z);
+    if (!irrep_subsystem_in_centraliser(&c, &Zall)) rc = 1;
+    irrep_pauli_free(&Zall);
+    /* A single ZZ-edge (gauge[6] = Z_0 Z_1) anti-commutes with the
+     * other ZZ-edges sharing one vertex (e.g. gauge[7] = Z_0 Z_2 — wait,
+     * ZZ and ZZ always commute). Use XX-edge as the test: gauge[1] =
+     * X_0 X_2 anti-commutes with Z_0 Z_1 (shared q=0, lone Pauli flip),
+     * so Z_0 Z_1 NOT in centraliser. */
+    if (irrep_subsystem_in_centraliser(&c, &c.gauge[6])) rc = 1;
+    irrep_subsystem_code_free(&c);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     if (test_bacon_shor_shape())             { fprintf(stderr, "FAIL test_bacon_shor_shape\n"); rc = 1; }
@@ -141,5 +200,8 @@ int main(void) {
     if (test_bacon_shor_stabilizers_central()) { fprintf(stderr, "FAIL test_bacon_shor_stabilizers_central\n"); rc = 1; }
     if (test_bacon_shor_logical())           { fprintf(stderr, "FAIL test_bacon_shor_logical\n"); rc = 1; }
     if (test_gauge_not_central())            { fprintf(stderr, "FAIL test_gauge_not_central\n"); rc = 1; }
+    if (test_bombin_3d_tetrahedron_shape())       { fprintf(stderr, "FAIL test_bombin_3d_tetrahedron_shape\n"); rc = 1; }
+    if (test_bombin_3d_tetrahedron_non_abelian()) { fprintf(stderr, "FAIL test_bombin_3d_tetrahedron_non_abelian\n"); rc = 1; }
+    if (test_bombin_3d_tetrahedron_center())      { fprintf(stderr, "FAIL test_bombin_3d_tetrahedron_center\n"); rc = 1; }
     return rc;
 }

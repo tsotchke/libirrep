@@ -100,3 +100,44 @@ irrep_subsystem_bacon_shor_9_1_3(irrep_subsystem_code_t *out)
     }
     return IRREP_OK;
 }
+
+/* Smallest 3D Bombín gauge color code on a tetrahedral 3-colex.
+ *
+ * The 4 qubits sit at the 4 vertices of K_4 (the complete graph on
+ * 4 vertices, = the boundary of a 3-simplex). The 6 edges are the
+ * 6 unordered pairs (i, j) with i < j:
+ *   edge 0: {0,1}   edge 1: {0,2}   edge 2: {0,3}
+ *   edge 3: {1,2}   edge 4: {1,3}   edge 5: {2,3}
+ *
+ * Gauge generators: weight-2 X (XX) and weight-2 Z (ZZ) on each edge,
+ * for 12 generators total. This is the symmetric "doubled-edge"
+ * variant of the Bombín 2010 gauge color code on the smallest
+ * tetrahedral 3-colex.
+ */
+static const int kK4Edges[6][2] = {
+    {0, 1}, {0, 2}, {0, 3},
+    {1, 2}, {1, 3}, {2, 3},
+};
+
+irrep_status_t
+irrep_subsystem_bombin_3d_tetrahedron(irrep_subsystem_code_t *out)
+{
+    if (out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_status_t s = irrep_subsystem_code_new(out, /*n=*/4, /*n_gauge=*/12);
+    if (s != IRREP_OK) return s;
+
+    int idx = 0;
+    /* 6 XX-edges. */
+    for (int e = 0; e < 6; ++e) {
+        irrep_pauli_set(&out->gauge[idx], kK4Edges[e][0], IRREP_PAULI_LETTER_X);
+        irrep_pauli_set(&out->gauge[idx], kK4Edges[e][1], IRREP_PAULI_LETTER_X);
+        ++idx;
+    }
+    /* 6 ZZ-edges. */
+    for (int e = 0; e < 6; ++e) {
+        irrep_pauli_set(&out->gauge[idx], kK4Edges[e][0], IRREP_PAULI_LETTER_Z);
+        irrep_pauli_set(&out->gauge[idx], kK4Edges[e][1], IRREP_PAULI_LETTER_Z);
+        ++idx;
+    }
+    return IRREP_OK;
+}

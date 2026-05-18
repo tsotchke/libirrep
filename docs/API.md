@@ -55,7 +55,8 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | `<irrep/css_code.h>` (1.4) | CSS code from `(H_X, H_Z)` parity-check pair | `irrep_parity_matrix_t`, `irrep_css_code_t` | `irrep_parity_matrix_new`, `_free`, `_set`, `_get`, `_row_inner`, `irrep_css_code_new`, `_free`, `_verify`, `_to_stabilizer_group` |
 | `<irrep/qec_distance.h>` (1.4) | Pauli arithmetic + brute-force code distance | — | `irrep_pauli_multiply`, `irrep_stabilizer_group_contains`, `irrep_qec_distance_brute` |
 | `<irrep/toric_code.h>` | Kitaev 2D toric code on `Lx × Ly` torus | `irrep_toric_params_t`, `irrep_toric_edge_t` | `irrep_toric_init`, `_edge_index`, `_edge_unpack`, `_vertex_edges`, `_plaquette_edges`, `_shared_edges` |
-| `<irrep/surface_code.h>` (1.4) | Rotated planar `[[d², 1, d]]` surface code | `irrep_surface_params_t` | `irrep_surface_init`, `irrep_surface_build` |
+| `<irrep/surface_code.h>` (1.4) | Rotated planar `[[d², 1, d]]` surface code | `irrep_surface_params_t` | `irrep_surface_init`, `irrep_surface_build`, `irrep_surface_logical_X`, `irrep_surface_logical_Z` |
+| `<irrep/lattice_surgery.h>` (1.5) | Smooth-merge lattice surgery on the rotated surface code | `irrep_lattice_surgery_smooth_t` | `irrep_lattice_surgery_smooth_init`, `_build`, `_logical_X`, `_logical_Z`, `_joint_X_parity` |
 | `<irrep/color_code.h>` (1.4) | Steane `[[7, 1, 3]]` color code | — | `irrep_color_steane` |
 | `<irrep/generic_color_code.h>` (1.4) | Face-list-driven 2D color code framework | `irrep_color_lattice_t`, `irrep_color_t` | `irrep_generic_color_build` |
 | `<irrep/bivariate_bicycle.h>` (1.4) | BB qLDPC over `F₂[x,y]/(xˡ-1, yᵐ-1)` (Bravyi *Nature* 2024) | `irrep_bb_poly_t` | `irrep_bb_poly_new`, `_free`, `_add_monomial`, `_get`, `irrep_bb_code_build` |
@@ -840,6 +841,18 @@ and `L_Z = Z⊗row` anti-commute on the shared corner qubit.
 abstract stabilizer group. The perfect-tensor property comes from the
 fact that any partition of the 6 legs (1 bulk + 5 boundary) into two
 halves is an isometry from the smaller half to the larger.
+
+### `lattice_surgery.h` — smooth-merge surface-code primitive (1.5)
+
+Two `d × d` rotated surface-code patches placed side by side along
+their smooth (Z-type) boundaries merge into a single `d × 2d`
+rectangular surface code via `irrep_lattice_surgery_smooth_build`.
+The merged code exposes one logical qubit; `_logical_X` and
+`_logical_Z` give its L̄_X (column-0 X-string, weight d) and L̄_Z
+(row-0 Z-string spanning all 2d columns, weight 2d), and
+`_joint_X_parity` returns the operator `X̄_A · X̄_B` that the merge
+measures (= a stabilizer of the merged code). See
+`examples/qec_lattice_surgery_demo.c` for the operational walkthrough.
 
 ### `generic_color_code.h` (1.4)
 

@@ -52,6 +52,23 @@ UndefinedBehaviorSanitizer (UBSan) with `-fno-sanitize-recover=undefined`.
   speedup). Bit-exact with the lgamma path on the 30,363-assertion
   wigner_d batch test; ASan + UBSan clean.
 
+### Added — QEC (post-v1.5.0 cycle)
+- **`<irrep/lattice_surgery.h>`**: smooth-merge lattice-surgery primitives
+  for the rotated surface code. Given two `d × d` patches placed side by
+  side along their smooth (Z-type) boundary, the module builds the
+  merged `d × 2d` rectangular surface code as a CSS code, exposes its
+  single L̄_X (X-string on column 0, weight d) and L̄_Z (Z-string on
+  row 0 spanning all 2d columns, weight 2d), and exposes the joint-X
+  parity operator `X̄_A · X̄_B` (X on columns 0 and d, weight 2d).
+  Tests at d ∈ {2, 3, 5, 7} verify CSS orthogonality, pairwise
+  stabilizer commutativity, merged-logical anti-commutation, and that
+  `X̄_A · X̄_B` commutes with every stabilizer AND with both merged
+  logicals (forcing it into `S_M` — i.e. smooth merge measures the
+  joint-X parity). New runnable demo
+  `examples/qec_lattice_surgery_demo.c` walks the pre/post-merge picture.
+  Refs: Horsman et al. arXiv:1111.4022; Litinski arXiv:1808.02892;
+  Fowler-Mariantoni-Martinis-Cleland Phys. Rev. A 86 (2012) 032324.
+
 ### Removed
 - **`color_codes_2d.h` / `color_codes_2d.c`**: the v1.4.0 cycle shipped
   two stub declarations — `irrep_color_hex_19_1_5` and

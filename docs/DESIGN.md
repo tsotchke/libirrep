@@ -388,7 +388,7 @@ mini stabilizer group). Concrete code instances (`toric_code`,
 `bivariate_bicycle`, `surface_code`, `color_code`, `toric3d`, `xcube_code`,
 `hypergraph_product`, `lifted_product`, `honeycomb_floquet`,
 `css_floquet`, `subsystem_code`, `concatenated_code`, `happy_code`,
-`single_shot`, `generic_color_code`) all build CSS or
+`single_shot`, `generic_color_code`, `lattice_surgery`) all build CSS or
 stabilizer-group representations from their geometric / algebraic spec
 and validate via `irrep_css_code_verify` /
 `irrep_stabilizer_group_check_commutativity`.

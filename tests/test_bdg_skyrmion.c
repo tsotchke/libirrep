@@ -150,6 +150,87 @@ static int test_zero_mode_count(int L, int Q, double J_sd, double mu_eff,
     return count == expected_count ? 0 : 1;
 }
 
+/* Sparse Lanczos cross-check: at L=8, Q=1 in the strong-coupling
+ * regime, the lowest |E| values from `irrep_bdg_skyrmion_lanczos_
+ * lowest_abs_eigvals` must each match SOME dense |E| eigenvalue to
+ * ~ 1e-5.
+ *
+ * Note: Lanczos on H² collapses the PH-mandated ±E pair into a
+ * single Ritz value (since |+E|² = |-E|²); at moderate iter counts the
+ * sparse return therefore contains DISTINCT |E| values, while the
+ * dense |E|-sorted spectrum contains each value twice. We test via
+ * set-membership: every sparse value must appear in the dense |E|
+ * set within tolerance. */
+static int test_sparse_lanczos_lowest_matches_dense(void) {
+    const int L = 8;
+    const int Q = 1;
+    irrep_bdg_skyrmion_params_t p;
+    irrep_bdg_skyrmion_params_default(&p, L, Q);
+    p.J_sd = 12.0;
+    p.mu = -12.0; /* strong-coupling sweet spot, μ_eff = 0. */
+    int dim = irrep_bdg_skyrmion_dim(&p);
+
+    double _Complex *H = (double _Complex *)calloc((size_t)dim * dim,
+                                                   sizeof(double _Complex));
+    double *eigvals_dense = (double *)calloc((size_t)dim, sizeof(double));
+    if (!H || !eigvals_dense) { free(H); free(eigvals_dense); return 1; }
+    if (irrep_bdg_skyrmion_build(&p, H) != IRREP_OK
+        || irrep_hermitian_eigvals(dim, H, eigvals_dense) != IRREP_OK) {
+        free(H); free(eigvals_dense); return 1;
+    }
+    /* Build dense |E| set (sorted ascending). */
+    double *abs_all = (double *)malloc((size_t)dim * sizeof(double));
+    if (!abs_all) { free(H); free(eigvals_dense); return 1; }
+    for (int i = 0; i < dim; ++i) abs_all[i] = fabs(eigvals_dense[i]);
+    /* Insertion-sort small-dim array ascending. */
+    for (int i = 0; i < dim - 1; ++i) {
+        for (int j = i + 1; j < dim; ++j) {
+            if (abs_all[j] < abs_all[i]) {
+                double tmp = abs_all[i]; abs_all[i] = abs_all[j]; abs_all[j] = tmp;
+            }
+        }
+    }
+    free(H); free(eigvals_dense);
+
+    const int K = 4;
+    double sparse_lowest[K];
+    if (irrep_bdg_skyrmion_lanczos_lowest_abs_eigvals(
+            &p, /*k_wanted=*/K, /*max_iters=*/120, sparse_lowest) != IRREP_OK) {
+        fprintf(stderr, "FAIL sparse Lanczos call returned non-OK\n");
+        free(abs_all);
+        return 1;
+    }
+    /* Sparse values must be ascending. */
+    int rc = 0;
+    for (int i = 1; i < K; ++i) {
+        if (sparse_lowest[i] < sparse_lowest[i - 1] - 1e-12) {
+            fprintf(stderr, "FAIL sparse output not sorted ascending\n");
+            rc = 1;
+        }
+    }
+    /* Set-membership: every sparse value within 1e-5 of some dense |E|. */
+    for (int i = 0; i < K; ++i) {
+        int matched = 0;
+        for (int j = 0; j < dim; ++j) {
+            if (fabs(sparse_lowest[i] - abs_all[j]) < 1e-5) { matched = 1; break; }
+        }
+        if (!matched) {
+            fprintf(stderr, "FAIL sparse[%d]=%.10g not found in dense |E| set\n",
+                    i, sparse_lowest[i]);
+            rc = 1;
+        }
+    }
+    /* Sparse[0] (the actual minimum |E|) must equal dense[0] within tol —
+     * Lanczos always converges fastest on the extremal eigenvalue. */
+    if (fabs(sparse_lowest[0] - abs_all[0]) > 1e-6) {
+        fprintf(stderr, "FAIL sparse min |E| = %.10g vs dense min = %.10g\n",
+                sparse_lowest[0], abs_all[0]);
+        rc = 1;
+    }
+    free(abs_all);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     if (test_params_default())   { fprintf(stderr, "FAIL params_default\n"); rc = 1; }
@@ -226,6 +307,11 @@ int main(void) {
             rc = 1;
         }
         free(H); free(eigvals);
+    }
+
+    if (test_sparse_lanczos_lowest_matches_dense()) {
+        fprintf(stderr, "FAIL sparse_lanczos_lowest_matches_dense\n");
+        rc = 1;
     }
     return rc;
 }

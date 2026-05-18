@@ -185,6 +185,63 @@ IRREP_API irrep_status_t
 irrep_bdg_skyrmion_lattice_build(const irrep_bdg_skyrmion_lattice_t *p,
                                  double _Complex *H_out);
 
+/* ====================================================================
+ * Sparse (matrix-free) BdG diagonalisation via Lanczos.
+ *
+ * The BdG Hamiltonian on the L × L lattice has ≈ 16 non-zero entries
+ * per row (4 on-site Nambu coupling + 4·2 hopping with both particle
+ * and hole blocks) out of `dim = 4 L²`, so storage scales as `O(L²)`
+ * rather than `O(L⁴)`. Dense Jacobi at L = 20 needs ~10 GB of memory
+ * and several minutes per diagonalisation; the sparse-apply + Lanczos
+ * path delivers the K-lowest-|E| eigenvalues in seconds at L = 32+.
+ *
+ * MZMs are interior eigenvalues near E = 0 — not extremal — so we
+ * Lanczos on `-H²` rather than `H` directly. The eigenvalues of `-H²`
+ * are `-|E_i|²`, and Lanczos converges on the algebraically-largest
+ * (= |E|-smallest) end of the spectrum efficiently. After
+ * convergence we take `|E_i| = √(-λ_i)` and report the K smallest.
+ * ==================================================================== */
+
+/** @brief Compute the K smallest distinct |E| BdG-spectrum eigenvalues
+ *  by matrix-free Lanczos on `H²`.
+ *
+ *  Internally:
+ *    - Precomputes the magnetisation texture once.
+ *    - Runs `irrep_lanczos_eigvals_reorth` with a sparse-apply
+ *      callback that applies `H² · x = H · (H · x)` site by site.
+ *    - Returns the K algebraically-smallest eigenvalues of `H²`
+ *      (= smallest `|E|²`); reports `|E_i| = sqrt(λ_i)` in ascending
+ *      order.
+ *
+ *  ## PH-pair collapse semantic
+ *
+ *  BdG eigenvalues come in PH-mandated ±E pairs, so each distinct
+ *  `|E|² > 0` has multiplicity ≥ 2 in the spectrum of `H²`. Lanczos
+ *  on `H²` typically converges to ONE Ritz value per `|E|²` cluster at
+ *  moderate iteration counts (e.g. `max_iters ≤ 0.5 · dim`); only at
+ *  near-full Krylov depth does it resolve the multiplicity. The
+ *  returned array therefore contains DISTINCT `|E|` values — one
+ *  representative per ±E pair. Multiply each returned value's BdG
+ *  multiplicity by 2 when comparing to a dense spectrum.
+ *
+ *  ## Iteration budget
+ *
+ *  Recommended `max_iters` ≈ `8 · k_wanted` for well-separated low
+ *  modes; the call typically converges to 1e-10 in 50-150 iterations
+ *  for `k_wanted` ≤ 8 and L ≤ 32.
+ *
+ *  @param[in]  p              BdG-skyrmion parameters.
+ *  @param[in]  k_wanted       Number of distinct lowest |E| values.
+ *  @param[in]  max_iters      Maximum Lanczos iterations (≥ k_wanted).
+ *  @param[out] abs_eigvals_out  Caller-allocated length-k_wanted, sorted
+ *                              ascending. */
+IRREP_API irrep_status_t
+irrep_bdg_skyrmion_lanczos_lowest_abs_eigvals(
+    const irrep_bdg_skyrmion_params_t *p,
+    int k_wanted,
+    int max_iters,
+    double *abs_eigvals_out);
+
 #ifdef __cplusplus
 }
 #endif

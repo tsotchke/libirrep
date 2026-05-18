@@ -9,6 +9,7 @@
  *  documented in `bdg_skyrmion.h`. */
 
 #include <irrep/bdg_skyrmion.h>
+#include <irrep/rdm.h>
 #include <irrep/types.h>
 
 #include <complex.h>
@@ -367,5 +368,160 @@ irrep_bdg_skyrmion_lattice_build(const irrep_bdg_skyrmion_lattice_t *p,
     }
 
     free(S);
+    return IRREP_OK;
+}
+
+/* ====================================================================
+ * Sparse (matrix-free) BdG apply + Lanczos.
+ *
+ * Per-row non-zeros:
+ *   - On-site 4×4 Nambu block contributes 4 entries per row (3 within
+ *     the spin block + 1 cross pairing entry).
+ *   - Each NN bond (up to 4 per site) contributes 1 entry per row.
+ *
+ * Total ≤ 4 + 4 = 8 entries per row; sparsity factor ~ 1/(L²/2).
+ *
+ * We Lanczos on H² (positive semi-definite, eigenvalues |E_i|²) and
+ * return the algebraically-smallest k — exactly the K lowest |E|².
+ * sqrt of these gives the K lowest |E| values.
+ * ==================================================================== */
+
+typedef struct {
+    int     L;
+    double  t;
+    double  mu;
+    double  J_sd;
+    double  Delta_0;
+    const double *S;            /* texture, length 3·L² */
+    double _Complex *tmp;       /* length 4·L² workspace for H·x in H²·x */
+} bdg_sparse_ctx_t;
+
+/* y = H · x, single application. Iterates rows and accumulates from
+ * the on-site block plus the four NN bonds (each visited once via the
+ * +x/+y enumeration with both sides updated, matching the dense
+ * assembly's symmetric add). */
+static void
+bdg_apply_H(const double _Complex *x, double _Complex *y,
+            const bdg_sparse_ctx_t *c)
+{
+    const int       L       = c->L;
+    const long long n_sites = (long long)L * L;
+    const long long dim     = 4 * n_sites;
+    memset(y, 0, (size_t)dim * sizeof(double _Complex));
+
+    const double t = c->t, mu = c->mu, J = c->J_sd, Delta = c->Delta_0;
+
+    for (int ix = 0; ix < L; ++ix) {
+        for (int iy = 0; iy < L; ++iy) {
+            int site = ix * L + iy;
+            const double *Sloc = &c->S[site * 3];
+            double Sx = Sloc[0], Sy = Sloc[1], Sz = Sloc[2];
+            double _Complex Sm = (J * Sx) - I * (J * Sy);
+            double _Complex Sp = (J * Sx) + I * (J * Sy);
+
+            long long b = 4LL * site;
+            double _Complex x0 = x[b + 0];
+            double _Complex x1 = x[b + 1];
+            double _Complex x2 = x[b + 2];
+            double _Complex x3 = x[b + 3];
+
+            /* Row 0 (c↑): diag + spin + pairing (H[0,3] = Δ). */
+            y[b + 0] += (-mu + J * Sz) * x0 + Sm * x1 + Delta  * x3;
+            /* Row 1 (c↓): diag + spin + pairing (H[1,2] = -Δ). */
+            y[b + 1] += (-mu - J * Sz) * x1 + Sp * x0 + (-Delta) * x2;
+            /* Row 2 (c↓†): diag + spin + pairing (H[2,1] = -Δ). */
+            y[b + 2] += ( mu + J * Sz) * x2 + Sm * x3 + (-Delta) * x1;
+            /* Row 3 (-c↑†): diag + spin + pairing (H[3,0] = Δ). */
+            y[b + 3] += ( mu - J * Sz) * x3 + Sp * x2 + Delta  * x0;
+
+            /* NN hopping +x. */
+            if (ix + 1 < L) {
+                long long b2 = 4LL * ((ix + 1) * L + iy);
+                y[b  + 0] += -t * x[b2 + 0];
+                y[b2 + 0] += -t * x[b  + 0];
+                y[b  + 1] += -t * x[b2 + 1];
+                y[b2 + 1] += -t * x[b  + 1];
+                y[b  + 2] +=  t * x[b2 + 2];
+                y[b2 + 2] +=  t * x[b  + 2];
+                y[b  + 3] +=  t * x[b2 + 3];
+                y[b2 + 3] +=  t * x[b  + 3];
+            }
+            /* NN hopping +y. */
+            if (iy + 1 < L) {
+                long long b2 = 4LL * (ix * L + (iy + 1));
+                y[b  + 0] += -t * x[b2 + 0];
+                y[b2 + 0] += -t * x[b  + 0];
+                y[b  + 1] += -t * x[b2 + 1];
+                y[b2 + 1] += -t * x[b  + 1];
+                y[b  + 2] +=  t * x[b2 + 2];
+                y[b2 + 2] +=  t * x[b  + 2];
+                y[b  + 3] +=  t * x[b2 + 3];
+                y[b2 + 3] +=  t * x[b  + 3];
+            }
+        }
+    }
+}
+
+/* Lanczos callback: y = H² · x = H · (H · x). */
+static void
+bdg_apply_Hsq(const double _Complex *x, double _Complex *y, void *ctx)
+{
+    bdg_sparse_ctx_t *c = (bdg_sparse_ctx_t *)ctx;
+    bdg_apply_H(x, c->tmp, c);
+    bdg_apply_H(c->tmp, y, c);
+}
+
+static int
+cmp_double_asc(const void *a, const void *b)
+{
+    double da = *(const double *)a, db = *(const double *)b;
+    return (da < db) ? -1 : (da > db ? 1 : 0);
+}
+
+irrep_status_t
+irrep_bdg_skyrmion_lanczos_lowest_abs_eigvals(
+    const irrep_bdg_skyrmion_params_t *p,
+    int k_wanted,
+    int max_iters,
+    double *abs_eigvals_out)
+{
+    if (p == NULL || abs_eigvals_out == NULL || k_wanted <= 0
+        || max_iters < k_wanted) return IRREP_ERR_INVALID_ARG;
+    const int       L   = p->L;
+    const long long dim = 4LL * L * L;
+    if (k_wanted > dim) return IRREP_ERR_INVALID_ARG;
+
+    double *S = (double *)malloc((size_t)L * L * 3 * sizeof(double));
+    double _Complex *tmp = (double _Complex *)malloc((size_t)dim * sizeof(double _Complex));
+    double *evals = (double *)malloc((size_t)k_wanted * sizeof(double));
+    if (!S || !tmp || !evals) {
+        free(S); free(tmp); free(evals);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+    irrep_status_t s = irrep_bdg_skyrmion_texture(p, S);
+    if (s != IRREP_OK) { free(S); free(tmp); free(evals); return s; }
+
+    bdg_sparse_ctx_t ctx = {
+        .L = L, .t = p->t, .mu = p->mu, .J_sd = p->J_sd,
+        .Delta_0 = p->Delta_0, .S = S, .tmp = tmp,
+    };
+
+    /* Reorth Lanczos: H² near the MZM cluster is nearly degenerate at
+     * |E|² ≈ 0 (a 2|Q|-tuple), so the 3-vector recurrence drifts. */
+    s = irrep_lanczos_eigvals_reorth(
+        bdg_apply_Hsq, &ctx, dim, k_wanted, max_iters,
+        NULL, evals);
+    if (s != IRREP_OK) { free(S); free(tmp); free(evals); return s; }
+
+    /* Tridiagonal Ritz from a finite-precision Lanczos can produce a
+     * spurious negative noise floor (~ machine epsilon · ‖H‖²); clamp
+     * to zero before sqrt. */
+    for (int i = 0; i < k_wanted; ++i) {
+        double v = evals[i] < 0.0 ? 0.0 : evals[i];
+        abs_eigvals_out[i] = sqrt(v);
+    }
+    qsort(abs_eigvals_out, (size_t)k_wanted, sizeof(double), cmp_double_asc);
+
+    free(S); free(tmp); free(evals);
     return IRREP_OK;
 }

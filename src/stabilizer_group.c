@@ -353,3 +353,174 @@ irrep_pauli_in_stabilizer_span(const irrep_stabilizer_group_t *g,
     free(X); free(Z);
     return residual == 0 ? 1 : 0;
 }
+
+/* ====================================================================
+ * Bell-pair contraction (= "measure X_a X_b and Z_a Z_b, then trace
+ * out qubits a and b").
+ *
+ * Implementation: standard stabilizer-formalism Pauli-measurement
+ * algorithm, applied twice (once for each Bell-pair generator), then
+ * a trace-out that drops generators supported purely on {a, b} and
+ * zeroes the (a, b) bits in the rest.
+ * ==================================================================== */
+
+/* Symplectic Pauli-product (sign-ignored): out = out · in. */
+static inline void pauli_xor_into(irrep_pauli_t *out, const irrep_pauli_t *in)
+{
+    for (int w = 0; w < out->n_words; ++w) {
+        out->x[w] ^= in->x[w];
+        out->z[w] ^= in->z[w];
+    }
+}
+
+/* Measure a Pauli `P` (specified by x-bits and z-bits at positions a, b
+ * only — caller has already encoded the measurement operator) on the
+ * stabilizer group `g`. Modifies `g` in place. Returns the index of the
+ * "anti-commuter" generator that was replaced, or -1 if `P` was already
+ * in the centralizer of `g`. */
+static int
+measure_bell_op(irrep_stabilizer_group_t *g,
+                int xa, int xb, int za, int zb,
+                int a, int b)
+{
+    /* Find first anti-commuter. P has X-bits on (a, b) = (xa, xb) and
+     * Z-bits = (za, zb). Symplectic inner product with a generator h:
+     *   sum_i (h.x[i] · P.z[i] + h.z[i] · P.x[i]) mod 2
+     * which reduces (since P is supported on {a, b}) to:
+     *   h.x[a]·za + h.z[a]·xa + h.x[b]·zb + h.z[b]·xb. */
+    int i_anti = -1;
+    for (int i = 0; i < g->n_generators; ++i) {
+        irrep_pauli_letter_t la = irrep_pauli_get(&g->gens[i], a);
+        irrep_pauli_letter_t lb = irrep_pauli_get(&g->gens[i], b);
+        int hxa = (la == IRREP_PAULI_LETTER_X) || (la == IRREP_PAULI_LETTER_Y);
+        int hza = (la == IRREP_PAULI_LETTER_Z) || (la == IRREP_PAULI_LETTER_Y);
+        int hxb = (lb == IRREP_PAULI_LETTER_X) || (lb == IRREP_PAULI_LETTER_Y);
+        int hzb = (lb == IRREP_PAULI_LETTER_Z) || (lb == IRREP_PAULI_LETTER_Y);
+        int sum = hxa * za + hza * xa + hxb * zb + hzb * xb;
+        if ((sum & 1) == 1) { i_anti = i; break; }
+    }
+    if (i_anti < 0) return -1;  /* P already in centralizer */
+
+    /* Reduce every other anti-commuter via pauli_xor_into(g[j], g[i_anti]). */
+    for (int j = 0; j < g->n_generators; ++j) {
+        if (j == i_anti) continue;
+        irrep_pauli_letter_t la = irrep_pauli_get(&g->gens[j], a);
+        irrep_pauli_letter_t lb = irrep_pauli_get(&g->gens[j], b);
+        int hxa = (la == IRREP_PAULI_LETTER_X) || (la == IRREP_PAULI_LETTER_Y);
+        int hza = (la == IRREP_PAULI_LETTER_Z) || (la == IRREP_PAULI_LETTER_Y);
+        int hxb = (lb == IRREP_PAULI_LETTER_X) || (lb == IRREP_PAULI_LETTER_Y);
+        int hzb = (lb == IRREP_PAULI_LETTER_Z) || (lb == IRREP_PAULI_LETTER_Y);
+        int sum = hxa * za + hza * xa + hxb * zb + hzb * xb;
+        if ((sum & 1) == 1) {
+            pauli_xor_into(&g->gens[j], &g->gens[i_anti]);
+        }
+    }
+
+    /* Replace g[i_anti] with the measured Bell-pair operator. */
+    irrep_pauli_t *target = &g->gens[i_anti];
+    /* Zero g[i_anti] first. */
+    for (int w = 0; w < target->n_words; ++w) {
+        target->x[w] = 0;
+        target->z[w] = 0;
+    }
+    if (xa) irrep_pauli_set(target, a, za ? IRREP_PAULI_LETTER_Y : IRREP_PAULI_LETTER_X);
+    else if (za) irrep_pauli_set(target, a, IRREP_PAULI_LETTER_Z);
+    if (xb) irrep_pauli_set(target, b, zb ? IRREP_PAULI_LETTER_Y : IRREP_PAULI_LETTER_X);
+    else if (zb) irrep_pauli_set(target, b, IRREP_PAULI_LETTER_Z);
+
+    return i_anti;
+}
+
+/* Test whether a Pauli is supported purely on the pair {a, b} —
+ * i.e., acts as I on every other qubit. */
+static int
+pauli_supported_on_pair(const irrep_pauli_t *p, int a, int b)
+{
+    for (int q = 0; q < p->n; ++q) {
+        if (q == a || q == b) continue;
+        if (irrep_pauli_get(p, q) != IRREP_PAULI_LETTER_I) return 0;
+    }
+    return 1;
+}
+
+irrep_status_t
+irrep_stabilizer_contract_bell(const irrep_stabilizer_group_t *g_in,
+                               int a, int b,
+                               irrep_stabilizer_group_t *g_out)
+{
+    if (g_in == NULL || g_out == NULL || a == b
+        || a < 0 || a >= g_in->n || b < 0 || b >= g_in->n) {
+        return IRREP_ERR_INVALID_ARG;
+    }
+
+    /* Work on a deep copy of g_in. */
+    irrep_stabilizer_group_t g_work;
+    irrep_status_t s = irrep_stabilizer_group_new(&g_work, g_in->n,
+                                                   g_in->n_generators);
+    if (s != IRREP_OK) return s;
+    for (int i = 0; i < g_in->n_generators; ++i) {
+        irrep_pauli_t *src = &g_in->gens[i];
+        irrep_pauli_t *dst = &g_work.gens[i];
+        for (int w = 0; w < src->n_words; ++w) {
+            dst->x[w] = src->x[w];
+            dst->z[w] = src->z[w];
+        }
+        dst->sign = src->sign;
+    }
+
+    /* Measure X_a X_b (xa=1, xb=1, za=0, zb=0). */
+    (void)measure_bell_op(&g_work, /*xa*/1, /*xb*/1, /*za*/0, /*zb*/0, a, b);
+    /* Measure Z_a Z_b (xa=0, xb=0, za=1, zb=1). */
+    (void)measure_bell_op(&g_work, /*xa*/0, /*xb*/0, /*za*/1, /*zb*/1, a, b);
+
+    /* Build g_out on (n - 2) qubits, dropping generators supported
+     * purely on {a, b} and zeroing (a, b) bits in the rest. */
+    int n_out = g_in->n - 2;
+    /* Map old-qubit-index → new-qubit-index. */
+    int *old_to_new = (int *)malloc((size_t)g_in->n * sizeof(int));
+    if (!old_to_new) { irrep_stabilizer_group_free(&g_work); return IRREP_ERR_OUT_OF_MEMORY; }
+    int new_idx = 0;
+    for (int q = 0; q < g_in->n; ++q) {
+        if (q == a || q == b) { old_to_new[q] = -1; continue; }
+        old_to_new[q] = new_idx++;
+    }
+
+    /* Count surviving generators. */
+    int n_kept = 0;
+    for (int i = 0; i < g_work.n_generators; ++i) {
+        if (!pauli_supported_on_pair(&g_work.gens[i], a, b)) ++n_kept;
+    }
+
+    s = irrep_stabilizer_group_new(g_out, n_out, n_kept > 0 ? n_kept : 1);
+    if (s != IRREP_OK) {
+        free(old_to_new);
+        irrep_stabilizer_group_free(&g_work);
+        return s;
+    }
+    /* If n_kept == 0, leave a single identity generator (n_kept-was-1 above). */
+    if (n_kept == 0) {
+        free(old_to_new);
+        irrep_stabilizer_group_free(&g_work);
+        /* Drop the placeholder identity by reducing generator count to 0. */
+        irrep_stabilizer_group_free(g_out);
+        return irrep_stabilizer_group_new(g_out, n_out, 0);
+    }
+
+    int row = 0;
+    for (int i = 0; i < g_work.n_generators; ++i) {
+        if (pauli_supported_on_pair(&g_work.gens[i], a, b)) continue;
+        irrep_pauli_t *src = &g_work.gens[i];
+        irrep_pauli_t *dst = &g_out->gens[row++];
+        for (int q = 0; q < g_in->n; ++q) {
+            if (q == a || q == b) continue;
+            irrep_pauli_letter_t L = irrep_pauli_get(src, q);
+            if (L != IRREP_PAULI_LETTER_I) {
+                irrep_pauli_set(dst, old_to_new[q], L);
+            }
+        }
+    }
+
+    free(old_to_new);
+    irrep_stabilizer_group_free(&g_work);
+    return IRREP_OK;
+}

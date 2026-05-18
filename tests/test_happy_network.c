@@ -72,10 +72,62 @@ static int test_invalid_args(void) {
     return IRREP_TEST_END();
 }
 
+/* Two-tile contraction: build the joined stabilizer group of two
+ * 6-leg perfect tensors on 12 qubits (tile A: 0..5, tile B: 6..11),
+ * then contract leg 1 of tile A (= qubit 1) with leg 1 of tile B
+ * (= qubit 7). The resulting stabilizer group should sit on 10 qubits
+ * with all generators pairwise commuting. */
+static int test_contract_two_tiles(void) {
+    IRREP_TEST_START("happy_contract_two_tiles");
+
+    /* Build a joined 12-qubit group: 6 stabs per tile lifted to the
+     * 12-qubit space, total 12 stabs. */
+    irrep_stabilizer_group_t g12;
+    IRREP_ASSERT(irrep_stabilizer_group_new(&g12, 12, 12) == IRREP_OK);
+
+    irrep_stabilizer_group_t tile;
+    IRREP_ASSERT(irrep_happy_perfect_tensor_6leg(&tile) == IRREP_OK);
+
+    /* Copy tile A into qubits 0..5 (rows 0..5 of g12). */
+    for (int r = 0; r < 6; ++r) {
+        for (int q = 0; q < 6; ++q) {
+            irrep_pauli_letter_t L = irrep_pauli_get(&tile.gens[r], q);
+            if (L != IRREP_PAULI_LETTER_I) {
+                irrep_pauli_set(&g12.gens[r], q, L);
+            }
+        }
+    }
+    /* Copy tile B into qubits 6..11 (rows 6..11 of g12). */
+    for (int r = 0; r < 6; ++r) {
+        for (int q = 0; q < 6; ++q) {
+            irrep_pauli_letter_t L = irrep_pauli_get(&tile.gens[r], q);
+            if (L != IRREP_PAULI_LETTER_I) {
+                irrep_pauli_set(&g12.gens[6 + r], 6 + q, L);
+            }
+        }
+    }
+    irrep_stabilizer_group_free(&tile);
+
+    /* Sanity: the joined group commutes. */
+    IRREP_ASSERT(irrep_stabilizer_group_check_commutativity(&g12) == IRREP_OK);
+
+    /* Contract qubits 1 and 7 (leg 1 of A ↔ leg 1 of B). */
+    irrep_stabilizer_group_t g10;
+    IRREP_ASSERT(irrep_stabilizer_contract_bell(&g12, 1, 7, &g10) == IRREP_OK);
+    IRREP_ASSERT(g10.n == 10);
+    /* All generators commute after contraction. */
+    IRREP_ASSERT(irrep_stabilizer_group_check_commutativity(&g10) == IRREP_OK);
+
+    irrep_stabilizer_group_free(&g12);
+    irrep_stabilizer_group_free(&g10);
+    return IRREP_TEST_END();
+}
+
 int main(void) {
     int rc = 0;
     rc |= test_perfect_tensor_6leg_shape();
     rc |= test_depth2_network_shape();
     rc |= test_invalid_args();
+    rc |= test_contract_two_tiles();
     return rc;
 }

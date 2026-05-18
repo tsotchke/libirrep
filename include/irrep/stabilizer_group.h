@@ -204,6 +204,49 @@ IRREP_API int
 irrep_pauli_in_stabilizer_span(const irrep_stabilizer_group_t *g,
                                const irrep_pauli_t *p);
 
+/** @brief Bell-pair contraction of qubits `a` and `b` in a stabilizer
+ *  group. Projects the represented state onto the `|Φ+⟩` eigenspace of
+ *  `(X_a X_b, Z_a Z_b)` and traces out qubits `a` and `b`, producing
+ *  a stabilizer group on `(n - 2)` qubits.
+ *
+ *  ## Algorithm (standard stabilizer formalism)
+ *
+ *  Iterate over the two Pauli measurements `X_a X_b` and `Z_a Z_b`:
+ *    1. Find a generator anti-commuting with the measured operator.
+ *       If none, the operator is already in the centralizer; either
+ *       it is in the span (skip) or adds a new logical-bound stabilizer
+ *       (append).
+ *    2. Multiply every other anti-commuting generator by the found
+ *       one (symplectic Gaussian-elimination step), so that exactly
+ *       one generator anti-commutes with the measured operator.
+ *    3. Replace that generator with the measured operator.
+ *  After both measurements, every generator either acts trivially on
+ *  `{a, b}` or has action in the Bell-stabilizer group
+ *  `{I, X⊗X, Z⊗Z, Y⊗Y}` on `{a, b}` (because it commutes with both
+ *  `X_a X_b` and `Z_a Z_b`).
+ *
+ *  Trace-out: generators supported purely on `{a, b}` are dropped;
+ *  the remaining generators have their bits on `{a, b}` zeroed and
+ *  the qubits `a` and `b` removed from the index range.
+ *
+ *  ## Output sizing
+ *
+ *  `g_out` is allocated with `n - 2` qubits. The number of generators
+ *  in `g_out` is at most `g_in->n_generators` (= unchanged in the
+ *  typical case where neither measurement was redundant); slots beyond
+ *  the actual reduced count are left as identity. Callers wanting the
+ *  exact rank can post-process via `irrep_pauli_in_stabilizer_span` /
+ *  Gaussian elimination.
+ *
+ *  ## Returns
+ *
+ *  `IRREP_OK` on success; `IRREP_ERR_INVALID_ARG` if inputs are NULL,
+ *  if `a == b`, or if either is out of range. */
+IRREP_API irrep_status_t
+irrep_stabilizer_contract_bell(const irrep_stabilizer_group_t *g_in,
+                               int a, int b,
+                               irrep_stabilizer_group_t *g_out);
+
 #ifdef __cplusplus
 }
 #endif

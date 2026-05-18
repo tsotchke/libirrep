@@ -23,8 +23,8 @@ literature:
 |----|--------|-------------------|------------|--------|
 | R1 | `[[19, 1, 5]]` hexagonal (6.6.6) triangular color code | Bombín-Martín-Delgado 2006; Landahl-Anderson-Rice 2011 Fig. 3 | Medium | ✅ Shipped via `<irrep/color_codes_2d.h>` |
 | R2 | `[[17, 1, 5]]` square-octagon (4.8.8) triangular color code | Pogorelov 2024 (Quantinuum); Krinner-Lacroix 2024 (IBM) | Medium | ✅ Shipped via `<irrep/color_codes_2d.h>` |
-| R3 | 3D Bombín gauge color code | Bombín 2010 PRA 81 032301 | High | ✅ Substrate shipped: `<irrep/color_code_3d.h>` ([[8,3,2]] cubic static) + `irrep_subsystem_bombin_3d_tetrahedron` in `<irrep/subsystem_code.h>` (tetrahedral 3-colex gauge substrate). Distance-d rectified-3-cubic instances stay research-track |
-| R4 | Multi-tile HaPPY hyperbolic network | Pastawski-Yoshida-Harlow-Preskill 2015 JHEP 06 149 | High | ✅ Substrate shipped: `<irrep/happy_network.h>` (6-leg perfect-tensor primitive + depth-2 36-qubit uncontracted joined stabilizer group with documented contraction edges). Explicit Bell-pair-contracted boundary code extraction stays research-track (needs a symplectic-elimination primitive) |
+| R3 | 3D Bombín gauge color code | Bombín 2010 PRA 81 032301 | High | ✅ Shipped: `<irrep/color_code_3d.h>` — `irrep_color_3d_cube_8_3_2` (d=2 cubic) + `irrep_color_3d_rm_15_1_3` (d=3 Reed-Muller / tetrahedral 3-colex, brute-force distance-3 verified) + `irrep_subsystem_bombin_3d_tetrahedron` (gauge substrate). Arbitrary-L rectified-3-cubic instances still need a generic 3-colex generator |
+| R4 | Multi-tile HaPPY hyperbolic network | Pastawski-Yoshida-Harlow-Preskill 2015 JHEP 06 149 | High | ✅ Shipped: `<irrep/happy_network.h>` — `irrep_happy_perfect_tensor_6leg` (single tile) + `irrep_happy_network_depth2` (36-qubit joined group + contraction pairs) + `irrep_happy_network_depth2_contracted` (5-edge Bell-pair contraction → 26-qubit [[20,6,?]] encoding-isometry stabilizer group with bulk indices `{0, 1, 6, 11, 16, 21}`) |
 
 ## Architectural framework
 

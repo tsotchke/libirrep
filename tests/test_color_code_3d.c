@@ -73,10 +73,88 @@ static int test_cube_8_3_2_invalid_args(void) {
     return IRREP_TEST_END();
 }
 
+/* [[15, 1, 3]] Reed-Muller / tetrahedral 3D color code. */
+static int test_rm_15_1_3_structure(void) {
+    IRREP_TEST_START("color_3d_rm_15_1_3_structure");
+
+    irrep_css_code_t cs;
+    IRREP_ASSERT(irrep_color_3d_rm_15_1_3(&cs) == IRREP_OK);
+    IRREP_ASSERT(cs.n == IRREP_COLOR_3D_RM15_N);
+    IRREP_ASSERT(cs.H_X.n_rows == IRREP_COLOR_3D_RM15_N_X_STABS);
+    IRREP_ASSERT(cs.H_Z.n_rows == IRREP_COLOR_3D_RM15_N_Z_STABS);
+
+    /* CSS orthogonality. */
+    IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
+
+    /* Materialise + commutativity. */
+    irrep_stabilizer_group_t g;
+    IRREP_ASSERT(irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK);
+    IRREP_ASSERT(g.n_generators == IRREP_COLOR_3D_RM15_N_X_STABS
+                                 + IRREP_COLOR_3D_RM15_N_Z_STABS);
+    IRREP_ASSERT(irrep_stabilizer_group_check_commutativity(&g) == IRREP_OK);
+
+    /* Weight expectations.
+     * H_X: all 4 rows weight 8 (one indicator per bit, 8 of 15 points
+     *      have bit b set: those with the high half of the bit). */
+    for (int r = 0; r < IRREP_COLOR_3D_RM15_N_X_STABS; ++r) {
+        int w = 0;
+        for (int q = 0; q < IRREP_COLOR_3D_RM15_N; ++q) {
+            if (irrep_parity_matrix_get(&cs.H_X, r, q)) ++w;
+        }
+        IRREP_ASSERT(w == 8);
+    }
+    /* H_Z: rows 0..3 weight 8 (single-bit), rows 4..9 weight 4 (pair). */
+    for (int r = 0; r < 4; ++r) {
+        int w = 0;
+        for (int q = 0; q < IRREP_COLOR_3D_RM15_N; ++q) {
+            if (irrep_parity_matrix_get(&cs.H_Z, r, q)) ++w;
+        }
+        IRREP_ASSERT(w == 8);
+    }
+    for (int r = 4; r < 10; ++r) {
+        int w = 0;
+        for (int q = 0; q < IRREP_COLOR_3D_RM15_N; ++q) {
+            if (irrep_parity_matrix_get(&cs.H_Z, r, q)) ++w;
+        }
+        IRREP_ASSERT(w == 4);
+    }
+    irrep_stabilizer_group_free(&g);
+    irrep_css_code_free(&cs);
+    return IRREP_TEST_END();
+}
+
+static int test_rm_15_1_3_distance(void) {
+    IRREP_TEST_START("color_3d_rm_15_1_3_distance");
+    irrep_css_code_t cs;
+    IRREP_ASSERT(irrep_color_3d_rm_15_1_3(&cs) == IRREP_OK);
+    irrep_stabilizer_group_t g;
+    IRREP_ASSERT(irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK);
+
+    /* Brute-force enumerate up to weight 3. The expected distance is 3:
+     *   - no weight-1 or weight-2 Pauli is in the centralizer minus
+     *     the stabilizer group;
+     *   - a weight-3 Pauli exists (the PG(3,2) line {0,1,2}). */
+    int d = irrep_qec_distance_brute(&g, /*max_weight*/ 3);
+    IRREP_ASSERT(d == IRREP_COLOR_3D_RM15_DISTANCE);
+
+    irrep_stabilizer_group_free(&g);
+    irrep_css_code_free(&cs);
+    return IRREP_TEST_END();
+}
+
+static int test_rm_15_1_3_invalid_args(void) {
+    IRREP_TEST_START("color_3d_rm_15_1_3_invalid_args");
+    IRREP_ASSERT(irrep_color_3d_rm_15_1_3(NULL) == IRREP_ERR_INVALID_ARG);
+    return IRREP_TEST_END();
+}
+
 int main(void) {
     int rc = 0;
     rc |= test_cube_8_3_2_structure();
     rc |= test_cube_8_3_2_distance();
     rc |= test_cube_8_3_2_invalid_args();
+    rc |= test_rm_15_1_3_structure();
+    rc |= test_rm_15_1_3_distance();
+    rc |= test_rm_15_1_3_invalid_args();
     return rc;
 }

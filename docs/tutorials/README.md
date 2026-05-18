@@ -14,6 +14,21 @@ who has already cloned, built, and passed `make test`:
 | 7 | [Kagome NQS substrate](07_kagome_nqs_substrate.md) | lattice + space-group + RDM pipeline |
 | 8 | [Materials-search pipeline](08_materials_search.md) | `lattice3d.h` + cubic point groups + `dmi.h` (DMI / J^s symmetry analyzer) |
 
+## 1.5 — BdG-skyrmion zero-mode finder
+
+The 1.5.0 cycle adds the `bdg_skyrmion` module — a 2D BdG Hamiltonian
+builder for a Belavin-Polyakov skyrmion on an s-wave superconductor,
+the numerical substrate for **Theorem 3.1** (Yang-Lieu-Kivelson-Lake)
+on 2|Q| Majorana zero modes.
+
+| Topic | Header | Test / example |
+|---|---|---|
+| Skyrmion BdG Hamiltonian + zero-mode count | `<irrep/bdg_skyrmion.h>` | `tests/test_bdg_skyrmion.c` (L=10, Q=1 demo); `examples/bdg_skyrmion_theorem_3_1_demo.c` (Q ∈ {1, 2, 3} sweep) |
+
+The example shows the topological 2|Q| count emerging from full
+diagonalisation, plus the finite-size physics where MZMs lift to
+sub-gap energies at smaller L:Q ratios.
+
 ## 1.4 — quantum-error-correction substrate
 
 The 1.4.0 cycle adds an 18-module quantum-error-correction layer (toric,

@@ -72,6 +72,7 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | `<irrep/subsystem_code.h>` (1.4) | Bacon-Shor `[[9, 1, 3]]` non-abelian gauge code | `irrep_subsystem_code_t` | `irrep_subsystem_code_new`, `_free`, `_in_centraliser`, `irrep_subsystem_bacon_shor_9_1_3` |
 | `<irrep/concatenated_code.h>` (1.4) | Knill-Laflamme inner ⊗ outer CSS composition | — | `irrep_css_concatenate` |
 | `<irrep/magnon.h>` (1.4-α) | Linearised spin-wave theory: FM + AFM 2D/3D dispersion ω(k), group velocity v_g(k), Hessian H_ij(k) / effective mass / spin stiffness, spin gap + bandwidth, softest-mode locator, Berry curvature, Chern numbers (2D and 3D-on-slice), thermal Hall κ_xy(T), spin Nernst α^s_xy(T), strip dispersion for chiral edge modes, Wilson-loop spectrum, transverse INS structure factor, magnon DOS, internal energy U(T), free energy F(T), specific heat C_V(T), finite-T magnetisation M(T), susceptibility χ(T), neutron Q-ω heatmap | `irrep_magnon_lsw_t`, `irrep_magnon_bond_t` | `irrep_magnon_lsw_new`, `_free`, `irrep_magnon_dispersion`, `irrep_magnon_dispersion_3d`, `irrep_magnon_dispersion_general`, `irrep_magnon_afm_zero_point`, `irrep_magnon_group_velocity`, `irrep_magnon_hessian`, `irrep_magnon_band_extrema`, `irrep_magnon_softest_mode`, `irrep_magnon_berry`, `irrep_magnon_chern`, `irrep_magnon_chern_3d_slice_kz`, `irrep_magnon_dos`, `irrep_magnon_free_energy`, `irrep_magnon_internal_energy`, `irrep_magnon_magnetization`, `irrep_magnon_neutron_qomega_map`, `irrep_magnon_specific_heat`, `irrep_magnon_spin_nernst`, `irrep_magnon_structure_factor`, `irrep_magnon_susceptibility`, `irrep_magnon_thermal_hall_kxy`, `irrep_magnon_strip_dispersion`, `irrep_magnon_wilson_spectrum`, `irrep_magnon_lsw_num_bands` |
+| `<irrep/bdg_skyrmion.h>` (1.5) | 2D Bogoliubov-de Gennes Hamiltonian for a Belavin-Polyakov skyrmion on an s-wave SC. Numerical substrate for Theorem 3.1 (Yang-Lieu-Kivelson-Lake): a charge-Q skyrmion hosts 2|Q| Majorana zero modes. | `irrep_bdg_skyrmion_params_t`, `irrep_skyrmion_profile_t` | `irrep_bdg_skyrmion_params_default`, `irrep_bdg_skyrmion_dim`, `irrep_bdg_skyrmion_texture`, `irrep_bdg_skyrmion_build`, `irrep_bdg_skyrmion_count_zero_modes` |
 | `<irrep/irrep.h>` | umbrella | — | all of the above |
 
 ---
@@ -736,6 +737,40 @@ sector with `J = two_J_target/2`. Implementation: integrate
 quadrature on Euler angles, with `χ_J(R)` the SO(3) character.
 The Marshall sign-rule structure of `1/2`-singlets falls out of
 `two_J_target = 0`.
+
+### `bdg_skyrmion.h` — 2D BdG-skyrmion zero-mode finder (1.5)
+
+The numerical substrate for **Theorem 3.1** (Yang-Lieu-Kivelson-Lake)
+of the T_skyrmion paper: a Belavin-Polyakov skyrmion of topological
+charge Q on a 2D s-wave SC with strong sd-coupling hosts exactly 2|Q|
+Majorana zero modes localised at its core.
+
+Pipeline:
+
+1. `irrep_bdg_skyrmion_params_default(p, L, Q)` — canonical
+   `{t=1, μ=-3, J_sd=4, Δ_0=1, R_sky=L/8, R_cutoff=L/3, profile=TAPERED}`.
+2. `irrep_bdg_skyrmion_texture(p, S)` — fills the `L × L × 3`
+   Belavin-Polyakov skyrmion texture.
+3. `irrep_bdg_skyrmion_build(p, H)` — assembles the dense `(4L²) × (4L²)`
+   complex Hermitian BdG matrix in the YLSK Nambu basis
+   `(c↑, c↓, c↓†, -c↑†)`.
+4. `irrep_hermitian_eigvals(dim, H, eigvals)` — diagonalise via the
+   existing cyclic-Jacobi solver in `rdm.h`.
+5. `irrep_bdg_skyrmion_count_zero_modes(eigvals, dim, tol)` — count
+   `|λ| < tol` from the spectrum.
+
+The spectrum is automatically particle-hole symmetric (eigenvalues
+come in ± pairs, see `test_bdg_skyrmion.c:test_spectrum_ph_symmetric`).
+The H-level PH operator has subtle basis-specific sign conventions
+in the YLSK basis (block-iσ_y on the (0,3) and (1,2) sub-spaces with
+asymmetric signs); we expose the spectral consequence rather than
+the operator-level check since that's what users need.
+
+For `L=10, Q=1, J_sd=12, μ_eff=0`: 2 MZMs at `|E| ≈ 0.02`, well
+separated from the next sub-gap pair at 0.07 and the bulk gap at
+0.65. Full diagonalisation of the 400-dim matrix takes ~1 s on
+Apple M2 Ultra. See `examples/bdg_skyrmion_theorem_3_1_demo.c` for
+the Q ∈ {1, 2, 3} sweep at the same lattice size.
 
 ### `stabilizer_group.h` — symplectic Pauli + abstract stabilizer group (1.4)
 

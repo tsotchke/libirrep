@@ -91,6 +91,15 @@ static int run_for_d(int d) {
     IRREP_ASSERT(anti_Pj_Lx == 0);
     IRREP_ASSERT(anti_Pj_Lz == 0);
 
+    /* Direct verification: P_joint IS in the row-span of S_M. This is
+     * the strongest possible statement that smooth merge measures the
+     * joint-X parity — not just "this Pauli's commutator vanishes" but
+     * "this Pauli is a literal product of stabilizer generators". */
+    IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Pj) == 1);
+    /* The merged logicals L̄_X(M), L̄_Z(M) are NOT in the row-span. */
+    IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lx) == 0);
+    IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lz) == 0);
+
     irrep_pauli_free(&Lx);
     irrep_pauli_free(&Lz);
     irrep_pauli_free(&Pj);
@@ -171,6 +180,12 @@ static int run_rough_for_d(int d) {
     /* P_joint commutes with BOTH merged logicals → stabilizer of M. */
     IRREP_ASSERT(irrep_pauli_symp_inner(&Pj, &Lx) == 0);
     IRREP_ASSERT(irrep_pauli_symp_inner(&Pj, &Lz) == 0);
+
+    /* Direct row-span verification (the strongest possible statement
+     * that rough merge measures the joint-Z parity). */
+    IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Pj) == 1);
+    IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lx) == 0);
+    IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lz) == 0);
 
     irrep_pauli_free(&Lx);
     irrep_pauli_free(&Lz);

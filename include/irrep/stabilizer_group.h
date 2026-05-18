@@ -180,6 +180,30 @@ irrep_stabilizer_syndrome(const irrep_stabilizer_group_t *g,
                           const irrep_pauli_t *error,
                           uint64_t *syndrome);
 
+/** @brief Test whether a Pauli is in the F₂-linear span of the
+ *  stabilizer generators (= an element of the stabilizer group,
+ *  ignoring signs).
+ *
+ *  Concatenates the generators' symplectic vectors as rows of an
+ *  `m × 2n` matrix over F₂ and runs Gaussian elimination on the
+ *  augmented `(m+1) × 2n` system to test whether `p`'s symplectic
+ *  vector is in the row-span. Complexity O(m · n · max(m, n) / 64).
+ *
+ *  Combined with `irrep_pauli_commute`, this lets callers distinguish
+ *  the three cases for a Pauli p relative to the stabilizer group:
+ *    - anti-commutes with some generator   → p ∉ N(<g>)         (returns 0)
+ *    - commutes with all + in row-span     → p ∈ <g> (stabilizer) (returns 1)
+ *    - commutes with all + not in span     → p ∈ N(<g>) \ <g>   (returns 0)
+ *                                              (= a non-trivial logical)
+ *
+ *  @return  1 if `p` lies in the span, 0 if it does not, -1 on error.
+ *           The function does NOT separately check commutativity;
+ *           callers who want a full coset classification should call
+ *           `irrep_pauli_commute` against every generator first. */
+IRREP_API int
+irrep_pauli_in_stabilizer_span(const irrep_stabilizer_group_t *g,
+                               const irrep_pauli_t *p);
+
 #ifdef __cplusplus
 }
 #endif

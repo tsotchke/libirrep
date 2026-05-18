@@ -121,6 +121,13 @@ static int test_hex_19_1_5_logicals(void) {
     IRREP_ASSERT(anti_Lx == 0);
     IRREP_ASSERT(anti_Lz == 0);
 
+    /* Direct row-span verification: the canonical logicals lie in the
+     * normalizer of <g> but NOT in <g> itself — they are honest
+     * non-trivial logical-operator coset representatives, not stabilizers
+     * in disguise. */
+    IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lx) == 0);
+    IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lz) == 0);
+
     irrep_pauli_free(&Lx);
     irrep_pauli_free(&Lz);
     irrep_stabilizer_group_free(&g);
@@ -222,6 +229,11 @@ static int test_488_17_1_5_logicals(void) {
     }
     IRREP_ASSERT(anti_Lx == 0);
     IRREP_ASSERT(anti_Lz == 0);
+
+    /* Direct row-span verification: L̄_X and L̄_Z are non-trivial
+     * logical coset reps (in the normalizer, not in the span). */
+    IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lx) == 0);
+    IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lz) == 0);
 
     irrep_pauli_free(&Lx);
     irrep_pauli_free(&Lz);

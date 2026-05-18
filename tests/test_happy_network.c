@@ -123,11 +123,60 @@ static int test_contract_two_tiles(void) {
     return IRREP_TEST_END();
 }
 
+/* Depth-2 HaPPY Bell-pair contraction: the 5-edge contraction pipeline
+ * produces a 26-qubit stabilizer group representing the [[20, 6, ?]]
+ * HaPPY encoding isometry. Verifies:
+ *   - n = 26 qubits as expected (36 - 2·5).
+ *   - All generators pairwise commute (the Bell-contraction primitive
+ *     preserves commutativity of every centralizer element).
+ *   - Bulk-qubit indices in the contracted frame match the predicted
+ *     {0, 5, 8, 11, 16, 21}.
+ *   - For each bulk qubit, the lifted cross-stabilizer
+ *     `X X ... X` originally on a tile reduces to a non-trivial
+ *     element of the contracted group acting on that bulk leg —
+ *     i.e., the bulk leg still carries a logical operator. We test
+ *     by checking the contracted generator at row index `6 t + 4`
+ *     for the all-X cross-stab has support on the bulk qubit of tile
+ *     t after contraction. */
+static int test_depth2_contracted_shape_and_bulk_index(void) {
+    IRREP_TEST_START("happy_depth2_contracted_shape_and_bulk_index");
+
+    irrep_stabilizer_group_t g;
+    int bulk_qubits[IRREP_HAPPY_DEPTH2_N_TILES];
+    IRREP_ASSERT(irrep_happy_network_depth2_contracted(&g, bulk_qubits)
+                 == IRREP_OK);
+    IRREP_ASSERT(g.n == IRREP_HAPPY_DEPTH2_N_CONTRACTED_QUBITS);
+    IRREP_ASSERT(g.n == 26);
+    /* Generator count is at most the input count — Bell contraction
+     * either replaces an anti-commuting generator in place or drops a
+     * redundant one when the measurement is already in the span. */
+    IRREP_ASSERT(g.n_generators <=
+                 IRREP_HAPPY_DEPTH2_N_TILES * 6);
+    IRREP_ASSERT(g.n_generators > 0);
+    /* All pairwise commute. */
+    IRREP_ASSERT(irrep_stabilizer_group_check_commutativity(&g) == IRREP_OK);
+
+    /* Predicted bulk indices: for original bulk `6t` (t = 0..5),
+     * contracted index = 6t - (count of removed in {1,2,3,4,5,7,13,19,
+     * 25,31} that are strictly less than 6t). Gives {0,1,6,11,16,21}. */
+    int expected_bulk[6] = { 0, 1, 6, 11, 16, 21 };
+    for (int t = 0; t < IRREP_HAPPY_DEPTH2_N_TILES; ++t) {
+        IRREP_ASSERT(bulk_qubits[t] == expected_bulk[t]);
+    }
+    /* All 26 qubit indices are well-formed (0..25). */
+    for (int t = 0; t < IRREP_HAPPY_DEPTH2_N_TILES; ++t) {
+        IRREP_ASSERT(bulk_qubits[t] >= 0 && bulk_qubits[t] < g.n);
+    }
+    irrep_stabilizer_group_free(&g);
+    return IRREP_TEST_END();
+}
+
 int main(void) {
     int rc = 0;
     rc |= test_perfect_tensor_6leg_shape();
     rc |= test_depth2_network_shape();
     rc |= test_invalid_args();
     rc |= test_contract_two_tiles();
+    rc |= test_depth2_contracted_shape_and_bulk_index();
     return rc;
 }

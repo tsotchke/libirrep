@@ -2,9 +2,11 @@
 /** @file happy_network.c
  *  @brief Multi-tile HaPPY hyperbolic network primitives. */
 #include <irrep/happy_network.h>
+#include <irrep/stabilizer_group.h>
 #include <irrep/types.h>
 
 #include <stddef.h>
+#include <stdlib.h>
 
 /* [[5, 1, 3]] boundary generators, lifted to 6-qubit space with `I` on
  * leg 0. From `<irrep/happy_code.h>`:
@@ -103,6 +105,62 @@ irrep_happy_network_depth2(irrep_stabilizer_group_t *out,
         for (int k = 0; k < IRREP_HAPPY_DEPTH2_N_CONTRACTIONS; ++k) {
             contraction_pairs[2 * k + 0] = 0 * per_tile + (k + 1);
             contraction_pairs[2 * k + 1] = (k + 1) * per_tile + 1;
+        }
+    }
+    return IRREP_OK;
+}
+
+/* Map an original qubit index to its index in the contracted frame,
+ * given the list of original qubit indices that have been removed by
+ * previous contractions. Both `original_idx` and entries of `removed`
+ * are in the ORIGINAL 36-qubit numbering. */
+static int
+contracted_frame_index(int original_idx, const int *removed, int n_removed)
+{
+    int shift = 0;
+    for (int k = 0; k < n_removed; ++k) {
+        if (removed[k] < original_idx) ++shift;
+    }
+    return original_idx - shift;
+}
+
+irrep_status_t
+irrep_happy_network_depth2_contracted(irrep_stabilizer_group_t *out,
+                                      int *bulk_qubits_out)
+{
+    if (out == NULL) return IRREP_ERR_INVALID_ARG;
+
+    int pairs[2 * IRREP_HAPPY_DEPTH2_N_CONTRACTIONS];
+    irrep_stabilizer_group_t g_curr;
+    irrep_status_t s = irrep_happy_network_depth2(&g_curr, pairs);
+    if (s != IRREP_OK) return s;
+
+    /* Track which original indices have been removed across iterations. */
+    int removed[2 * IRREP_HAPPY_DEPTH2_N_CONTRACTIONS];
+    int n_removed = 0;
+
+    for (int k = 0; k < IRREP_HAPPY_DEPTH2_N_CONTRACTIONS; ++k) {
+        int orig_a = pairs[2 * k + 0];
+        int orig_b = pairs[2 * k + 1];
+        int curr_a = contracted_frame_index(orig_a, removed, n_removed);
+        int curr_b = contracted_frame_index(orig_b, removed, n_removed);
+
+        irrep_stabilizer_group_t g_next;
+        s = irrep_stabilizer_contract_bell(&g_curr, curr_a, curr_b, &g_next);
+        irrep_stabilizer_group_free(&g_curr);
+        if (s != IRREP_OK) return s;
+        g_curr = g_next;
+
+        removed[n_removed++] = orig_a;
+        removed[n_removed++] = orig_b;
+    }
+
+    *out = g_curr;
+
+    if (bulk_qubits_out != NULL) {
+        for (int t = 0; t < IRREP_HAPPY_DEPTH2_N_TILES; ++t) {
+            int orig = 6 * t;  /* original bulk qubit of tile t */
+            bulk_qubits_out[t] = contracted_frame_index(orig, removed, n_removed);
         }
     }
     return IRREP_OK;

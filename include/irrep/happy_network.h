@@ -137,6 +137,47 @@ IRREP_API irrep_status_t
 irrep_happy_network_depth2(irrep_stabilizer_group_t *out,
                            int *contraction_pairs);
 
+/** @brief Number of qubits after Bell-pair contraction of all 5 edges. */
+#define IRREP_HAPPY_DEPTH2_N_CONTRACTED_QUBITS  26
+
+/** @brief Build the **Bell-pair-contracted** depth-2 HaPPY network.
+ *
+ *  Internally:
+ *    1. Build the 36-qubit joined group with `irrep_happy_network_depth2`.
+ *    2. For each of the 5 contraction edges, apply
+ *       `irrep_stabilizer_contract_bell` in sequence. Each call projects
+ *       onto the `|Φ+⟩` eigenspace of `(X_a X_b, Z_a Z_b)` for the
+ *       pair, then traces out qubits `a` and `b`, re-indexing all
+ *       higher-numbered qubits.
+ *    3. Track index-shift bookkeeping so later contractions reference
+ *       the right qubits.
+ *
+ *  Output is a 26-qubit stabilizer group encoding the post-contracted
+ *  HaPPY state. It has rank 26 (a pure stabilizer state, `k = 0`),
+ *  but is naturally viewed as a `[[20, 6, ?]]` ENCODING ISOMETRY by
+ *  splitting the 26 qubits into:
+ *    - 6 bulk qubits at indices `bulk_qubits_out[0..5]` — the encoded
+ *      logical qubits of the HaPPY code.
+ *    - 20 boundary qubits at all other indices — the physical realisation.
+ *
+ *  Of the 26 stabilizer generators, the 14 acting trivially on every
+ *  bulk leg are the stabilizers of the boundary code; the remaining 12
+ *  cross-couple bulk and boundary, encoding the logical operators
+ *  `(X̄_i, Z̄_i)` for `i = 0..5` modulo stabilizers.
+ *
+ *  Bulk-qubit contracted-frame indices (computed by subtracting from
+ *  each original bulk index `6 t` the number of removed qubits with
+ *  smaller original index): `{0, 1, 6, 11, 16, 21}`.
+ *
+ *  @param[out] out                 26-qubit stabilizer group; caller
+ *                                  must `irrep_stabilizer_group_free`.
+ *  @param[out] bulk_qubits_out     Optional length-6 array; if non-NULL,
+ *                                  written with bulk-qubit indices in
+ *                                  the contracted frame. */
+IRREP_API irrep_status_t
+irrep_happy_network_depth2_contracted(irrep_stabilizer_group_t *out,
+                                      int *bulk_qubits_out);
+
 #ifdef __cplusplus
 }
 #endif

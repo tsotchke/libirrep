@@ -69,22 +69,33 @@ UndefinedBehaviorSanitizer (UBSan) with `-fno-sanitize-recover=undefined`.
   Refs: Horsman et al. arXiv:1111.4022; Litinski arXiv:1808.02892;
   Fowler-Mariantoni-Martinis-Cleland Phys. Rev. A 86 (2012) 032324.
 
-### Removed
-- **`color_codes_2d.h` / `color_codes_2d.c`**: the v1.4.0 cycle shipped
-  two stub declarations — `irrep_color_hex_19_1_5` and
-  `irrep_color_488_17_1_5` — that returned `IRREP_ERR_NOT_IMPLEMENTED`.
-  Constructing the published face-list tables (LAR 2011 Fig. 3 /
-  Kubica 2018 thesis Fig. 2.1.5 for the hex `[[19,1,5]]`; Pogorelov
-  2024 Fig. 2 for the 4.8.8 `[[17,1,5]]`) without access to the
-  source figures proved untractable from first principles, and
-  shipping permanent stubs on the public API surface is dishonest.
-  The deferred items remain documented as research-track work in
-  `docs/qec_research_roadmap.md`; the generic face-list framework
-  (`irrep_generic_color_build`) is the supported entry point once
-  a caller transcribes the table. This is an ABI break for the two
-  removed symbols; no in-tree caller depended on them (they only
-  ever returned an error).
-- ABI baseline refreshed to reflect the removal.
+### Added — `[[19, 1, 5]]` hex color code (finished, no longer a stub)
+- **`<irrep/color_codes_2d.h>`** is restored with a fully-working
+  `irrep_color_hex_19_1_5`. The 19 data-qubit positions and 9 face
+  supports are derived from the standard color-code-stim triangular-
+  patch geometry: `L = round(3·(d-1)/2) = 6` integer rows, with the 9
+  ancilla positions picked by the rule `round((x/2-y)/2) mod 3 ==
+  anc_qubit_pos[y mod 3]` and each face connecting to its 6 hex-
+  neighbour offsets (boundary-truncated where the offset leaves the
+  patch). Faces decompose as 3 weight-6 fully-interior hexagons + 6
+  weight-4 boundary-truncated hexagons; sum of weights = 42 = 2·n + 4.
+  Verified at construction time by `irrep_css_code_verify` (all 36
+  face pairs intersect in 0 or 2 qubits) and tested in
+  `tests/test_color_codes_2d.c` for: face-weight distribution, color-
+  code symmetry `H_X = H_Z`, full stabilizer commutativity, and
+  **code distance d = 5** by brute-force enumeration with
+  `irrep_qec_distance_brute`. References: LAR arXiv:1108.5738
+  (Fig. 3), Kubica thesis (2018), Bombín-Martín-Delgado PRL 97 (2006)
+  180501, Lee github.com/seokhyung-lee/color-code-stim.
+- `irrep_color_488_17_1_5` (the 4.8.8 `[[17, 1, 5]]` variant) is
+  intentionally **not restored**: its construction depends on a
+  specific Pogorelov / Quantinuum figure transcription that is not
+  needed by any in-tree caller. The hex `[[19, 1, 5]]` is the
+  canonical second member of the BMD family and is the one consumers
+  expect from a 2D color-code instance API.
+- ABI baseline refreshed to
+  `874e7a8503b1b5ff07f8b59d4e77b182aed88f54752b8a01475185c368154b0c`
+  (additive — the symbol `irrep_color_hex_19_1_5` re-enters the API).
 - Crane-Yetter / Walker-Wang 4-manifold TQFT for the Ising MTC
   shipped alongside in `<irrep/crane_yetter_ising.h>`: full modular
   data (objects, fusion N^{ab}_c, quantum dimensions, S-matrix,

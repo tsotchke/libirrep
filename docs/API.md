@@ -59,6 +59,7 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | `<irrep/lattice_surgery.h>` (1.5) | Smooth-merge lattice surgery on the rotated surface code | `irrep_lattice_surgery_smooth_t` | `irrep_lattice_surgery_smooth_init`, `_build`, `_logical_X`, `_logical_Z`, `_joint_X_parity` |
 | `<irrep/color_code.h>` (1.4) | Steane `[[7, 1, 3]]` color code | — | `irrep_color_steane` |
 | `<irrep/generic_color_code.h>` (1.4) | Face-list-driven 2D color code framework | `irrep_color_lattice_t`, `irrep_color_t` | `irrep_generic_color_build` |
+| `<irrep/color_codes_2d.h>` (1.5) | `[[19,1,5]]` triangular hex (6.6.6) color code | — | `irrep_color_hex_19_1_5` |
 | `<irrep/bivariate_bicycle.h>` (1.4) | BB qLDPC over `F₂[x,y]/(xˡ-1, yᵐ-1)` (Bravyi *Nature* 2024) | `irrep_bb_poly_t` | `irrep_bb_poly_new`, `_free`, `_add_monomial`, `_get`, `irrep_bb_code_build` |
 | `<irrep/hypergraph_product.h>` (1.4) | Tillich-Zemor 2014 qLDPC from classical `(H_a, H_b)` | — | `irrep_hypergraph_product_build` |
 | `<irrep/lifted_product.h>` (1.4) | Panteleev-Kalachev 2022 abelian lifted product (with σ-antipode in `H_Z`) | `irrep_poly_matrix_t` | `irrep_poly_matrix_new`, `_free`, `_add_monomial`, `_get`, `irrep_lifted_product_build` |
@@ -860,9 +861,19 @@ The face-list framework (`irrep_color_lattice_t` + `_build`) accepts
 any 2D color-code lattice as a list of face supports and validates
 CSS orthogonality at construction. The Steane `[[7, 1, 3]]` instance
 ships as a unit test reproducing the bespoke `irrep_color_steane`
-generator bit-for-bit. Larger `[[19, 1, 5]]` hex and `[[17, 1, 5]]`
-4.8.8 face lists are unbundled research-track work (see
-`docs/qec_research_roadmap.md`).
+generator bit-for-bit.
+
+### `color_codes_2d.h` — `[[19, 1, 5]]` hex color code (1.5)
+
+`irrep_color_hex_19_1_5` produces the second member of the
+Bombín-Martín-Delgado `[[(3d² + 1)/4, 1, d]]` family — 19 data qubits
+on a triangular patch of the 6.6.6 honeycomb, with 9 face stabilizers
+(both X and Z) decomposing as 3 weight-6 interior hexagons + 6
+weight-4 boundary-truncated hexagons. The geometry follows the
+color-code-stim integer-coordinate convention. Verified at
+construction (CSS orthogonality) and tested for distance d = 5 via
+`irrep_qec_distance_brute`. References: LAR 2011 arXiv:1108.5738
+Fig. 3; Bombín-Martín-Delgado PRL 97 (2006) 180501.
 
 ---
 

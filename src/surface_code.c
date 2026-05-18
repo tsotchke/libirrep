@@ -4,6 +4,7 @@
 #include <irrep/surface_code.h>
 #include <irrep/types.h>
 
+#include <stddef.h>
 #include <stdlib.h>
 
 static inline int qcoord(int r, int c, int d) { return r * d + c; }
@@ -115,5 +116,39 @@ irrep_surface_build(const irrep_surface_params_t *p, irrep_css_code_t *out)
         }
     }
 
+    return IRREP_OK;
+}
+
+/* ====================================================================
+ * Logical operators
+ * ==================================================================== */
+
+irrep_status_t
+irrep_surface_logical_X(const irrep_surface_params_t *p, irrep_pauli_t *out)
+{
+    if (p == NULL || out == NULL) return IRREP_ERR_INVALID_ARG;
+    int d = p->distance;
+    if (d < 2) return IRREP_ERR_INVALID_ARG;
+    irrep_status_t s = irrep_pauli_new(out, p->n_qubits);
+    if (s != IRREP_OK) return s;
+    /* L_X = X-string on column 0: qubits q(r, 0) = r*d for r ∈ [0, d). */
+    for (int r = 0; r < d; ++r) {
+        irrep_pauli_set(out, qcoord(r, 0, d), IRREP_PAULI_LETTER_X);
+    }
+    return IRREP_OK;
+}
+
+irrep_status_t
+irrep_surface_logical_Z(const irrep_surface_params_t *p, irrep_pauli_t *out)
+{
+    if (p == NULL || out == NULL) return IRREP_ERR_INVALID_ARG;
+    int d = p->distance;
+    if (d < 2) return IRREP_ERR_INVALID_ARG;
+    irrep_status_t s = irrep_pauli_new(out, p->n_qubits);
+    if (s != IRREP_OK) return s;
+    /* L_Z = Z-string on row 0: qubits q(0, c) = c for c ∈ [0, d). */
+    for (int c = 0; c < d; ++c) {
+        irrep_pauli_set(out, qcoord(0, c, d), IRREP_PAULI_LETTER_Z);
+    }
     return IRREP_OK;
 }

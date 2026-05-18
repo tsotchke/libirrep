@@ -65,6 +65,7 @@
 
 #include <irrep/css_code.h>
 #include <irrep/export.h>
+#include <irrep/stabilizer_group.h>
 #include <irrep/types.h>
 
 #ifdef __cplusplus
@@ -90,6 +91,35 @@ irrep_surface_init(irrep_surface_params_t *out, int distance);
  *  `H_Z`). Caller must `irrep_css_code_free` when done. */
 IRREP_API irrep_status_t
 irrep_surface_build(const irrep_surface_params_t *p, irrep_css_code_t *out);
+
+/** @brief Build the canonical logical X̄ operator for the rotated
+ *  surface code: an X-string of length d running along column 0 from
+ *  the top rough boundary to the bottom rough boundary.
+ *
+ *  L_X = ∏_{r=0..d-1} X on qubit q(r, 0).
+ *
+ *  Properties:
+ *    - Weight d (matches the code distance).
+ *    - Commutes with every stabilizer (each Z-stabilizer either has
+ *      no support on column 0 or has exactly two qubits there).
+ *    - Anti-commutes with `irrep_surface_logical_Z` on the shared
+ *      corner qubit q(0, 0).
+ *
+ *  The Pauli `out` is allocated by this function; caller must
+ *  `irrep_pauli_free` when done. */
+IRREP_API irrep_status_t
+irrep_surface_logical_X(const irrep_surface_params_t *p, irrep_pauli_t *out);
+
+/** @brief Build the canonical logical Z̄ operator: a Z-string of
+ *  length d running along row 0 from the left smooth boundary to the
+ *  right smooth boundary.
+ *
+ *  L_Z = ∏_{c=0..d-1} Z on qubit q(0, c).
+ *
+ *  Properties: weight d, commutes with every stabilizer, anti-commutes
+ *  with `irrep_surface_logical_X` on q(0, 0). */
+IRREP_API irrep_status_t
+irrep_surface_logical_Z(const irrep_surface_params_t *p, irrep_pauli_t *out);
 
 #ifdef __cplusplus
 }

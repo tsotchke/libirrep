@@ -110,6 +110,39 @@ static int test_d5_weights(void) {
     return 0;
 }
 
+/* Logical X̄ and Z̄ must commute with every stabilizer and anti-commute
+ * with each other.  */
+static int test_logical_operators(int d) {
+    irrep_surface_params_t p;
+    if (irrep_surface_init(&p, d) != IRREP_OK) return 1;
+    irrep_css_code_t c;
+    if (irrep_surface_build(&p, &c) != IRREP_OK) return 1;
+    irrep_stabilizer_group_t g;
+    int rc = 1;
+    if (irrep_css_code_to_stabilizer_group(&c, &g) == IRREP_OK) {
+        irrep_pauli_t Lx, Lz;
+        if (irrep_surface_logical_X(&p, &Lx) == IRREP_OK &&
+            irrep_surface_logical_Z(&p, &Lz) == IRREP_OK) {
+            rc = 0;
+            /* Weight checks. */
+            if (irrep_pauli_weight(&Lx) != d) rc = 1;
+            if (irrep_pauli_weight(&Lz) != d) rc = 1;
+            /* Commute with every stabilizer. */
+            for (int i = 0; i < g.n_generators; ++i) {
+                if (!irrep_pauli_commute(&g.gens[i], &Lx)) rc = 1;
+                if (!irrep_pauli_commute(&g.gens[i], &Lz)) rc = 1;
+            }
+            /* Anti-commute with each other. */
+            if (irrep_pauli_commute(&Lx, &Lz)) rc = 1;
+        }
+        irrep_pauli_free(&Lx);
+        irrep_pauli_free(&Lz);
+        irrep_stabilizer_group_free(&g);
+    }
+    irrep_css_code_free(&c);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     if (test_init_counts())          { fprintf(stderr, "FAIL test_init_counts\n"); rc = 1; }
@@ -120,5 +153,8 @@ int main(void) {
     if (test_build_and_verify(9))    { fprintf(stderr, "FAIL test_build_and_verify(d=9)\n"); rc = 1; }
     if (test_d3_explicit_weights())  { fprintf(stderr, "FAIL test_d3_explicit_weights\n"); rc = 1; }
     if (test_d5_weights())           { fprintf(stderr, "FAIL test_d5_weights\n"); rc = 1; }
+    if (test_logical_operators(3))   { fprintf(stderr, "FAIL test_logical_operators(d=3)\n"); rc = 1; }
+    if (test_logical_operators(5))   { fprintf(stderr, "FAIL test_logical_operators(d=5)\n"); rc = 1; }
+    if (test_logical_operators(7))   { fprintf(stderr, "FAIL test_logical_operators(d=7)\n"); rc = 1; }
     return rc;
 }

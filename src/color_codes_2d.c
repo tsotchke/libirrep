@@ -41,30 +41,66 @@
 
 #include <stddef.h>
 
+/* TODO(R1): Triangular hex [[19, 1, 5]] color code face list.
+ *
+ * Completion is mechanical once the LAR 2011 Fig. 3 / Kubica thesis
+ * Fig. 2.1.5 vertex-numbering + face-membership are transcribed.
+ *
+ * Acceptance criteria (each verifiable in seconds):
+ *   - n_qubits = 19, n_faces = 9.
+ *   - Face weights: exactly 3 weight-3 corners + 6 weight-6 interior.
+ *   - irrep_css_code_verify(&out) returns IRREP_OK (i.e., every pair of
+ *     faces shares an even number of qubits).
+ *   - Each qubit appears in either 1 face (3 corner qubits), 2 faces
+ *     (6 edge qubits), or 3 faces (10 interior qubits). Self-consistency:
+ *     3·3 + 6·6 = 45 = 1·3 + 2·6 + 3·10 = 45. ✓
+ *   - irrep_qec_distance_brute(&g, 5) returns 5 (brute-force distance
+ *     enumerator handles n=19 at weight 5 in well under a minute).
+ *
+ * Drop-in template (fill in the 9 face_qubits[][] arrays):
+ *
+ *     static const int face_R_corner[3] = { ?, ?, ? };
+ *     static const int face_G_corner[3] = { ?, ?, ? };
+ *     static const int face_B_corner[3] = { ?, ?, ? };
+ *     static const int face_interior_0[6] = { ?, ?, ?, ?, ?, ? };
+ *     ... face_interior_1 ... face_interior_5 ...
+ *
+ *     static const int sizes[9] = { 3, 3, 3, 6, 6, 6, 6, 6, 6 };
+ *     static const int *qubits[9] = { face_R_corner, face_G_corner,
+ *         face_B_corner, face_interior_0, ..., face_interior_5 };
+ *     irrep_color_lattice_t L = { .n_qubits = 19, .n_faces = 9,
+ *         .face_sizes = sizes, .face_qubits = qubits, .face_color = NULL };
+ *     return irrep_generic_color_build(&L, out);
+ *
+ * Multiple prior attempts at reconstructing this face list from first
+ * principles failed CSS-orthogonality (pairs of candidate faces meeting
+ * in odd counts); the published figure is the load-bearing input.
+ */
 irrep_status_t
 irrep_color_hex_19_1_5(irrep_css_code_t *out)
 {
-    /* Research-track: requires explicit translation of LAR 2011 Fig. 3
-     * vertex / face labels to a face_qubits[][] table. The framework is
-     * in place via `irrep_generic_color_build`; only the table is
-     * outstanding.
-     *
-     * Acceptance criteria once filled:
-     *   - n_qubits = 19, n_faces = 9.
-     *   - 3 weight-3 + 6 weight-6 faces.
-     *   - irrep_css_code_verify returns IRREP_OK.
-     *   - Brute-force distance up to weight 5 returns 5 (n=19 is in
-     *     range for our brute-force enumerator).
-     */
     if (out == NULL) return IRREP_ERR_INVALID_ARG;
     return IRREP_ERR_NOT_IMPLEMENTED;
 }
 
+/* TODO(R2): Triangular [[17, 1, 5]] color code on the 4.8.8 (square-octagon)
+ * lattice. Completion criteria parallel to R1:
+ *   - n_qubits = 17, n_faces = 8 (1 weight-8 octagon + 4 weight-4 squares
+ *     + 3 weight-3 corner-truncated boundaries).
+ *   - Sum of weights = 8 + 16 + 9 = 33 = 1·3 + 2·6 + 3·8 (3 corners,
+ *     6 edges, 8 interior).
+ *   - Verifier: irrep_css_code_verify + brute-force distance returns 5.
+ *
+ * Drop-in template:
+ *   static const int face_octagon[8] = { ?, ... };
+ *   static const int face_sq_0[4] = { ?, ?, ?, ? };  ... face_sq_3 ...
+ *   static const int face_R_corner[3] = { ?, ?, ? };  ... G, B ...
+ *
+ * Load-bearing input: Pogorelov 2024 (Quantinuum) Fig. 2 vertex/face labels.
+ */
 irrep_status_t
 irrep_color_488_17_1_5(irrep_css_code_t *out)
 {
-    /* Research-track: requires explicit translation of Pogorelov 2024
-     * Fig. 2 vertex / face labels to a face_qubits[][] table. */
     if (out == NULL) return IRREP_ERR_INVALID_ARG;
     return IRREP_ERR_NOT_IMPLEMENTED;
 }

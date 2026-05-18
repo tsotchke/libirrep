@@ -1,17 +1,19 @@
 # libirrep
 
-> **Status: pre-release — `v1.4.0`.** Public API guarded by an ABI
+> **Status: pre-release — `v1.5.0`.** Public API guarded by an ABI
 > hash and a regression gate. Numerical kernels at machine precision across
-> every documented `j` regime. **53 public headers, 63 test suites, 0
+> every documented `j` regime. **54 public headers, 64 test suites, 0
 > Doxygen warnings, ASan + UBSan clean.** Active downstream consumer:
 > `spin_based_neural_network` (SbNN) pins `LIBIRREP_MIN=1.3.0-alpha`
 > and links via `src/libirrep_bridge.c` against the multiset / NequIP /
 > spherical-harmonic / CG / Wigner-d API surfaces. The v1.4.0 cycle
-> adds an 18-module quantum-error-correction substrate (toric, surface,
+> added an 18-module quantum-error-correction substrate (toric, surface,
 > color, BB qLDPC, hypergraph + lifted product, honeycomb + CSS
 > Floquet, 3D toric, X-cube fracton, HaPPY perfect tensor, single-shot
-> meta-checks, Bacon-Shor subsystem, Steane⊗Steane concatenation) on
-> top of the existing representation-theory layer.
+> meta-checks, Bacon-Shor subsystem, Steane⊗Steane concatenation). The
+> v1.5.0 cycle adds the **BdG-skyrmion zero-mode finder** (Theorem 3.1
+> substrate from the T_skyrmion paper: 2|Q| Majorana zero modes from a
+> charge-Q skyrmion on a 2D s-wave superconductor).
 
 A pure-C11 library of SO(3) / SU(2) / O(3) / SE(3) representation-theory
 primitives — spherical harmonics, Wigner-D rotation matrices, Clebsch–

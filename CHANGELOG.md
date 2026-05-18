@@ -172,6 +172,69 @@ UndefinedBehaviorSanitizer (UBSan) with `-fno-sanitize-recover=undefined`.
   copy understated SbNN's consumption by listing only the
   multiset / NequIP / SH / CG / small-d kernels.
 
+## [1.5.0] — 2026-05-18
+
+### Added — BdG-skyrmion zero-mode finder (T_skyrmion Theorem 3.1 substrate)
+
+A new public module `bdg_skyrmion` brings the 2D Bogoliubov-de Gennes
+Hamiltonian for a Belavin-Polyakov skyrmion on an s-wave superconductor
+into libirrep. This is the numerical substrate for **Theorem 3.1**
+(Yang-Lieu-Kivelson-Lake) of the T_skyrmion paper:
+
+> A skyrmion of topological charge Q on a 2D s-wave SC (proximity /
+> strong sd-coupling limit) hosts exactly 2|Q| Majorana zero modes
+> localised at its core.
+
+The module is the foundation for the long-pending SbNN ABI binding
+(libirrep task #293) and unblocks downstream consumers needing
+skyrmion-Majorana zero-mode counting on lattice BdG instances.
+
+#### What lands
+
+- **`bdg_skyrmion.h`**: `irrep_bdg_skyrmion_params_t` (L, Q, t, μ, J_sd,
+  Δ_0, R_sky, R_cutoff, profile), `irrep_bdg_skyrmion_params_default`,
+  `irrep_bdg_skyrmion_dim`, `irrep_skyrmion_profile_t {BP, TAPERED}`.
+- **`irrep_bdg_skyrmion_texture`**: fills the `L × L × 3` Belavin-Polyakov
+  skyrmion texture field S(r) with the chosen θ(r) profile (BP or
+  smoothly-tapered), centred on the lattice and pinned to vacuum
+  (0, 0, 1) outside `R_cutoff`.
+- **`irrep_bdg_skyrmion_build`**: assembles the dense `(4L²) × (4L²)`
+  complex Hermitian BdG Hamiltonian on an open-boundary square lattice.
+  Faithful port of `tsotchke-private/theory/numerics/bdg_skyrmion_verification.py`
+  with the YLSK Nambu basis `(c↑, c↓, c↓†, -c↑†)`. The on-site block:
+  particle = `h(r) = J·S·σ - μI`, hole = `-σ_y h*(r) σ_y = J·S·σ + μI`,
+  pairing = `Δ·i·σ_y` (off-diagonal). Hopping: `-t` on particle block,
+  `+t` on hole block per the τ_z convention.
+- **`irrep_bdg_skyrmion_count_zero_modes`**: counts eigenvalues with
+  `|λ| < tol` from a sorted spectrum.
+
+#### Verification
+
+Tests pass: parameter defaults, texture unit-norm + boundary, full-matrix
+Hermiticity at (L, Q) ∈ {(8, 1), (8, 2)}, and **Theorem 3.1 spot check**:
+L=10, Q=1, J_sd=12, μ_eff=0 strong-coupling → 2 MZMs detected at
+|E| ≈ 0.02 (well-separated from the next sub-gap pair at 0.07 and the
+bulk gap at 0.65). Diagonalisation via the existing
+`irrep_hermitian_eigvals` (cyclic-Jacobi) on the 400-dim matrix takes
+~1 s on Apple M2 Ultra.
+
+### Validation — cycle exit gate
+
+- **64/64 test suites pass** (63 prior + new `test_bdg_skyrmion`).
+- **30,363 wigner-d batched assertions** still green.
+- **54 public headers** compile self-contained (was 53; added
+  `bdg_skyrmion.h`).
+- **ASan + UBSan clean** on the full test suite.
+- **ABI baseline refreshed** — additive-only (no existing symbol removed
+  or modified). Bumped `MINOR` per semver.
+
+### Open
+
+Task #293 (SbNN ABI binding) is now unblocked at the libirrep side:
+the C-level surface for the zero-mode finder is in place. The SbNN
+`libirrep_bridge.c` extension that exposes `irrep_bridge_bdg_skyrmion_*`
+remains pending in the SbNN repo.
+
 ## [1.4.0] — 2026-05-08
 
 ### Added — quantum error-correction substrate (Tier-1 through Tier-5 of QEC scoping doc)

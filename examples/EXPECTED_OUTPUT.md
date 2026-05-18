@@ -350,6 +350,45 @@ d·1000 + p·1e6`. Reproducible across architectures.
 The example does NOT decode; it is the data-generation step that
 upstream decoders (MWPM, BP+OSD, neural decoders) consume.
 
+## `bdg_skyrmion_theorem_3_1_demo`
+
+Sweep over skyrmion charge Q ∈ {1, 2, 3} on a 2D s-wave SC at strong
+sd-coupling (J_sd=12, μ_eff=0, Δ_0=1, L=10). Built on the v1.5.0
+`bdg_skyrmion` module + the existing `irrep_hermitian_eigvals`
+cyclic-Jacobi solver.
+
+**Seed:** none (deterministic Hamiltonian build + diagonalisation).
+
+**Expected output structure:**
+
+| Q | dim | 2|Q| MZMs | Bulk gap |
+|---|-----|-----------|----------|
+| 1 | 400 | clean doublet at |E| ≈ 0.020 | 0.65 |
+| 2 | 400 | 4 sub-gap modes at |E| ∈ {0.47, 0.53} | 0.62 |
+| 3 | 400 | 6 sub-gap modes at |E| ∈ {0.38, 0.47, 0.48} | 0.62 |
+
+**What the demo shows:**
+
+1. The **2|Q| count** (Theorem 3.1, Yang-Lieu-Kivelson-Lake) holds
+   topologically for all Q examined — the lowest 2|Q| eigenvalues
+   cluster together and are the MZM signature.
+2. **MZM-to-bulk-gap separation** is exponential in (L / R_sky) but at
+   L=10 the higher-Q cases (Q=2, 3) have skyrmion textures comparable
+   to lattice size, so MZMs lift to sub-gap energies via finite-size
+   hybridisation rather than sitting at exact zero.
+3. The Q=1 case at L=10 is the cleanest: |E_MZM| ≈ 0.02 vs |E_next-sub-gap|
+   ≈ 0.07 (ratio ~3.5), well below the bulk gap at 0.65.
+
+**Wall time:** ~3.5 s on Apple M2 Ultra (3 × ~1.1 s for 400-dim
+Hermitian diagonalisations via cyclic Jacobi).
+
+**Cross-references:**
+- Module API: `<irrep/bdg_skyrmion.h>` (v1.5.0).
+- Theorem 3.1: T_skyrmion paper (Yang-Lieu-Kivelson 2016 Nat. Commun.
+  7, 12297; Lake et al. 2022 PRR 4, L022014).
+- Test (smaller harness): `tests/test_bdg_skyrmion.c` exercises the
+  same builder at L=8, 10.
+
 ## Reproducibility bound
 
 Across macOS arm64 (Apple clang) and Linux x86_64 / aarch64 (gcc + clang),

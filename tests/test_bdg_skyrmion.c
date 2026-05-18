@@ -90,6 +90,38 @@ static int test_hermiticity(int L, int Q) {
     return rc;
 }
 
+/* Particle-hole symmetry of the BdG SPECTRUM (the user-visible
+ * consequence of the H-level PH operator that has subtle basis-specific
+ * sign conventions). Eigenvalues come in ± pairs:
+ *     for sorted eigvals λ_0 ≤ λ_1 ≤ ... ≤ λ_{n-1},
+ *     λ_i ≈ -λ_{n-1-i}  for all i.
+ * This is the spectrum-level PH check, independent of any basis
+ * convention.  */
+static int test_spectrum_ph_symmetric(int L, int Q) {
+    irrep_bdg_skyrmion_params_t p;
+    irrep_bdg_skyrmion_params_default(&p, L, Q);
+    p.J_sd = 8.0; /* moderate coupling */
+    int dim = irrep_bdg_skyrmion_dim(&p);
+    double _Complex *H = calloc((size_t)dim * dim, sizeof(double _Complex));
+    double *eigvals = calloc((size_t)dim, sizeof(double));
+    if (H == NULL || eigvals == NULL) { free(H); free(eigvals); return 1; }
+    if (irrep_bdg_skyrmion_build(&p, H) != IRREP_OK ||
+        irrep_hermitian_eigvals(dim, H, eigvals) != IRREP_OK) {
+        free(H); free(eigvals);
+        return 1;
+    }
+    /* irrep_hermitian_eigvals returns descending order; flip to ascending. */
+    /* Verify: |eigvals[i] + eigvals[dim-1-i]| < tol for all i. */
+    double max_err = 0.0;
+    for (int i = 0; i < dim / 2; ++i) {
+        double err = fabs(eigvals[i] + eigvals[dim - 1 - i]);
+        if (err > max_err) max_err = err;
+    }
+    free(H);
+    free(eigvals);
+    return max_err < 1e-8 ? 0 : 1;
+}
+
 /* Theorem 3.1: skyrmion of charge Q → 2|Q| MZMs in strong-coupling. */
 static int test_zero_mode_count(int L, int Q, double J_sd, double mu_eff,
                                  int expected_count, double tol) {
@@ -124,6 +156,12 @@ int main(void) {
     if (test_texture_unit_norm()){ fprintf(stderr, "FAIL texture_unit_norm\n"); rc = 1; }
     if (test_hermiticity(8, 1))  { fprintf(stderr, "FAIL hermiticity(L=8,Q=1)\n"); rc = 1; }
     if (test_hermiticity(8, 2))  { fprintf(stderr, "FAIL hermiticity(L=8,Q=2)\n"); rc = 1; }
+    if (test_spectrum_ph_symmetric(8, 1)) {
+        fprintf(stderr, "FAIL spectrum_ph_symmetric(L=8, Q=1)\n"); rc = 1;
+    }
+    if (test_spectrum_ph_symmetric(8, 2)) {
+        fprintf(stderr, "FAIL spectrum_ph_symmetric(L=8, Q=2)\n"); rc = 1;
+    }
     /* Theorem 3.1 spot check at L=10, Q=1 in strong-coupling.
      * Verified spectrum (J_sd=12, μ_eff=0):
      *   2 modes at |E| ≈ 0.02  ← MZM doublet (finite-size hybridisation)

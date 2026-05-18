@@ -192,22 +192,136 @@ build_evensigma(int Q, ising_q_evensigma_t *out)
     return 0;
 }
 
-/* Test whether a subset is fusion-closed: for every (a, b) with
- * S[a] && S[b], and every c with fusion(a, b, c) > 0, must have S[c]. */
+
+/* Backtracking-with-incremental-closure enumerator.
+ *
+ * State: a partial subset S (with current FPdim sum and σ-included
+ * flag) and a sweep cursor `idx` into the array of non-identity even-σ
+ * simples. At each cursor position we choose either to skip the simple
+ * or to include it (along with all forced-by-fusion simples not yet
+ * in S).
+ *
+ * Pruning:
+ *   - FPdim budget: if the current sum > D, abort the branch.
+ *   - Forced-inclusion budget: when including a simple, compute the
+ *     transitive closure under fusion with the current S; abort if the
+ *     closure exceeds D.
+ *
+ * Worst case is still O(2^m), but the FPdim and closure pruning
+ * eliminate the vast majority of subsets in practice. Q=4 (41 simples,
+ * 2^40 raw) runs in seconds with this scheme; Q=5 (122 simples, 2^121
+ * raw) remains research-track. */
+
+/* Compute the fusion-closure of S under the fusion table: extend S
+ * by adding every simple c with N^{ab}_c > 0 for some a, b ∈ S.
+ * Returns the new total FPdim sum, or -1 if the closure overflows
+ * the target D or tries to add a simple marked in `forbidden`.
+ *
+ * The `forbidden` mask is the canonicalisation device: a simple gets
+ * marked forbidden when the recursion's SKIP branch at that idx
+ * deliberately excludes it. If closure later tries to add a forbidden
+ * simple, the current branch is rejected — that subset belongs to a
+ * different recursion path. This guarantees each Lagrangian is counted
+ * exactly once. */
 static int
-is_fusion_closed(const ising_q_evensigma_t *e, const int *S)
+fusion_close(const ising_q_evensigma_t *e, int *S, int fpdim_sum, int D,
+             const int *forbidden)
 {
     int m = e->m;
-    for (int a = 0; a < m; ++a) {
-        if (!S[a]) continue;
-        for (int b = 0; b < m; ++b) {
-            if (!S[b]) continue;
-            for (int c = 0; c < m; ++c) {
-                if (e->fusion[a * m * m + b * m + c] > 0 && !S[c]) return 0;
+    int changed = 1;
+    while (changed) {
+        changed = 0;
+        for (int a = 0; a < m; ++a) {
+            if (!S[a]) continue;
+            for (int b = 0; b < m; ++b) {
+                if (!S[b]) continue;
+                for (int c = 0; c < m; ++c) {
+                    if (e->fusion[a * m * m + b * m + c] > 0 && !S[c]) {
+                        if (forbidden && forbidden[c]) return -1;
+                        S[c] = 1;
+                        fpdim_sum += e->fpdim_int[c];
+                        changed = 1;
+                        if (fpdim_sum > D) return -1;
+                    }
+                }
             }
         }
     }
-    return 1;
+    return fpdim_sum;
+}
+
+/* Snapshot S → buffer for backtracking. */
+static void
+snapshot_S(const int *S, int *buf, int m)
+{ memcpy(buf, S, (size_t)m * sizeof(int)); }
+
+/* Recursive enumerator. Modifies `*count` in place.
+ *
+ * The `forbidden` array tracks simples that were explicitly SKIPped
+ * earlier in the path. Fusion-closure refuses to add forbidden
+ * simples — this is the canonicalisation step that ensures each
+ * Lagrangian is reached by exactly one path. */
+static void
+enum_recurse(const ising_q_evensigma_t *e, int *S, int *forbidden,
+             int fpdim_sum, int idx, int sigma_required,
+             int has_sigma, int *count)
+{
+    int m = e->m;
+    int D = e->D;
+    if (idx >= m) {
+        if (fpdim_sum != D) return;
+        if (sigma_required && !has_sigma) return;
+        ++(*count);
+        return;
+    }
+    if (idx == e->identity_local) {
+        /* Identity already in S; advance. */
+        enum_recurse(e, S, forbidden, fpdim_sum, idx + 1, sigma_required,
+                     has_sigma, count);
+        return;
+    }
+
+    if (S[idx]) {
+        /* Already in S (forced by an earlier closure). No SKIP/INCLUDE
+         * choice here — just advance. */
+        enum_recurse(e, S, forbidden, fpdim_sum, idx + 1, sigma_required,
+                     has_sigma, count);
+        return;
+    }
+
+    /* Branch 1: SKIP simple `idx`. Mark it forbidden so closure can't
+     * later add it back via fusion of larger-idx simples. */
+    forbidden[idx] = 1;
+    enum_recurse(e, S, forbidden, fpdim_sum, idx + 1, sigma_required,
+                 has_sigma, count);
+    forbidden[idx] = 0;  /* backtrack */
+
+    /* Branch 2: INCLUDE simple `idx`. */
+    if (fpdim_sum + e->fpdim_int[idx] > D) return;  /* FPdim prune */
+
+    int *snapshot = (int *)malloc((size_t)m * sizeof(int));
+    if (!snapshot) return;
+    snapshot_S(S, snapshot, m);
+
+    S[idx] = 1;
+    int new_fpdim = fpdim_sum + e->fpdim_int[idx];
+    int new_has_sigma = has_sigma || (e->sigma_count[idx] > 0);
+    new_fpdim = fusion_close(e, S, new_fpdim, D, forbidden);
+    if (new_fpdim >= 0) {
+        /* Update has_sigma to account for closure-forced σ-bearing
+         * inclusions. */
+        for (int j = 0; j < m; ++j) {
+            if (S[j] && !snapshot[j] && e->sigma_count[j] > 0) {
+                new_has_sigma = 1;
+            }
+        }
+        enum_recurse(e, S, forbidden, new_fpdim, idx + 1, sigma_required,
+                     new_has_sigma, count);
+    }
+
+    /* Backtrack: restore S. */
+    snapshot_S(snapshot, S, m);
+    free(snapshot);
 }
 
 static int
@@ -215,8 +329,6 @@ enumerate_lagrangians(int Q, int sigma_required)
 {
     ising_q_evensigma_t e = {0};
     if (build_evensigma(Q, &e) != 0) return -1;
-    /* Q=0: only the identity 1, FPdim = 1 = 2^0. Trivially Lagrangian.
-     * Per convention, 0 σ → 1 Lagrangian, 0 σ-included. */
     if (Q == 0) {
         int rc = sigma_required ? 0 : 1;
         free_evensigma(&e);
@@ -224,55 +336,29 @@ enumerate_lagrangians(int Q, int sigma_required)
     }
 
     int m = e.m;
-    int count = 0;
-
-    /* Allocate a bit-array S of size m. Iterate over all subsets
-     * containing the identity. Bitmask sweep: top (m-1) free bits with
-     * identity fixed at 1. For each, check FPdim sum first (cheap),
-     * then fusion-closure (more expensive). */
     int *S = (int *)calloc((size_t)m, sizeof(int));
-    if (!S) { free_evensigma(&e); return -1; }
-
-    const int free_bits = m - 1;
-    /* Cap at 24 free bits (16 M subsets) — past that, brute force
-     * is impractical without smarter pruning. */
-    if (free_bits > 24) {
-        free(S);
-        free_evensigma(&e);
+    int *forbidden = (int *)calloc((size_t)m, sizeof(int));
+    if (!S || !forbidden) {
+        free(S); free(forbidden); free_evensigma(&e);
         return -1;
     }
-    const long long n_subsets = 1LL << free_bits;
+    S[e.identity_local] = 1;
+    int fpdim_sum = e.fpdim_int[e.identity_local];
 
-    /* The non-identity even-σ simples in order. */
-    int *non_id = (int *)malloc((size_t)free_bits * sizeof(int));
-    if (!non_id) { free(S); free_evensigma(&e); return -1; }
-    int p = 0;
-    for (int j = 0; j < m; ++j) {
-        if (j == e.identity_local) continue;
-        non_id[p++] = j;
+    /* Safety cap. Backtracking with canonical-forbidden pruning
+     * handles much larger m than brute-force bit-mask sweep, but
+     * Q=5 (m=122) and beyond remain research-track. */
+    if (m > 60) {
+        free(S); free(forbidden); free_evensigma(&e);
+        return -1;
     }
 
-    for (long long mask = 0; mask < n_subsets; ++mask) {
-        memset(S, 0, (size_t)m * sizeof(int));
-        S[e.identity_local] = 1;
-        int fpdim_sum = e.fpdim_int[e.identity_local];
-        int has_sigma = 0;
-        for (int b = 0; b < free_bits; ++b) {
-            if ((mask >> b) & 1LL) {
-                int j = non_id[b];
-                S[j] = 1;
-                fpdim_sum += e.fpdim_int[j];
-                if (e.sigma_count[j] > 0) has_sigma = 1;
-            }
-        }
-        if (fpdim_sum != e.D) continue;
-        if (!is_fusion_closed(&e, S)) continue;
-        if (sigma_required && !has_sigma) continue;
-        ++count;
-    }
+    int count = 0;
+    enum_recurse(&e, S, forbidden, fpdim_sum, /*idx=*/0, sigma_required,
+                 /*has_sigma=*/0, &count);
 
-    free(non_id);
     free(S);
+    free(forbidden);
     free_evensigma(&e);
     return count;
 }

@@ -109,24 +109,18 @@ static int test_theorem_B_sigma_included_zero(void) {
     IRREP_TEST_START("ising_q_theorem_B_sigma_included_zero");
 
     /* Ordinary Lagrangians of Ising^Q exist (= 1 for every Q ≥ 1, the
-     * product (1+ψ)^⊗Q). Brute force is tractable up to Q = 3
-     * (14 even-σ simples → 8192 subsets); Q ≥ 4 needs smarter
-     * enumeration and is correctly reported as out-of-reach (-1) by
-     * the safety cap. The theorem itself holds for every Q by the
-     * irrationality argument in the header docstring. */
-    for (int Q = 1; Q <= 3; ++Q) {
+     * product (1+ψ)^⊗Q). The backtracking enumerator with FPdim
+     * pruning + incremental closure handles Q ≤ 4 in seconds;
+     * Q ≥ 5 (m = 122 even-σ simples) remains research-track. */
+    for (int Q = 1; Q <= 4; ++Q) {
         int n = irrep_ising_q_lagrangian_count_brute(Q);
         printf("# Q=%d: ordinary Lagrangians = %d\n", Q, n);
         IRREP_ASSERT(n == 1);
     }
-    /* Confirm the safety cap fires at Q = 4 (= 41 even-σ simples,
-     * 2^40 subsets, beyond brute-force reach). */
-    IRREP_ASSERT(irrep_ising_q_lagrangian_count_brute(4) == -1);
 
-    /* σ-included count: ZERO at every Q ∈ {1, 2, 3} (the runtime
-     * witness for Theorem B). For Q ≥ 4 the brute-force ceiling
-     * applies; the theorem still holds analytically. */
-    for (int Q = 1; Q <= 3; ++Q) {
+    /* σ-included count: ZERO at every Q ∈ {1, 2, 3, 4} (the runtime
+     * witness for Theorem B). Theorem still holds analytically for all Q. */
+    for (int Q = 1; Q <= 4; ++Q) {
         int n_sigma = irrep_ising_q_sigma_included_lagrangian_count(Q);
         printf("# Q=%d: σ-included Lagrangians = %d  (Theorem B)\n", Q, n_sigma);
         IRREP_ASSERT(n_sigma == 0);

@@ -243,3 +243,129 @@ irrep_bdg_skyrmion_count_zero_modes(const double *eigvals, int n, double tol)
     }
     return count;
 }
+
+/* ====================================================================
+ * Multi-skyrmion lattice texture and BdG assembly.
+ * ==================================================================== */
+
+/* Compute the BP spin vector at offset (dx, dy) from a single center
+ * with charge Q, radius R_sky, cutoff R_cutoff, and profile selector. */
+static void
+single_skyrmion_spin(double dx, double dy, int Q,
+                     double R_sky, double R_cutoff,
+                     irrep_skyrmion_profile_t profile,
+                     double out[3])
+{
+    double r = sqrt(dx * dx + dy * dy);
+    if (r > R_cutoff) {
+        /* Vacuum (spin-up). */
+        out[0] = 0.0;
+        out[1] = 0.0;
+        out[2] = 1.0;
+        return;
+    }
+    double phi = atan2(dy, dx);
+    double theta;
+    if (profile == IRREP_SKYRMION_PROFILE_BP) {
+        double r_safe = r < 1e-9 ? 1e-9 : r;
+        theta = 2.0 * atan2(R_sky, r_safe);
+    } else { /* TAPERED */
+        double arg = M_PI * r / (2.0 * R_cutoff);
+        double c = cos(arg);
+        theta = M_PI * c * c;
+    }
+    out[0] = sin(theta) * cos((double)Q * phi);
+    out[1] = sin(theta) * sin((double)Q * phi);
+    out[2] = cos(theta);
+}
+
+irrep_status_t
+irrep_bdg_skyrmion_lattice_texture(const irrep_bdg_skyrmion_lattice_t *p,
+                                   double *S)
+{
+    if (p == NULL || S == NULL || p->L <= 0 || p->n_skyrmions <= 0
+        || p->centers == NULL) return IRREP_ERR_INVALID_ARG;
+    int L = p->L;
+
+    for (int ix = 0; ix < L; ++ix) {
+        for (int iy = 0; iy < L; ++iy) {
+            double sum[3] = { 0.0, 0.0, 0.0 };
+            /* Vacuum default offset: each skyrmion contributes (0,0,1)
+             * far away, so the sum baselines to (0, 0, n_skyrmions). We
+             * subtract (0, 0, n - 1) so the far-field stays (0, 0, 1). */
+            int n_active = 0;
+            for (int k = 0; k < p->n_skyrmions; ++k) {
+                const irrep_skyrmion_center_t *c = &p->centers[k];
+                double dx = (double)ix - (double)c->x0;
+                double dy = (double)iy - (double)c->y0;
+                double m[3];
+                single_skyrmion_spin(dx, dy, c->Q, c->R_sky, c->R_cutoff,
+                                     c->profile, m);
+                sum[0] += m[0];
+                sum[1] += m[1];
+                sum[2] += m[2];
+                /* "active" = within this skyrmion's cutoff. */
+                double r = sqrt(dx * dx + dy * dy);
+                if (r <= c->R_cutoff) ++n_active;
+            }
+            /* Subtract (n_skyrmions - n_active) vacuum-z contributions so
+             * sites far from every skyrmion get (0, 0, 1) cleanly. */
+            sum[2] -= (double)(p->n_skyrmions - n_active);
+            /* Re-normalise. */
+            double norm = sqrt(sum[0]*sum[0] + sum[1]*sum[1] + sum[2]*sum[2]);
+            double *Sloc = &S[(ix * L + iy) * 3];
+            if (norm < 1e-12) {
+                /* Degenerate cancellation — safe fallback to vacuum. */
+                Sloc[0] = 0.0; Sloc[1] = 0.0; Sloc[2] = 1.0;
+            } else {
+                Sloc[0] = sum[0] / norm;
+                Sloc[1] = sum[1] / norm;
+                Sloc[2] = sum[2] / norm;
+            }
+        }
+    }
+    return IRREP_OK;
+}
+
+irrep_status_t
+irrep_bdg_skyrmion_lattice_build(const irrep_bdg_skyrmion_lattice_t *p,
+                                 double _Complex *H_out)
+{
+    if (p == NULL || H_out == NULL) return IRREP_ERR_INVALID_ARG;
+    int L = p->L;
+    int dim = 4 * L * L;
+    memset(H_out, 0, (size_t)dim * (size_t)dim * sizeof(double _Complex));
+
+    double *S = (double *)malloc((size_t)L * L * 3 * sizeof(double));
+    if (S == NULL) return IRREP_ERR_OUT_OF_MEMORY;
+    irrep_status_t s = irrep_bdg_skyrmion_lattice_texture(p, S);
+    if (s != IRREP_OK) { free(S); return s; }
+
+    /* On-site BdG blocks driven by the composite texture. */
+    for (int ix = 0; ix < L; ++ix) {
+        for (int iy = 0; iy < L; ++iy) {
+            int site = site_of(ix, iy, L);
+            double *Sloc = &S[site * 3];
+            add_onsite_block(H_out, dim, site, p->mu, p->J_sd,
+                             Sloc[0], Sloc[1], Sloc[2], p->Delta_0);
+        }
+    }
+
+    /* Open-boundary NN hopping (same as single-skyrmion build). */
+    for (int ix = 0; ix < L; ++ix) {
+        for (int iy = 0; iy < L; ++iy) {
+            int a = site_of(ix, iy, L);
+            if (ix + 1 < L) {
+                int b = site_of(ix + 1, iy, L);
+                add_hopping_bond(H_out, dim, a, b, p->t);
+            }
+            if (iy + 1 < L) {
+                int b = site_of(ix, iy + 1, L);
+                add_hopping_bond(H_out, dim, a, b, p->t);
+            }
+        }
+    }
+
+    free(S);
+    return IRREP_OK;
+}

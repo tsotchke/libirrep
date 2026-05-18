@@ -127,6 +127,64 @@ irrep_bdg_skyrmion_build(const irrep_bdg_skyrmion_params_t *p,
 IRREP_API int
 irrep_bdg_skyrmion_count_zero_modes(const double *eigvals, int n, double tol);
 
+/* ====================================================================
+ * Multi-skyrmion lattice texture.
+ *
+ * A spatial arrangement of multiple skyrmions on the same `L × L` SC
+ * lattice. Each skyrmion has its own center, charge, and radius; the
+ * total magnetisation at site `r` is the sum of individual Belavin-
+ * Polyakov spin vectors, normalised back to unit length:
+ *
+ *      m_tot(r)  = ∑_i m_BP^{(Q_i, R_i)}(r - r_i)
+ *      m̂_tot(r) = m_tot(r) / |m_tot(r)|.
+ *
+ * The composite BdG Hamiltonian then enters via the same s-wave +
+ * J_sd coupling on m̂_tot. By topological additivity (each isolated
+ * skyrmion contributing 2|Q_i| Majorana zero modes per Theorem 3.1),
+ * a lattice of N skyrmions hosts up to `2 · ∑_i |Q_i|` Majorana zero
+ * modes when the centers are sufficiently separated for the inter-
+ * skyrmion overlap to vanish.
+ *
+ * The simple "sum then normalise" rule does NOT preserve the
+ * topological charge of m̂_tot exactly — for closely-spaced skyrmions
+ * the integral charge can dip below ∑ |Q_i| due to interference of
+ * the BP tail fields. In practice, set inter-center distance ≥ 4 R_sky
+ * to keep the MZM count = 2 ∑ |Q_i| up to finite-size effects.
+ * ==================================================================== */
+
+/** @brief One skyrmion center in a lattice. */
+typedef struct {
+    int    x0, y0;   /**< Integer-lattice center position. */
+    int    Q;        /**< Topological charge (≠ 0). */
+    double R_sky;    /**< BP radius for this skyrmion. */
+    double R_cutoff; /**< Taper-off cutoff. */
+    irrep_skyrmion_profile_t profile;
+} irrep_skyrmion_center_t;
+
+/** @brief Multi-skyrmion lattice parameters. */
+typedef struct {
+    int    L;                                 /**< Linear lattice size. */
+    int    n_skyrmions;                       /**< Number of centers. */
+    const irrep_skyrmion_center_t *centers;   /**< Length `n_skyrmions`. */
+    double t;                                 /**< NN hopping. */
+    double mu;                                /**< Chemical potential. */
+    double J_sd;                              /**< sd-coupling. */
+    double Delta_0;                           /**< Pairing gap. */
+} irrep_bdg_skyrmion_lattice_t;
+
+/** @brief Fill the `L × L × 3` magnetisation texture from the
+ *  superposition of all skyrmion centers. */
+IRREP_API irrep_status_t
+irrep_bdg_skyrmion_lattice_texture(const irrep_bdg_skyrmion_lattice_t *p,
+                                   double *S);
+
+/** @brief Build the BdG Hamiltonian on the multi-skyrmion texture.
+ *  Dim = `4·L²`; same Nambu basis and BC convention as
+ *  `irrep_bdg_skyrmion_build`. */
+IRREP_API irrep_status_t
+irrep_bdg_skyrmion_lattice_build(const irrep_bdg_skyrmion_lattice_t *p,
+                                 double _Complex *H_out);
+
 #ifdef __cplusplus
 }
 #endif

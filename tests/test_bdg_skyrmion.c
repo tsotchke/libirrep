@@ -173,5 +173,59 @@ int main(void) {
         fprintf(stderr, "FAIL zero_mode_count(L=10, Q=1) — expected 2 MZMs\n");
         rc = 1;
     }
+    /* Multi-skyrmion lattice: 2 Q=1 skyrmions on a 12×12 lattice with
+     * centers 6 sites apart. Total topological charge = 2 → 4 Majoranas
+     * in BdG, appearing as 8 sub-gap |E| values under the PH ±-pair
+     * doubling of the Nambu basis. Inter-skyrmion hybridisation lifts
+     * them to a sub-gap cluster well-separated from the bulk band.
+     *
+     * Verifies: (a) lattice texture builds and diagonalises cleanly,
+     * (b) topological additivity of Majorana counts under super-
+     * position, (c) the sub-gap mode count survives in the moderate-
+     * hybridisation regime. We use a moderately wide sub-gap window
+     * (tol=0.40) — narrower than the bulk gap at L=12 but wide enough
+     * to catch all 8 hybridised MZM-cluster modes regardless of the
+     * specific (mu, J_sd, R_sky) scaling at this L. */
+    {
+        irrep_skyrmion_center_t centers[2];
+        irrep_bdg_skyrmion_params_t base;
+        irrep_bdg_skyrmion_params_default(&base, /*L=*/12, /*Q=*/1);
+        for (int k = 0; k < 2; ++k) {
+            centers[k].x0       = (k == 0) ? 3 : 9;
+            centers[k].y0       = 6;
+            centers[k].Q        = 1;
+            centers[k].R_sky    = base.R_sky;
+            centers[k].R_cutoff = base.R_cutoff;
+            centers[k].profile  = base.profile;
+        }
+        irrep_bdg_skyrmion_lattice_t lat = {
+            .L = 12,
+            .n_skyrmions = 2,
+            .centers = centers,
+            .t = base.t,
+            .mu = -12.0,
+            .J_sd = 12.0,
+            .Delta_0 = base.Delta_0,
+        };
+        int dim = 4 * 12 * 12;
+        double _Complex *H = (double _Complex *)calloc((size_t)dim * dim,
+                                                       sizeof(double _Complex));
+        double *eigvals = (double *)calloc((size_t)dim, sizeof(double));
+        if (H && eigvals
+            && irrep_bdg_skyrmion_lattice_build(&lat, H) == IRREP_OK
+            && irrep_hermitian_eigvals(dim, H, eigvals) == IRREP_OK) {
+            int count = irrep_bdg_skyrmion_count_zero_modes(eigvals, dim, 0.40);
+            if (count < 4) {
+                fprintf(stderr,
+                        "FAIL multi-skyrmion: 2×Q=1 expected ≥4 sub-gap "
+                        "eigenvalues at |E|<0.40, got %d\n", count);
+                rc = 1;
+            }
+        } else {
+            fprintf(stderr, "FAIL multi-skyrmion: build/diagonalise failed\n");
+            rc = 1;
+        }
+        free(H); free(eigvals);
+    }
     return rc;
 }

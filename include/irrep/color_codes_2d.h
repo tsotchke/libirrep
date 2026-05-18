@@ -71,6 +71,13 @@ extern "C" {
 /** @brief Code distance — minimum weight of a non-trivial logical. */
 #define IRREP_COLOR_HEX_19_1_5_DISTANCE  5
 
+/** @brief Number of data qubits in the `[[17, 1, 5]]` 4.8.8 color code. */
+#define IRREP_COLOR_488_17_1_5_N         17
+/** @brief Number of face stabilizers (5 octagons + 3 squares). */
+#define IRREP_COLOR_488_17_1_5_N_FACES    8
+/** @brief Code distance for the 4.8.8 `[[17, 1, 5]]` instance. */
+#define IRREP_COLOR_488_17_1_5_DISTANCE   5
+
 /** @brief Build the `[[19, 1, 5]]` triangular hexagonal color code.
  *
  *  Allocates `out` with `n = 19` qubits, `m_X = m_Z = 9` stabilizer
@@ -83,6 +90,93 @@ extern "C" {
  *          IRREP_ERR_NOMEM if allocation fails. */
 IRREP_API irrep_status_t
 irrep_color_hex_19_1_5(irrep_css_code_t *out);
+
+/** @brief Build the canonical logical X̄ operator for the `[[19, 1, 5]]`
+ *  hex color code.
+ *
+ *  `L̄_X = X` on the 5 data qubits along the bottom edge of the
+ *  triangular patch (y = 0 row) — qubits `{D0, D1, D2, D3, D4}` =
+ *  `{0, 1, 2, 3, 4}`. Weight 5 (= code distance).
+ *
+ *  Commutes with every stabilizer (every face shares 0 or 2 qubits
+ *  with this support) and anti-commutes with `irrep_color_hex_19_1_5_logical_Z`
+ *  on the corner qubit `D0 = 0`. The Pauli `out` is allocated by this
+ *  function; caller must `irrep_pauli_free` when done. */
+IRREP_API irrep_status_t
+irrep_color_hex_19_1_5_logical_X(irrep_pauli_t *out);
+
+/** @brief Build the canonical logical Z̄ operator for the `[[19, 1, 5]]`
+ *  hex color code.
+ *
+ *  `L̄_Z = Z` on the 5 data qubits along the left edge of the triangular
+ *  patch (the `x = 2y` diagonal from `D0 = 0` at the bottom-left corner
+ *  to `D18 = 18` at the apex) — qubits `{D0, D9, D12, D17, D18}` =
+ *  `{0, 9, 12, 17, 18}`. Weight 5.
+ *
+ *  Commutes with every stabilizer (every face shares 0 or 2 qubits
+ *  with this support) and anti-commutes with `irrep_color_hex_19_1_5_logical_X`
+ *  on the shared corner qubit `D0 = 0` (the bottom-left vertex of the
+ *  triangle, the unique qubit lying on both the bottom and left edges). */
+IRREP_API irrep_status_t
+irrep_color_hex_19_1_5_logical_Z(irrep_pauli_t *out);
+
+/* ====================================================================
+ * `[[17, 1, 5]]` square-octagon (4.8.8) triangular color code.
+ *
+ * Triangular patch of the 4.8.8 (square-octagon, also called union-jack)
+ * lattice with code parameters `[n, k, d] = [d²/2 + d - 1/2, 1, d]`. At
+ * `d = 5`: 17 data qubits, 1 logical qubit, distance 5. Construction
+ * follows the MQT QECC `SquareOctagonColorCode` algorithm (Derks, TUM,
+ * github.com/munich-quantum-toolkit/qecc).
+ *
+ * 8 face stabilizers split into:
+ *   - 1 weight-8 central octagon (fully internal, `qubits ∈
+ *     {2, 3, 6, 7, 10, 11, 13, 14}`).
+ *   - 4 weight-4 boundary-truncated octagons (corner / edge octagons
+ *     with 4 of their 8 vertices outside the triangular patch).
+ *   - 3 weight-4 squares.
+ *
+ * Sum of weights = `1·8 + 7·4 = 36 = 2·n + 2`. Per-qubit incidence:
+ * 3 corner qubits in 1 face, 9 edge qubits in 2 faces, 5 interior
+ * qubits in 3 faces.
+ *
+ * Each face appears as both an X- and a Z-stabilizer (color-code
+ * symmetry); 16 generators on 17 qubits → k = 1 logical qubit.
+ *
+ * Primary references:
+ *   - Bombín-Martín-Delgado, PRL 97 (2006) 180501 — original 4.8.8
+ *     color-code framework.
+ *   - Derks et al. (MQT QECC), `SquareOctagonColorCode` —
+ *     parametric d-instance generator whose face supports we reuse.
+ *   - Error Correction Zoo, "Square-octagon (4.8.8) color code",
+ *     errorcorrectionzoo.org/c/488_color.
+ * ==================================================================== */
+
+/** @brief Build the `[[17, 1, 5]]` 4.8.8 (square-octagon) color code.
+ *
+ *  Allocates `out` with `n = 17` qubits, `m_X = m_Z = 8` stabilizer
+ *  generators. CSS-orthogonal by construction. Caller must
+ *  `irrep_css_code_free(out)` when done. */
+IRREP_API irrep_status_t
+irrep_color_488_17_1_5(irrep_css_code_t *out);
+
+/** @brief Canonical logical X̄ for the 4.8.8 `[[17, 1, 5]]` code.
+ *
+ *  X-string on the 5 data qubits along the bottom edge of the
+ *  triangular patch (y = 1 row) — qubits `{0, 1, 2, 3, 4}`. Weight 5. */
+IRREP_API irrep_status_t
+irrep_color_488_17_1_5_logical_X(irrep_pauli_t *out);
+
+/** @brief Canonical logical Z̄ for the 4.8.8 `[[17, 1, 5]]` code.
+ *
+ *  Z-string on the 5 data qubits along the right edge of the
+ *  triangular patch (the `x + y = 13` diagonal from `D4 = (12, 1)`
+ *  to `D15 = (6, 7)`) — qubits `{4, 8, 11, 14, 15}`. Weight 5.
+ *
+ *  Anti-commutes with `irrep_color_488_17_1_5_logical_X` on their
+ *  unique shared corner qubit `D4 = 4`. */
+IRREP_API irrep_status_t
+irrep_color_488_17_1_5_logical_Z(irrep_pauli_t *out);
 
 #ifdef __cplusplus
 }

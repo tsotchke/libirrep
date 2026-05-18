@@ -53,49 +53,59 @@ UndefinedBehaviorSanitizer (UBSan) with `-fno-sanitize-recover=undefined`.
   wigner_d batch test; ASan + UBSan clean.
 
 ### Added — QEC (post-v1.5.0 cycle)
-- **`<irrep/lattice_surgery.h>`**: smooth-merge lattice-surgery primitives
-  for the rotated surface code. Given two `d × d` patches placed side by
-  side along their smooth (Z-type) boundary, the module builds the
-  merged `d × 2d` rectangular surface code as a CSS code, exposes its
-  single L̄_X (X-string on column 0, weight d) and L̄_Z (Z-string on
-  row 0 spanning all 2d columns, weight 2d), and exposes the joint-X
-  parity operator `X̄_A · X̄_B` (X on columns 0 and d, weight 2d).
-  Tests at d ∈ {2, 3, 5, 7} verify CSS orthogonality, pairwise
-  stabilizer commutativity, merged-logical anti-commutation, and that
-  `X̄_A · X̄_B` commutes with every stabilizer AND with both merged
-  logicals (forcing it into `S_M` — i.e. smooth merge measures the
-  joint-X parity). New runnable demo
-  `examples/qec_lattice_surgery_demo.c` walks the pre/post-merge picture.
-  Refs: Horsman et al. arXiv:1111.4022; Litinski arXiv:1808.02892;
-  Fowler-Mariantoni-Martinis-Cleland Phys. Rev. A 86 (2012) 032324.
+- **`<irrep/lattice_surgery.h>`**: surface-code lattice-surgery primitives
+  in both directions.
+  - *Smooth merge:* two `d × d` patches side-by-side along their smooth
+    (Z-type) boundary → `d × 2d` rectangular merged code. Joint-X
+    parity `X̄_A · X̄_B` (X on columns 0 and d) becomes a stabilizer of
+    the merged code → smooth merge measures `X̄ ⊗ X̄`.
+  - *Rough merge:* two `d × d` patches stacked vertically along their
+    rough (X-type) boundary → `2d × d` rectangular merged code. Joint-Z
+    parity `Z̄_A · Z̄_B` (Z on rows 0 and d) becomes a stabilizer of the
+    merged code → rough merge measures `Z̄ ⊗ Z̄`.
+  - Each variant exposes init/build, merged `L̄_X` and `L̄_Z`, and the
+    joint-parity operator that the merge measures.
+  - Tests at `d ∈ {2, 3, 5, 7}` (both variants) verify CSS orthogonality,
+    pairwise stabilizer commutativity, merged-logical anti-commutation,
+    and that the joint parity commutes with every stabilizer AND with
+    both merged logicals (forcing it into `S_M`).
+  - Runnable demo `examples/qec_lattice_surgery_demo.c` walks the
+    smooth-merge pre/post-merge picture; the rough-merge surface is
+    parallel by construction.
+  - Refs: Horsman et al. arXiv:1111.4022; Litinski arXiv:1808.02892;
+    Fowler-Mariantoni-Martinis-Cleland Phys. Rev. A 86 (2012) 032324.
 
-### Added — `[[19, 1, 5]]` hex color code (finished, no longer a stub)
-- **`<irrep/color_codes_2d.h>`** is restored with a fully-working
-  `irrep_color_hex_19_1_5`. The 19 data-qubit positions and 9 face
-  supports are derived from the standard color-code-stim triangular-
-  patch geometry: `L = round(3·(d-1)/2) = 6` integer rows, with the 9
-  ancilla positions picked by the rule `round((x/2-y)/2) mod 3 ==
-  anc_qubit_pos[y mod 3]` and each face connecting to its 6 hex-
-  neighbour offsets (boundary-truncated where the offset leaves the
-  patch). Faces decompose as 3 weight-6 fully-interior hexagons + 6
-  weight-4 boundary-truncated hexagons; sum of weights = 42 = 2·n + 4.
-  Verified at construction time by `irrep_css_code_verify` (all 36
-  face pairs intersect in 0 or 2 qubits) and tested in
-  `tests/test_color_codes_2d.c` for: face-weight distribution, color-
-  code symmetry `H_X = H_Z`, full stabilizer commutativity, and
-  **code distance d = 5** by brute-force enumeration with
-  `irrep_qec_distance_brute`. References: LAR arXiv:1108.5738
-  (Fig. 3), Kubica thesis (2018), Bombín-Martín-Delgado PRL 97 (2006)
-  180501, Lee github.com/seokhyung-lee/color-code-stim.
-- `irrep_color_488_17_1_5` (the 4.8.8 `[[17, 1, 5]]` variant) is
-  intentionally **not restored**: its construction depends on a
-  specific Pogorelov / Quantinuum figure transcription that is not
-  needed by any in-tree caller. The hex `[[19, 1, 5]]` is the
-  canonical second member of the BMD family and is the one consumers
-  expect from a 2D color-code instance API.
+### Added — 2D color codes (`color_codes_2d.h`, distance-5 instances)
+- **`irrep_color_hex_19_1_5`** — `[[19, 1, 5]]` triangular color code on
+  the 6.6.6 honeycomb. Data-qubit positions and 9 face supports derived
+  from the color-code-stim triangular-patch convention (L = 6,
+  3-coloring rule for ancillas, six hex-neighbour offsets per face,
+  boundary-truncated where the offset leaves the patch). Faces split
+  3 weight-6 interior + 6 weight-4 boundary; sum of weights = 42.
+- **`irrep_color_488_17_1_5`** — `[[17, 1, 5]]` triangular color code on
+  the 4.8.8 (square-octagon) lattice. Data-qubit positions and 8 face
+  supports derived from MQT-QECC's `SquareOctagonColorCode` algorithm
+  (5 octagons + 3 squares, with the central octagon weight-8 and the
+  rest weight-4; sum of weights = 36).
+- Both instances expose canonical logical operators:
+  `_logical_X` and `_logical_Z`. For the hex `[[19, 1, 5]]`,
+  L̄_X is X on the bottom edge `{0..4}` and L̄_Z is Z on the
+  left-diagonal `{0, 9, 12, 17, 18}`; for the 4.8.8 `[[17, 1, 5]]`,
+  L̄_X is X on the bottom edge `{0..4}` and L̄_Z is Z on the
+  right diagonal `{4, 8, 11, 14, 15}`. Both weight d = 5,
+  anti-commuting on a single shared corner qubit.
+- Tests in `tests/test_color_codes_2d.c` verify for each code:
+  face-weight histogram, color-code symmetry `H_X = H_Z`, full
+  stabilizer commutativity, **distance d = 5** via
+  `irrep_qec_distance_brute`, and that the canonical logicals commute
+  with every stabilizer and anti-commute pairwise.
 - ABI baseline refreshed to
-  `874e7a8503b1b5ff07f8b59d4e77b182aed88f54752b8a01475185c368154b0c`
-  (additive — the symbol `irrep_color_hex_19_1_5` re-enters the API).
+  `83802a3284c5355aee184030d26a2c67b3f247749de69a1748048fb3245e48e9`
+  (additive — new symbols only).
+- References: Bombín-Martín-Delgado PRL 97 (2006) 180501; Landahl-
+  Anderson-Rice arXiv:1108.5738 (2011); Kubica thesis (2018);
+  Lee github.com/seokhyung-lee/color-code-stim; Derks
+  github.com/munich-quantum-toolkit/qecc.
 - Crane-Yetter / Walker-Wang 4-manifold TQFT for the Ising MTC
   shipped alongside in `<irrep/crane_yetter_ising.h>`: full modular
   data (objects, fusion N^{ab}_c, quantum dimensions, S-matrix,

@@ -151,6 +151,74 @@ IRREP_API irrep_status_t
 irrep_lattice_surgery_smooth_joint_X_parity(
     const irrep_lattice_surgery_smooth_t *p, irrep_pauli_t *out);
 
+/* ====================================================================
+ * Rough merge — dual of smooth merge.
+ *
+ * Two `d × d` patches stacked vertically: A on top (rows `[0, d)`),
+ * B on bottom (rows `[d, 2d)`). A's bottom rough (X-type) boundary
+ * meets B's top rough boundary. Merged geometry: `2d × d` rectangular
+ * surface code.
+ *
+ * Merged logicals:
+ *   `L̄_X(M) = ∏_{r=0..2d-1} X_{q(r, 0)}`   (X-string on column 0
+ *                                            spanning all 2d rows;
+ *                                            weight 2d; equals
+ *                                            `X̄_A · X̄_B`, which means
+ *                                            the rough merge collapses
+ *                                            both logical-X operators
+ *                                            into the merged L̄_X).
+ *   `L̄_Z(M) = ∏_{c=0..d-1} Z_{q(0, c)}`    (Z-string on row 0;
+ *                                            weight d).
+ *
+ * Rough merge is the joint-Z parity measurement:
+ *
+ *   `P_joint = Z̄_A · Z̄_B
+ *           = ∏_{c=0..d-1} Z_{q(0, c)} · ∏_{c=0..d-1} Z_{q(d, c)}`
+ *
+ * Weight `2d`. Commutes with every merged stabilizer AND with both
+ * merged logicals — forcing `P_joint ∈ S_M`. Reading its eigenvalue
+ * is the measurement of `Z̄_A ⊗ Z̄_B` on the pre-merge state.
+ * ==================================================================== */
+
+/** @brief Geometry of a rough-merge configuration. */
+typedef struct {
+    int d;            /**< Distance of each original patch (≥ 2). */
+    int rows;         /**< Number of rows in the merged geometry = 2d. */
+    int cols;         /**< Number of columns in the merged geometry = d. */
+    int n_qubits;     /**< Total data qubits in the merged code = 2·d². */
+    int n_X_stabs;    /**< Number of X-stabilizer generators in merged code. */
+    int n_Z_stabs;    /**< Number of Z-stabilizer generators in merged code. */
+} irrep_lattice_surgery_rough_t;
+
+/** @brief Initialise rough-merge geometry for patches of distance d ≥ 2. */
+IRREP_API irrep_status_t
+irrep_lattice_surgery_rough_init(irrep_lattice_surgery_rough_t *out, int d);
+
+/** @brief Build the merged CSS code = `2d × d` rectangular surface code. */
+IRREP_API irrep_status_t
+irrep_lattice_surgery_rough_build(const irrep_lattice_surgery_rough_t *p,
+                                  irrep_css_code_t *out);
+
+/** @brief Merged code's single logical X̄: X-string on column 0 spanning
+ *  all `2d` rows. Weight `2d`. Equals `X̄_A · X̄_B`. */
+IRREP_API irrep_status_t
+irrep_lattice_surgery_rough_logical_X(const irrep_lattice_surgery_rough_t *p,
+                                      irrep_pauli_t *out);
+
+/** @brief Merged code's single logical Z̄: Z-string on row 0 spanning
+ *  all `d` columns. Weight `d`. */
+IRREP_API irrep_status_t
+irrep_lattice_surgery_rough_logical_Z(const irrep_lattice_surgery_rough_t *p,
+                                      irrep_pauli_t *out);
+
+/** @brief Joint-Z parity `Z̄_A · Z̄_B = Z` on row 0 AND row `d` (each
+ *  spanning all `d` columns). Weight `2d`. In the merged code this
+ *  operator commutes with every stabilizer AND with both merged
+ *  logicals, so it lies in `S_M`. Rough merge measures `Z̄_A ⊗ Z̄_B`. */
+IRREP_API irrep_status_t
+irrep_lattice_surgery_rough_joint_Z_parity(
+    const irrep_lattice_surgery_rough_t *p, irrep_pauli_t *out);
+
 #ifdef __cplusplus
 }
 #endif

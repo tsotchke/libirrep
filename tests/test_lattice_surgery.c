@@ -115,12 +115,82 @@ static int test_invalid_args(void) {
     return IRREP_TEST_END();
 }
 
+/* ====================================================================
+ * Rough-merge tests: 2d × d rectangular code, joint-Z parity stabilizer.
+ * ==================================================================== */
+
+static int run_rough_for_d(int d) {
+    char banner[64];
+    snprintf(banner, sizeof banner, "lattice_surgery_rough_d%d", d);
+    IRREP_TEST_START(banner);
+
+    irrep_lattice_surgery_rough_t p;
+    IRREP_ASSERT(irrep_lattice_surgery_rough_init(&p, d) == IRREP_OK);
+    IRREP_ASSERT(p.d == d);
+    IRREP_ASSERT(p.rows == 2 * d);
+    IRREP_ASSERT(p.cols == d);
+    IRREP_ASSERT(p.n_qubits == 2 * d * d);
+    IRREP_ASSERT(p.n_X_stabs + p.n_Z_stabs == 2 * d * d - 1);
+
+    irrep_css_code_t cs;
+    IRREP_ASSERT(irrep_lattice_surgery_rough_build(&p, &cs) == IRREP_OK);
+    IRREP_ASSERT(cs.n == 2 * d * d);
+    IRREP_ASSERT(cs.H_X.n_rows == p.n_X_stabs);
+    IRREP_ASSERT(cs.H_Z.n_rows == p.n_Z_stabs);
+    IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
+
+    irrep_stabilizer_group_t g;
+    IRREP_ASSERT(irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK);
+    IRREP_ASSERT(irrep_stabilizer_group_check_commutativity(&g) == IRREP_OK);
+    IRREP_ASSERT(g.n_generators == 2 * d * d - 1);
+
+    irrep_pauli_t Lx, Lz, Pj;
+    IRREP_ASSERT(irrep_lattice_surgery_rough_logical_X(&p, &Lx) == IRREP_OK);
+    IRREP_ASSERT(irrep_lattice_surgery_rough_logical_Z(&p, &Lz) == IRREP_OK);
+    IRREP_ASSERT(irrep_lattice_surgery_rough_joint_Z_parity(&p, &Pj) == IRREP_OK);
+
+    /* Rough merge: L̄_X spans 2d rows (column 0), L̄_Z spans d cols (row 0);
+     * joint-Z parity = Z on row 0 AND row d = weight 2d. */
+    IRREP_ASSERT(irrep_pauli_weight(&Lx) == 2 * d);
+    IRREP_ASSERT(irrep_pauli_weight(&Lz) == d);
+    IRREP_ASSERT(irrep_pauli_weight(&Pj) == 2 * d);
+
+    /* L̄_X and L̄_Z anti-commute on corner q(0, 0). */
+    IRREP_ASSERT(irrep_pauli_symp_inner(&Lx, &Lz) == 1);
+
+    int anti_Lx = 0, anti_Lz = 0, anti_Pj = 0;
+    for (int i = 0; i < g.n_generators; ++i) {
+        if (!irrep_pauli_commute(&g.gens[i], &Lx)) ++anti_Lx;
+        if (!irrep_pauli_commute(&g.gens[i], &Lz)) ++anti_Lz;
+        if (!irrep_pauli_commute(&g.gens[i], &Pj)) ++anti_Pj;
+    }
+    IRREP_ASSERT(anti_Lx == 0);
+    IRREP_ASSERT(anti_Lz == 0);
+    IRREP_ASSERT(anti_Pj == 0);
+
+    /* P_joint commutes with BOTH merged logicals → stabilizer of M. */
+    IRREP_ASSERT(irrep_pauli_symp_inner(&Pj, &Lx) == 0);
+    IRREP_ASSERT(irrep_pauli_symp_inner(&Pj, &Lz) == 0);
+
+    irrep_pauli_free(&Lx);
+    irrep_pauli_free(&Lz);
+    irrep_pauli_free(&Pj);
+    irrep_stabilizer_group_free(&g);
+    irrep_css_code_free(&cs);
+
+    return IRREP_TEST_END();
+}
+
 int main(void) {
     int rc = 0;
     rc |= run_for_d(2);
     rc |= run_for_d(3);
     rc |= run_for_d(5);
     rc |= run_for_d(7);
+    rc |= run_rough_for_d(2);
+    rc |= run_rough_for_d(3);
+    rc |= run_rough_for_d(5);
+    rc |= run_rough_for_d(7);
     rc |= test_invalid_args();
     return rc;
 }

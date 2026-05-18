@@ -56,10 +56,10 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | `<irrep/qec_distance.h>` (1.4) | Pauli arithmetic + brute-force code distance | — | `irrep_pauli_multiply`, `irrep_stabilizer_group_contains`, `irrep_qec_distance_brute` |
 | `<irrep/toric_code.h>` | Kitaev 2D toric code on `Lx × Ly` torus | `irrep_toric_params_t`, `irrep_toric_edge_t` | `irrep_toric_init`, `_edge_index`, `_edge_unpack`, `_vertex_edges`, `_plaquette_edges`, `_shared_edges` |
 | `<irrep/surface_code.h>` (1.4) | Rotated planar `[[d², 1, d]]` surface code | `irrep_surface_params_t` | `irrep_surface_init`, `irrep_surface_build`, `irrep_surface_logical_X`, `irrep_surface_logical_Z` |
-| `<irrep/lattice_surgery.h>` (1.5) | Smooth-merge lattice surgery on the rotated surface code | `irrep_lattice_surgery_smooth_t` | `irrep_lattice_surgery_smooth_init`, `_build`, `_logical_X`, `_logical_Z`, `_joint_X_parity` |
+| `<irrep/lattice_surgery.h>` (1.5) | Smooth + rough lattice surgery on the rotated surface code | `irrep_lattice_surgery_smooth_t`, `irrep_lattice_surgery_rough_t` | `*_smooth_*`, `*_rough_*` (init, build, logical_X, logical_Z, joint parity) |
 | `<irrep/color_code.h>` (1.4) | Steane `[[7, 1, 3]]` color code | — | `irrep_color_steane` |
 | `<irrep/generic_color_code.h>` (1.4) | Face-list-driven 2D color code framework | `irrep_color_lattice_t`, `irrep_color_t` | `irrep_generic_color_build` |
-| `<irrep/color_codes_2d.h>` (1.5) | `[[19,1,5]]` triangular hex (6.6.6) color code | — | `irrep_color_hex_19_1_5` |
+| `<irrep/color_codes_2d.h>` (1.5) | `[[19,1,5]]` hex (6.6.6) + `[[17,1,5]]` 4.8.8 triangular color codes with logical X̄/Z̄ | — | `irrep_color_hex_19_1_5{,_logical_X,_logical_Z}`, `irrep_color_488_17_1_5{,_logical_X,_logical_Z}` |
 | `<irrep/bivariate_bicycle.h>` (1.4) | BB qLDPC over `F₂[x,y]/(xˡ-1, yᵐ-1)` (Bravyi *Nature* 2024) | `irrep_bb_poly_t` | `irrep_bb_poly_new`, `_free`, `_add_monomial`, `_get`, `irrep_bb_code_build` |
 | `<irrep/hypergraph_product.h>` (1.4) | Tillich-Zemor 2014 qLDPC from classical `(H_a, H_b)` | — | `irrep_hypergraph_product_build` |
 | `<irrep/lifted_product.h>` (1.4) | Panteleev-Kalachev 2022 abelian lifted product (with σ-antipode in `H_Z`) | `irrep_poly_matrix_t` | `irrep_poly_matrix_new`, `_free`, `_add_monomial`, `_get`, `irrep_lifted_product_build` |
@@ -843,17 +843,24 @@ abstract stabilizer group. The perfect-tensor property comes from the
 fact that any partition of the 6 legs (1 bulk + 5 boundary) into two
 halves is an isometry from the smaller half to the larger.
 
-### `lattice_surgery.h` — smooth-merge surface-code primitive (1.5)
+### `lattice_surgery.h` — smooth + rough merge surface-code primitives (1.5)
 
-Two `d × d` rotated surface-code patches placed side by side along
-their smooth (Z-type) boundaries merge into a single `d × 2d`
-rectangular surface code via `irrep_lattice_surgery_smooth_build`.
-The merged code exposes one logical qubit; `_logical_X` and
-`_logical_Z` give its L̄_X (column-0 X-string, weight d) and L̄_Z
-(row-0 Z-string spanning all 2d columns, weight 2d), and
-`_joint_X_parity` returns the operator `X̄_A · X̄_B` that the merge
-measures (= a stabilizer of the merged code). See
-`examples/qec_lattice_surgery_demo.c` for the operational walkthrough.
+Two `d × d` rotated surface-code patches can be merged in either of
+the two dual directions:
+
+  - **Smooth merge** (side-by-side along the smooth/Z-type boundary,
+    `d × 2d` merged geometry). Measures the joint-X parity
+    `X̄_A · X̄_B` (X on columns 0 and d of the merged frame, weight 2d).
+  - **Rough merge** (stacked vertically along the rough/X-type boundary,
+    `2d × d` merged geometry). Measures the joint-Z parity
+    `Z̄_A · Z̄_B` (Z on rows 0 and d, weight 2d).
+
+Each variant exposes `_init`, `_build`, the merged `L̄_X` and `L̄_Z`,
+and the joint-parity operator that the merge measures. The merged
+code is verified CSS-orthogonal and stabilizer-commuting in the test
+suite at `d ∈ {2, 3, 5, 7}` for both variants. See
+`examples/qec_lattice_surgery_demo.c` for the smooth-merge
+walkthrough; the rough-merge structure is parallel by construction.
 
 ### `generic_color_code.h` (1.4)
 
@@ -863,17 +870,28 @@ CSS orthogonality at construction. The Steane `[[7, 1, 3]]` instance
 ships as a unit test reproducing the bespoke `irrep_color_steane`
 generator bit-for-bit.
 
-### `color_codes_2d.h` — `[[19, 1, 5]]` hex color code (1.5)
+### `color_codes_2d.h` — `[[19, 1, 5]]` hex + `[[17, 1, 5]]` 4.8.8 (1.5)
 
-`irrep_color_hex_19_1_5` produces the second member of the
-Bombín-Martín-Delgado `[[(3d² + 1)/4, 1, d]]` family — 19 data qubits
-on a triangular patch of the 6.6.6 honeycomb, with 9 face stabilizers
-(both X and Z) decomposing as 3 weight-6 interior hexagons + 6
-weight-4 boundary-truncated hexagons. The geometry follows the
-color-code-stim integer-coordinate convention. Verified at
-construction (CSS orthogonality) and tested for distance d = 5 via
-`irrep_qec_distance_brute`. References: LAR 2011 arXiv:1108.5738
-Fig. 3; Bombín-Martín-Delgado PRL 97 (2006) 180501.
+Two distance-5 instances of 2D color codes on different lattices:
+
+  - **`irrep_color_hex_19_1_5`** — `[[19, 1, 5]]` triangular code on
+    the 6.6.6 honeycomb (the second member of the BMD
+    `[[(3d² + 1)/4, 1, d]]` family). 19 data qubits, 9 hexagonal-face
+    stabilizers split as 3 weight-6 interior + 6 weight-4 boundary.
+    Geometry follows the color-code-stim integer-coordinate convention.
+  - **`irrep_color_488_17_1_5`** — `[[17, 1, 5]]` triangular code on
+    the 4.8.8 square-octagon lattice (parameters
+    `[d²/2 + d - 1/2, 1, d]`). 17 data qubits, 8 face stabilizers
+    split as 1 weight-8 central octagon + 7 weight-4 boundary octagons
+    and squares. Geometry follows MQT-QECC's `SquareOctagonColorCode`.
+
+Both expose canonical edge-string logical operators
+`_logical_X` / `_logical_Z` of weight d = 5, anti-commuting on a
+single shared corner qubit. Each is tested for CSS orthogonality,
+color-code symmetry `H_X = H_Z`, stabilizer commutativity, and
+**distance d = 5** via `irrep_qec_distance_brute`. References:
+Bombín-Martín-Delgado PRL 97 (2006) 180501; LAR arXiv:1108.5738
+(hex); Derks (MQT QECC) `SquareOctagonColorCode` (4.8.8).
 
 ---
 

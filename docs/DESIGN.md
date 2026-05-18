@@ -388,7 +388,7 @@ mini stabilizer group). Concrete code instances (`toric_code`,
 `bivariate_bicycle`, `surface_code`, `color_code`, `toric3d`, `xcube_code`,
 `hypergraph_product`, `lifted_product`, `honeycomb_floquet`,
 `css_floquet`, `subsystem_code`, `concatenated_code`, `happy_code`,
-`single_shot`, `generic_color_code`, `color_codes_2d`) all build CSS or
+`single_shot`, `generic_color_code`) all build CSS or
 stabilizer-group representations from their geometric / algebraic spec
 and validate via `irrep_css_code_verify` /
 `irrep_stabilizer_group_check_commutativity`.
@@ -399,10 +399,11 @@ and `export.h` are shared with the existing substrate.
 
 For the deferred research-track items (triangular `[[19,1,5]]` hex,
 `[[17,1,5]]` 4.8.8, 3D Bombín gauge color, multi-tile HaPPY hyperbolic
-network), see `docs/qec_research_roadmap.md`. The 1.4.0 cycle ships
-honest stubs for the first two with comprehensive analytical
-consistency-check formulas; completion is mechanical once the
-published face-list tables are transcribed.
+network), see `docs/qec_research_roadmap.md`. These are not part of
+the public API surface — the generic face-list framework
+(`irrep_color_lattice_t` / `irrep_generic_color_build`) is the
+intended entry point once the published face-list tables are
+transcribed.
 
 ---
 

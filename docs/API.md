@@ -57,7 +57,6 @@ every formula, [`REFERENCES.md`](REFERENCES.md).
 | `<irrep/toric_code.h>` | Kitaev 2D toric code on `Lx × Ly` torus | `irrep_toric_params_t`, `irrep_toric_edge_t` | `irrep_toric_init`, `_edge_index`, `_edge_unpack`, `_vertex_edges`, `_plaquette_edges`, `_shared_edges` |
 | `<irrep/surface_code.h>` (1.4) | Rotated planar `[[d², 1, d]]` surface code | `irrep_surface_params_t` | `irrep_surface_init`, `irrep_surface_build` |
 | `<irrep/color_code.h>` (1.4) | Steane `[[7, 1, 3]]` color code | — | `irrep_color_steane` |
-| `<irrep/color_codes_2d.h>` (1.4) | Research-track stubs for 2D color codes | — | `irrep_color_hex_19_1_5`, `irrep_color_488_17_1_5` (currently `IRREP_ERR_NOT_IMPLEMENTED`; see `docs/qec_research_roadmap.md`) |
 | `<irrep/generic_color_code.h>` (1.4) | Face-list-driven 2D color code framework | `irrep_color_lattice_t`, `irrep_color_t` | `irrep_generic_color_build` |
 | `<irrep/bivariate_bicycle.h>` (1.4) | BB qLDPC over `F₂[x,y]/(xˡ-1, yᵐ-1)` (Bravyi *Nature* 2024) | `irrep_bb_poly_t` | `irrep_bb_poly_new`, `_free`, `_add_monomial`, `_get`, `irrep_bb_code_build` |
 | `<irrep/hypergraph_product.h>` (1.4) | Tillich-Zemor 2014 qLDPC from classical `(H_a, H_b)` | — | `irrep_hypergraph_product_build` |
@@ -842,14 +841,15 @@ abstract stabilizer group. The perfect-tensor property comes from the
 fact that any partition of the 6 legs (1 bulk + 5 boundary) into two
 halves is an isometry from the smaller half to the larger.
 
-### `generic_color_code.h`, `color_codes_2d.h` (1.4)
+### `generic_color_code.h` (1.4)
 
 The face-list framework (`irrep_color_lattice_t` + `_build`) accepts
 any 2D color-code lattice as a list of face supports and validates
-CSS orthogonality at construction. Concrete instances `[[19, 1, 5]]`
-hex and `[[17, 1, 5]]` 4.8.8 are presently research-track stubs (see
-`docs/qec_research_roadmap.md`); the framework is in place so that
-completion is mechanical.
+CSS orthogonality at construction. The Steane `[[7, 1, 3]]` instance
+ships as a unit test reproducing the bespoke `irrep_color_steane`
+generator bit-for-bit. Larger `[[19, 1, 5]]` hex and `[[17, 1, 5]]`
+4.8.8 face lists are unbundled research-track work (see
+`docs/qec_research_roadmap.md`).
 
 ---
 

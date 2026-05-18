@@ -10,9 +10,6 @@
  *  - Rejection of out-of-range qubit indices.
  *  - Rejection of underweight faces (size < 2).
  *  - Round-trip through stabilizer-group commutativity.
- *
- * Research-track stubs (irrep_color_hex_19_1_5 etc.) are tested in
- * test_color_codes_2d.c; they currently return IRREP_ERR_NOT_IMPLEMENTED.
  */
 #include "harness.h"
 #include <irrep/color_code.h>

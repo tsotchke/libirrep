@@ -52,6 +52,29 @@ UndefinedBehaviorSanitizer (UBSan) with `-fno-sanitize-recover=undefined`.
   speedup). Bit-exact with the lgamma path on the 30,363-assertion
   wigner_d batch test; ASan + UBSan clean.
 
+### Removed
+- **`color_codes_2d.h` / `color_codes_2d.c`**: the v1.4.0 cycle shipped
+  two stub declarations — `irrep_color_hex_19_1_5` and
+  `irrep_color_488_17_1_5` — that returned `IRREP_ERR_NOT_IMPLEMENTED`.
+  Constructing the published face-list tables (LAR 2011 Fig. 3 /
+  Kubica 2018 thesis Fig. 2.1.5 for the hex `[[19,1,5]]`; Pogorelov
+  2024 Fig. 2 for the 4.8.8 `[[17,1,5]]`) without access to the
+  source figures proved untractable from first principles, and
+  shipping permanent stubs on the public API surface is dishonest.
+  The deferred items remain documented as research-track work in
+  `docs/qec_research_roadmap.md`; the generic face-list framework
+  (`irrep_generic_color_build`) is the supported entry point once
+  a caller transcribes the table. This is an ABI break for the two
+  removed symbols; no in-tree caller depended on them (they only
+  ever returned an error).
+- ABI baseline refreshed to reflect the removal.
+- Crane-Yetter / Walker-Wang 4-manifold TQFT for the Ising MTC
+  shipped alongside in `<irrep/crane_yetter_ising.h>`: full modular
+  data (objects, fusion N^{ab}_c, quantum dimensions, S-matrix,
+  T-matrix) plus the closed-form 4-manifold invariant
+  Z(M) = 2^{-χ}·exp(iπσ/8). Test suite verifies S⁴, CP², ‾CP², S²×S²,
+  T⁴ and orientation-reversal conjugation. Closes task #297.
+
 ### Fixed
 - `benchmarks/run_benchmarks.sh`: iterate `benchmarks/bench_*.c`
   source files when collecting results instead of all
@@ -349,16 +372,6 @@ with `n ≤ 25`) brute-force code-distance computation to textbook value.
   indices); the framework verifies CSS orthogonality at construction
   time. Steane reproduced bit-for-bit through the framework, validating
   end-to-end.
-
-#### Research-track stubs
-
-- **`color_codes_2d`**: declarations for `[[19, 1, 5]]` hexagonal
-  (Landahl-Anderson-Rice 2011 Fig. 3) and `[[17, 1, 5]]` 4.8.8
-  (Pogorelov 2024 / Quantinuum Fig. 2) — both currently return
-  `IRREP_ERR_NOT_IMPLEMENTED` with comprehensive analytical
-  consistency-check formulas embedded in the docstrings. Completion
-  is mechanical once the published face_qubits[][] tables are
-  transcribed.
 
 #### Documentation
 

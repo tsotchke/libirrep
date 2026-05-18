@@ -10,6 +10,7 @@
  *  - Counts: n_qubits = 2 Lx Ly, n_vertices = n_plaquettes = Lx Ly.
  */
 #include "harness.h"
+#include <irrep/stabilizer_group.h>
 #include <irrep/toric_code.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -95,11 +96,85 @@ static int test_vertex_neighbour_overlap(void) {
     return 0;
 }
 
+/* Build the 8 stabilizers for 2×2 toric (4 vertex stars + 4 plaquettes) and
+ * verify each of the 4 logical operators commutes with all of them, plus
+ * the (X1, Z1) and (X2, Z2) pairs anti-commute with their conjugate. */
+static int test_toric_logical_operators(int Lx, int Ly) {
+    irrep_toric_params_t p;
+    if (irrep_toric_init(&p, Lx, Ly) != IRREP_OK) return 1;
+    /* Build vertex+plaquette stabilizers as Pauli operators on the
+     * 2·Lx·Ly edges. */
+    int m = p.n_vertices + p.n_plaquettes;
+    irrep_stabilizer_group_t g;
+    if (irrep_stabilizer_group_new(&g, p.n_qubits, m) != IRREP_OK) return 1;
+    int idx = 0;
+    for (int vy = 0; vy < Ly; ++vy) {
+        for (int vx = 0; vx < Lx; ++vx, ++idx) {
+            int e[4];
+            irrep_toric_vertex_edges(&p, vx, vy, e);
+            for (int k = 0; k < 4; ++k)
+                irrep_pauli_set(&g.gens[idx], e[k], IRREP_PAULI_LETTER_X);
+        }
+    }
+    for (int py = 0; py < Ly; ++py) {
+        for (int px = 0; px < Lx; ++px, ++idx) {
+            int e[4];
+            irrep_toric_plaquette_edges(&p, px, py, e);
+            for (int k = 0; k < 4; ++k)
+                irrep_pauli_set(&g.gens[idx], e[k], IRREP_PAULI_LETTER_Z);
+        }
+    }
+
+    irrep_pauli_t Lx1, Lz1, Lx2, Lz2;
+    int rc = 0;
+    if (irrep_toric_logical_X1(&p, &Lx1) != IRREP_OK) rc = 1;
+    if (irrep_toric_logical_Z1(&p, &Lz1) != IRREP_OK) rc = 1;
+    if (irrep_toric_logical_X2(&p, &Lx2) != IRREP_OK) rc = 1;
+    if (irrep_toric_logical_Z2(&p, &Lz2) != IRREP_OK) rc = 1;
+
+    /* All four logicals commute with every stabilizer. */
+    for (int i = 0; i < m && rc == 0; ++i) {
+        if (!irrep_pauli_commute(&g.gens[i], &Lx1)) rc = 1;
+        if (!irrep_pauli_commute(&g.gens[i], &Lz1)) rc = 1;
+        if (!irrep_pauli_commute(&g.gens[i], &Lx2)) rc = 1;
+        if (!irrep_pauli_commute(&g.gens[i], &Lz2)) rc = 1;
+    }
+
+    /* Conjugate pairs anti-commute. */
+    if (rc == 0) {
+        if (irrep_pauli_commute(&Lx1, &Lz1)) rc = 1;
+        if (irrep_pauli_commute(&Lx2, &Lz2)) rc = 1;
+        /* Cross pairs commute (different logical qubits). */
+        if (!irrep_pauli_commute(&Lx1, &Lx2)) rc = 1;
+        if (!irrep_pauli_commute(&Lz1, &Lz2)) rc = 1;
+        if (!irrep_pauli_commute(&Lx1, &Lz2)) rc = 1;
+        if (!irrep_pauli_commute(&Lz1, &Lx2)) rc = 1;
+    }
+
+    /* Weights are Lx (for L_*1) and Ly (for L_*2). */
+    if (rc == 0) {
+        if (irrep_pauli_weight(&Lx1) != Lx) rc = 1;
+        if (irrep_pauli_weight(&Lz1) != Ly) rc = 1;
+        if (irrep_pauli_weight(&Lx2) != Ly) rc = 1;
+        if (irrep_pauli_weight(&Lz2) != Lx) rc = 1;
+    }
+
+    irrep_pauli_free(&Lx1);
+    irrep_pauli_free(&Lz1);
+    irrep_pauli_free(&Lx2);
+    irrep_pauli_free(&Lz2);
+    irrep_stabilizer_group_free(&g);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     if (test_toric_init()) { fprintf(stderr, "FAIL test_toric_init\n"); rc = 1; }
     if (test_edge_roundtrip()) { fprintf(stderr, "FAIL test_edge_roundtrip\n"); rc = 1; }
     if (test_stabilizer_commutativity()) { fprintf(stderr, "FAIL test_stabilizer_commutativity\n"); rc = 1; }
     if (test_vertex_neighbour_overlap()) { fprintf(stderr, "FAIL test_vertex_neighbour_overlap\n"); rc = 1; }
+    if (test_toric_logical_operators(2, 2)) { fprintf(stderr, "FAIL test_toric_logical_operators(2,2)\n"); rc = 1; }
+    if (test_toric_logical_operators(3, 3)) { fprintf(stderr, "FAIL test_toric_logical_operators(3,3)\n"); rc = 1; }
+    if (test_toric_logical_operators(4, 3)) { fprintf(stderr, "FAIL test_toric_logical_operators(4,3)\n"); rc = 1; }
     return rc;
 }

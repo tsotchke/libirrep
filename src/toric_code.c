@@ -129,3 +129,63 @@ irrep_toric_shared_edges(const int edges_a[4], const int edges_b[4])
     }
     return count;
 }
+
+/* ====================================================================
+ * Logical operators
+ * ==================================================================== */
+
+irrep_status_t
+irrep_toric_logical_X1(const irrep_toric_params_t *p, irrep_pauli_t *out)
+{
+    if (p == NULL || out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_status_t s = irrep_pauli_new(out, p->n_qubits);
+    if (s != IRREP_OK) return s;
+    /* X on vertical edges (orient=1) at y=0: (x, 0, 1) for x ∈ [0, Lx). */
+    for (int x = 0; x < p->Lx; ++x) {
+        int e = irrep_toric_edge_index(p, IRREP_TORIC_EDGE_VERTICAL, x, 0);
+        irrep_pauli_set(out, e, IRREP_PAULI_LETTER_X);
+    }
+    return IRREP_OK;
+}
+
+irrep_status_t
+irrep_toric_logical_Z1(const irrep_toric_params_t *p, irrep_pauli_t *out)
+{
+    if (p == NULL || out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_status_t s = irrep_pauli_new(out, p->n_qubits);
+    if (s != IRREP_OK) return s;
+    /* Z on vertical edges at x=0: (0, y, 1) for y ∈ [0, Ly). */
+    for (int y = 0; y < p->Ly; ++y) {
+        int e = irrep_toric_edge_index(p, IRREP_TORIC_EDGE_VERTICAL, 0, y);
+        irrep_pauli_set(out, e, IRREP_PAULI_LETTER_Z);
+    }
+    return IRREP_OK;
+}
+
+irrep_status_t
+irrep_toric_logical_X2(const irrep_toric_params_t *p, irrep_pauli_t *out)
+{
+    if (p == NULL || out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_status_t s = irrep_pauli_new(out, p->n_qubits);
+    if (s != IRREP_OK) return s;
+    /* X on horizontal edges at x=0: (0, y, 0) for y ∈ [0, Ly). */
+    for (int y = 0; y < p->Ly; ++y) {
+        int e = irrep_toric_edge_index(p, IRREP_TORIC_EDGE_HORIZONTAL, 0, y);
+        irrep_pauli_set(out, e, IRREP_PAULI_LETTER_X);
+    }
+    return IRREP_OK;
+}
+
+irrep_status_t
+irrep_toric_logical_Z2(const irrep_toric_params_t *p, irrep_pauli_t *out)
+{
+    if (p == NULL || out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_status_t s = irrep_pauli_new(out, p->n_qubits);
+    if (s != IRREP_OK) return s;
+    /* Z on horizontal edges at y=0: (x, 0, 0) for x ∈ [0, Lx). */
+    for (int x = 0; x < p->Lx; ++x) {
+        int e = irrep_toric_edge_index(p, IRREP_TORIC_EDGE_HORIZONTAL, x, 0);
+        irrep_pauli_set(out, e, IRREP_PAULI_LETTER_Z);
+    }
+    return IRREP_OK;
+}

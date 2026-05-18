@@ -33,6 +33,7 @@
 #include <stdint.h>
 
 #include <irrep/export.h>
+#include <irrep/stabilizer_group.h>
 #include <irrep/types.h>
 
 #ifdef __cplusplus
@@ -120,6 +121,39 @@ irrep_toric_plaquette_edges(const irrep_toric_params_t *p,
  *  @return  Number of shared edges (0..4). */
 IRREP_API int
 irrep_toric_shared_edges(const int edges_a[4], const int edges_b[4]);
+
+/* ====================================================================
+ * Logical operators
+ *
+ * The Lx × Ly torus encodes k=2 logical qubits, corresponding to the
+ * two independent non-contractible 1-cycles on the torus. There are
+ * thus two pairs of logical operators, each pair anti-commuting on a
+ * single shared edge.
+ *
+ *   L_X1 = X on vertical edges (orient=1) winding around horizontally:
+ *          {(x, 0, 1) : x ∈ [0, Lx)}.  Anti-commutes with L_Z1 on (0,0,1).
+ *   L_Z1 = Z on vertical edges winding vertically:
+ *          {(0, y, 1) : y ∈ [0, Ly)}.
+ *   L_X2 = X on horizontal edges (orient=0) winding vertically:
+ *          {(0, y, 0) : y ∈ [0, Ly)}.  Anti-commutes with L_Z2 on (0,0,0).
+ *   L_Z2 = Z on horizontal edges winding horizontally:
+ *          {(x, 0, 0) : x ∈ [0, Lx)}.
+ *
+ * Each output Pauli is allocated by the function; caller must
+ * `irrep_pauli_free` when done.
+ * ==================================================================== */
+
+IRREP_API irrep_status_t
+irrep_toric_logical_X1(const irrep_toric_params_t *p, irrep_pauli_t *out);
+
+IRREP_API irrep_status_t
+irrep_toric_logical_Z1(const irrep_toric_params_t *p, irrep_pauli_t *out);
+
+IRREP_API irrep_status_t
+irrep_toric_logical_X2(const irrep_toric_params_t *p, irrep_pauli_t *out);
+
+IRREP_API irrep_status_t
+irrep_toric_logical_Z2(const irrep_toric_params_t *p, irrep_pauli_t *out);
 
 #ifdef __cplusplus
 }

@@ -188,6 +188,22 @@ irrep_ising_R_symbol(irrep_ising_object_t a, irrep_ising_object_t b,
 IRREP_API double
 irrep_ising_twist_from_R_residual(void);
 
+/** @brief Verify the modular S-matrix derived from twists and fusion
+ *  data matches the hardcoded S-matrix.
+ *
+ *  For a self-dual MTC, the unnormalised S-matrix entries are
+ *
+ *      S_{ab} = (1/D) Σ_c N^{ab}_c · (θ_c / (θ_a θ_b)) · d_c.
+ *
+ *  All Ising simples are self-dual, so this formula applies. The
+ *  derived S should match `irrep_ising_S_matrix` to machine precision
+ *  when F-, R-, T-symbols are mutually consistent.
+ *
+ *  @return Maximum absolute deviation `|S_derived(a, b) − S(a, b)|`
+ *          across all 9 entries. */
+IRREP_API double
+irrep_ising_S_from_twist_residual(void);
+
 /** @brief Verify the F-matrix unitarity on the σσσσ block:
  *  `Σ_e F^{σσσ}_σ_{e,f} · conj(F^{σσσ}_σ_{e,f'}) = δ_{f,f'}`.
  *

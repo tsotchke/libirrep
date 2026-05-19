@@ -209,6 +209,35 @@ irrep_ising_twist_from_R_residual(void)
 }
 
 double
+irrep_ising_S_from_twist_residual(void)
+{
+    double max_err = 0.0;
+    double D = irrep_ising_global_dim();
+    for (int a = 0; a < IRREP_ISING_N_OBJECTS; ++a) {
+        for (int b = 0; b < IRREP_ISING_N_OBJECTS; ++b) {
+            irrep_ising_object_t A = (irrep_ising_object_t)a;
+            irrep_ising_object_t B = (irrep_ising_object_t)b;
+            double _Complex theta_a = irrep_ising_T_eigenvalue(A);
+            double _Complex theta_b = irrep_ising_T_eigenvalue(B);
+            double _Complex S_derived = 0.0;
+            for (int c = 0; c < IRREP_ISING_N_OBJECTS; ++c) {
+                irrep_ising_object_t C = (irrep_ising_object_t)c;
+                int N = irrep_ising_fusion(A, B, C);
+                if (N == 0) continue;
+                double _Complex theta_c = irrep_ising_T_eigenvalue(C);
+                double d_c = irrep_ising_quantum_dim(C);
+                S_derived += (double)N * theta_c / (theta_a * theta_b) * d_c;
+            }
+            S_derived /= D;
+            double _Complex S_hard = irrep_ising_S_matrix(A, B);
+            double err = cabs(S_derived - S_hard);
+            if (err > max_err) max_err = err;
+        }
+    }
+    return max_err;
+}
+
+double
 irrep_ising_F_unitarity_residual(void)
 {
     double max_err = 0.0;

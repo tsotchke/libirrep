@@ -141,6 +141,8 @@ static int test_F_R_symbols(void) {
 
     /* Twist consistency: derived θ_a matches T_a to machine precision. */
     if (irrep_ising_twist_from_R_residual() > 1e-12) return 1;
+    /* S-matrix from twists matches hardcoded S to machine precision. */
+    if (irrep_ising_S_from_twist_residual() > 1e-12) return 1;
 
     return 0;
 }

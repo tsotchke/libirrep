@@ -10,6 +10,7 @@
  *  - Counts: n_qubits = 2 Lx Ly, n_vertices = n_plaquettes = Lx Ly.
  */
 #include "harness.h"
+#include <irrep/css_code.h>
 #include <irrep/stabilizer_group.h>
 #include <irrep/toric_code.h>
 #include <stdio.h>
@@ -167,6 +168,28 @@ static int test_toric_logical_operators(int Lx, int Ly) {
     return rc;
 }
 
+/* CSS-builder test: 2D toric on Lx × Ly torus has k = 2 logical qubits
+ * (= dim H_1(T², F_2)). Verifies via the new irrep_toric_code_build_css
+ * + F₂-rank logical-qubit counter. */
+static int test_toric_code_build_css_k(int Lx, int Ly) {
+    irrep_toric_params_t p;
+    irrep_toric_init(&p, Lx, Ly);
+    irrep_css_code_t c;
+    if (irrep_toric_code_build_css(&p, &c) != IRREP_OK) return 1;
+    int rc = 0;
+    if (c.n != 2 * Lx * Ly) rc = 1;
+    if (c.H_X.n_rows != Lx * Ly) rc = 1;
+    if (c.H_Z.n_rows != Lx * Ly) rc = 1;
+    if (irrep_css_code_verify(&c) != IRREP_OK) rc = 1;
+    if (irrep_css_code_logical_qubits(&c) != 2) {
+        fprintf(stderr, "  2D toric (%d, %d): k = %d (expected 2)\n",
+                Lx, Ly, irrep_css_code_logical_qubits(&c));
+        rc = 1;
+    }
+    irrep_css_code_free(&c);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     if (test_toric_init()) { fprintf(stderr, "FAIL test_toric_init\n"); rc = 1; }
@@ -176,5 +199,9 @@ int main(void) {
     if (test_toric_logical_operators(2, 2)) { fprintf(stderr, "FAIL test_toric_logical_operators(2,2)\n"); rc = 1; }
     if (test_toric_logical_operators(3, 3)) { fprintf(stderr, "FAIL test_toric_logical_operators(3,3)\n"); rc = 1; }
     if (test_toric_logical_operators(4, 3)) { fprintf(stderr, "FAIL test_toric_logical_operators(4,3)\n"); rc = 1; }
+    if (test_toric_code_build_css_k(2, 2)) { fprintf(stderr, "FAIL test_toric_code_build_css_k(2,2)\n"); rc = 1; }
+    if (test_toric_code_build_css_k(3, 3)) { fprintf(stderr, "FAIL test_toric_code_build_css_k(3,3)\n"); rc = 1; }
+    if (test_toric_code_build_css_k(3, 4)) { fprintf(stderr, "FAIL test_toric_code_build_css_k(3,4)\n"); rc = 1; }
+    if (test_toric_code_build_css_k(5, 5)) { fprintf(stderr, "FAIL test_toric_code_build_css_k(5,5)\n"); rc = 1; }
     return rc;
 }

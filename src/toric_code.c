@@ -189,3 +189,41 @@ irrep_toric_logical_Z2(const irrep_toric_params_t *p, irrep_pauli_t *out)
     }
     return IRREP_OK;
 }
+
+#include <irrep/css_code.h>
+
+irrep_status_t
+irrep_toric_code_build_css(const irrep_toric_params_t *p, irrep_css_code_t *out)
+{
+    if (p == NULL || out == NULL) return IRREP_ERR_INVALID_ARG;
+    int n_vert = p->Lx * p->Ly;  /* number of vertices = X-stabs */
+    int n_plaq = p->Lx * p->Ly;  /* number of plaquettes = Z-stabs */
+    irrep_status_t s = irrep_css_code_new(out, p->n_qubits, n_vert, n_plaq);
+    if (s != IRREP_OK) return s;
+
+    /* X-stabilizers: one per vertex, weight 4 on incident edges. */
+    int row = 0;
+    for (int vy = 0; vy < p->Ly; ++vy) {
+        for (int vx = 0; vx < p->Lx; ++vx) {
+            int edges[4];
+            irrep_toric_vertex_edges(p, vx, vy, edges);
+            for (int k = 0; k < 4; ++k) {
+                irrep_parity_matrix_set(&out->H_X, row, edges[k]);
+            }
+            ++row;
+        }
+    }
+    /* Z-stabilizers: one per plaquette, weight 4 on boundary edges. */
+    row = 0;
+    for (int py = 0; py < p->Ly; ++py) {
+        for (int px = 0; px < p->Lx; ++px) {
+            int edges[4];
+            irrep_toric_plaquette_edges(p, px, py, edges);
+            for (int k = 0; k < 4; ++k) {
+                irrep_parity_matrix_set(&out->H_Z, row, edges[k]);
+            }
+            ++row;
+        }
+    }
+    return IRREP_OK;
+}

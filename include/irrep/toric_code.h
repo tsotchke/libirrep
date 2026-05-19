@@ -155,6 +155,30 @@ irrep_toric_logical_X2(const irrep_toric_params_t *p, irrep_pauli_t *out);
 IRREP_API irrep_status_t
 irrep_toric_logical_Z2(const irrep_toric_params_t *p, irrep_pauli_t *out);
 
+/* ====================================================================
+ * CSS-code builder for the 2D toric code.
+ *
+ * Builds the `[[2·Lx·Ly, 2, min(Lx, Ly)]]` CSS code:
+ *   - n_qubits = 2 · Lx · Ly (one qubit per edge of the L×L torus)
+ *   - m_X = Lx · Ly vertex (X-type) stabilizers, each weight 4
+ *   - m_Z = Lx · Ly plaquette (Z-type) stabilizers, each weight 4
+ *   - k = 2 logical qubits (= dim H_1(T², F_2) = F_2²)
+ *   - d = min(Lx, Ly)
+ * ==================================================================== */
+
+#include <irrep/css_code.h>
+
+/** @brief Build the 2D toric code as a CSS code on `Lx × Ly` torus.
+ *
+ *  Constructs the standard Kitaev toric code in CSS form. Each vertex
+ *  contributes a weight-4 X-stabilizer on its incident edges; each
+ *  plaquette contributes a weight-4 Z-stabilizer on its boundary
+ *  edges.
+ *
+ *  Caller must `irrep_css_code_free(out)` when done. */
+IRREP_API irrep_status_t
+irrep_toric_code_build_css(const irrep_toric_params_t *p, irrep_css_code_t *out);
+
 #ifdef __cplusplus
 }
 #endif

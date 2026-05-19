@@ -148,6 +148,38 @@ static int test_rm_15_1_3_distance(void) {
     return IRREP_TEST_END();
 }
 
+/* PROOF that [[15, 1, 3]] Reed-Muller has asymmetric X/Z distances:
+ *   d_X = 7  (auto-discovered X-only logical has weight 7)
+ *   d_Z = 3  (auto-discovered Z-only logical has weight 3)
+ *   d = min(d_X, d_Z) = 3 (matches the published distance)
+ *
+ * This asymmetry distinguishes the Reed-Muller [[15,1,3]] from
+ * symmetric CSS codes like Steane (d_X = d_Z = 3). The Z-side
+ * minimum-weight logical exists at weight 3 (a PG(3,2)-style line
+ * support); the X-side requires weight 7 (= the minimum distance
+ * of the punctured RM(1,4) = [15,4,8] code's complement coset).
+ *
+ * This is the structural feature that supports the transversal-T
+ * gate: triorthogonality of H_X yields the asymmetric distance. */
+static int test_rm_15_1_3_dX_dZ_asymmetry(void) {
+    IRREP_TEST_START("color_3d_rm_15_1_3_dX_dZ_asymmetry");
+    irrep_css_code_t cs;
+    IRREP_ASSERT(irrep_color_3d_rm_15_1_3(&cs) == IRREP_OK);
+    irrep_pauli_t Lx, Lz;
+    int d_X = irrep_css_code_compute_logical_X(&cs, 8, &Lx);
+    int d_Z = irrep_css_code_compute_logical_Z(&cs, 4, &Lz);
+    IRREP_ASSERT(d_X == 7);
+    IRREP_ASSERT(d_Z == 3);
+    IRREP_ASSERT(irrep_pauli_weight(&Lx) == 7);
+    IRREP_ASSERT(irrep_pauli_weight(&Lz) == 3);
+    /* X and Z logicals must anti-commute (encoded Pauli relation). */
+    IRREP_ASSERT(!irrep_pauli_commute(&Lx, &Lz));
+    irrep_pauli_free(&Lx);
+    irrep_pauli_free(&Lz);
+    irrep_css_code_free(&cs);
+    return IRREP_TEST_END();
+}
+
 static int test_rm_15_1_3_invalid_args(void) {
     IRREP_TEST_START("color_3d_rm_15_1_3_invalid_args");
     IRREP_ASSERT(irrep_color_3d_rm_15_1_3(NULL) == IRREP_ERR_INVALID_ARG);
@@ -162,5 +194,6 @@ int main(void) {
     rc |= test_rm_15_1_3_structure();
     rc |= test_rm_15_1_3_distance();
     rc |= test_rm_15_1_3_invalid_args();
+    rc |= test_rm_15_1_3_dX_dZ_asymmetry();
     return rc;
 }

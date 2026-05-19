@@ -255,3 +255,147 @@ irrep_css_code_distance(const irrep_css_code_t *c, int max_weight)
     irrep_stabilizer_group_free(&g);
     return d;
 }
+
+/* ====================================================================
+ * Automatic minimum-weight logical X̄ discovery via brute search.
+ *
+ * Algorithm:
+ *   For each w = 1..max_weight:
+ *     For each C(n, w) support choice:
+ *       Form the X^v Pauli on those qubits.
+ *       Check: commutes with every Z-stab (v · z = 0 for every z row).
+ *       Check: not in rowspace(H_X).
+ *       Return the first hit.
+ *   Return max_weight + 1 if no logical found in range.
+ *
+ * Helper: pauli_in_X_rowspace tests if v ∈ rowspan(H_X) via the same
+ * F₂ Gaussian elimination as irrep_pauli_in_stabilizer_span.
+ * ==================================================================== */
+
+/* Test whether the F_2 vector v of length n is in the row-space of H. */
+static int
+parity_vec_in_rowspace(const irrep_parity_matrix_t *H, const int *v_support, int sz)
+{
+    int m = H->n_rows;
+    int n = H->n_cols;
+    if (m == 0) return 0; /* Empty rowspace contains only zero. */
+
+    /* Build augmented matrix: [H | v]^T then row-reduce. We just need
+     * to check if v is a linear combination of rows of H. */
+    irrep_parity_matrix_t W;
+    if (irrep_parity_matrix_new(&W, m + 1, n) != IRREP_OK) return -1;
+    /* Copy H rows. */
+    for (int r = 0; r < m; ++r) {
+        for (int w = 0; w < H->n_words; ++w) {
+            W.data[(size_t)r * (size_t)W.n_words + w] =
+                H->data[(size_t)r * (size_t)H->n_words + w];
+        }
+    }
+    /* Append v as the last row. */
+    for (int i = 0; i < sz; ++i) {
+        irrep_parity_matrix_set(&W, m, v_support[i]);
+    }
+    /* Row-reduce. v is in rowspan(H) iff rank(W) == rank(H), i.e., the
+     * augmented matrix has the same rank as H alone. */
+    int rank_H = irrep_parity_matrix_rank(H);
+    int rank_W = irrep_parity_matrix_rank(&W);
+    irrep_parity_matrix_free(&W);
+    return (rank_W == rank_H) ? 1 : 0;
+}
+
+/* Test whether x-support v commutes with all rows of H_Z (i.e., the
+ * F_2 inner product v · z_row = 0 for every Z-stabilizer row). */
+static int
+support_commutes_all(const irrep_parity_matrix_t *H_Z, const int *v_support, int sz)
+{
+    for (int r = 0; r < H_Z->n_rows; ++r) {
+        int parity = 0;
+        for (int i = 0; i < sz; ++i) {
+            parity ^= irrep_parity_matrix_get(H_Z, r, v_support[i]);
+        }
+        if (parity != 0) return 0;
+    }
+    return 1;
+}
+
+/* Iterate over weight-w supports of {0..n-1}. Lex order via a
+ * combination-counter. Returns 0 if no next combination, 1 otherwise. */
+static int
+combo_next(int *combo, int w, int n)
+{
+    /* Find rightmost element that can be incremented. */
+    int i = w - 1;
+    while (i >= 0 && combo[i] == n - w + i) --i;
+    if (i < 0) return 0;
+    ++combo[i];
+    for (int j = i + 1; j < w; ++j) combo[j] = combo[j - 1] + 1;
+    return 1;
+}
+
+int
+irrep_css_code_compute_logical_X(const irrep_css_code_t *c, int max_weight,
+                                  irrep_pauli_t *out_pauli)
+{
+    if (c == NULL || out_pauli == NULL || max_weight <= 0) return -1;
+    int n = c->n;
+    if (n <= 0) return -1;
+
+    int *combo = (int *)malloc((size_t)max_weight * sizeof(int));
+    if (combo == NULL) return -1;
+
+    for (int w = 1; w <= max_weight; ++w) {
+        /* Initialise to {0, 1, ..., w-1}. */
+        for (int i = 0; i < w; ++i) combo[i] = i;
+        if (w > n) break;
+        do {
+            /* Test this support: commutes with all Z-stabs AND not in
+             * the X-stab rowspace. */
+            if (support_commutes_all(&c->H_Z, combo, w) &&
+                parity_vec_in_rowspace(&c->H_X, combo, w) == 0) {
+                /* Found minimum-weight logical X. */
+                irrep_status_t s = irrep_pauli_new(out_pauli, n);
+                if (s != IRREP_OK) { free(combo); return -1; }
+                for (int i = 0; i < w; ++i) {
+                    irrep_pauli_set(out_pauli, combo[i], IRREP_PAULI_LETTER_X);
+                }
+                free(combo);
+                return w;
+            }
+        } while (combo_next(combo, w, n));
+    }
+    free(combo);
+    return max_weight + 1; /* No logical found in range. */
+}
+
+int
+irrep_css_code_compute_logical_Z(const irrep_css_code_t *c, int max_weight,
+                                  irrep_pauli_t *out_pauli)
+{
+    if (c == NULL || out_pauli == NULL || max_weight <= 0) return -1;
+    int n = c->n;
+    if (n <= 0) return -1;
+
+    int *combo = (int *)malloc((size_t)max_weight * sizeof(int));
+    if (combo == NULL) return -1;
+
+    for (int w = 1; w <= max_weight; ++w) {
+        for (int i = 0; i < w; ++i) combo[i] = i;
+        if (w > n) break;
+        do {
+            /* Z-type: commutes with H_X (v · x = 0 for every x row of H_X)
+             * AND not in rowspace(H_Z). */
+            if (support_commutes_all(&c->H_X, combo, w) &&
+                parity_vec_in_rowspace(&c->H_Z, combo, w) == 0) {
+                irrep_status_t s = irrep_pauli_new(out_pauli, n);
+                if (s != IRREP_OK) { free(combo); return -1; }
+                for (int i = 0; i < w; ++i) {
+                    irrep_pauli_set(out_pauli, combo[i], IRREP_PAULI_LETTER_Z);
+                }
+                free(combo);
+                return w;
+            }
+        } while (combo_next(combo, w, n));
+    }
+    free(combo);
+    return max_weight + 1;
+}

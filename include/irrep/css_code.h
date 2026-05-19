@@ -188,6 +188,49 @@ irrep_css_code_logical_qubits(const irrep_css_code_t *c);
 IRREP_API int
 irrep_css_code_distance(const irrep_css_code_t *c, int max_weight);
 
+/** @brief Find a minimum-weight logical X̄ for any CSS code by brute-
+ *  force search over X-only Paulis of weight up to `max_weight`.
+ *
+ *  Iterates over all weight-w supports for w = 1..max_weight and
+ *  returns the FIRST X^v Pauli such that:
+ *    1. `v` commutes with every Z-stabilizer (v · z = 0 for every z
+ *       in the rowspace of H_Z), AND
+ *    2. `v` is NOT in the rowspace of H_X (not a trivial stabilizer).
+ *
+ *  Such a `v` is by definition a non-trivial logical X̄ operator;
+ *  the first one found has minimum weight = `d_X` (the X-side
+ *  distance). The overall CSS code distance is `d = min(d_X, d_Z)`,
+ *  so `d_X` may exceed `d` when the Z-side gives smaller logicals
+ *  (e.g., the [[15, 1, 3]] Reed-Muller code has d_X = 7 but
+ *  d_Z = 3, so its distance is 3 although this X-side search
+ *  returns 7).
+ *
+ *  Complexity: O(C(n, w) · m · n) per weight class. Practical for
+ *  `n ≤ 30` at small d_X.
+ *
+ *  @param[in]  c           CSS code (read-only).
+ *  @param[in]  max_weight  Largest weight to search.
+ *  @param[out] out_pauli   Caller-allocated `irrep_pauli_t`; on
+ *                          success holds the discovered logical X̄.
+ *  @return  Weight of the discovered logical (= d_X) on success;
+ *           `max_weight + 1` if none found in range; -1 on error. */
+IRREP_API int
+irrep_css_code_compute_logical_X(const irrep_css_code_t *c, int max_weight,
+                                  irrep_pauli_t *out_pauli);
+
+/** @brief Find a minimum-weight logical Z̄ for any CSS code by brute-
+ *  force search over Z-only Paulis (the Z-side companion to
+ *  `irrep_css_code_compute_logical_X`).
+ *
+ *  Iterates over weight-w supports and returns the FIRST Z^v such
+ *  that v commutes with all X-stabilizers (`v · x = 0` for every x
+ *  in the rowspace of H_X) and v is not in the rowspace of H_Z.
+ *
+ *  Returns the Z-side distance `d_Z`. */
+IRREP_API int
+irrep_css_code_compute_logical_Z(const irrep_css_code_t *c, int max_weight,
+                                  irrep_pauli_t *out_pauli);
+
 #ifdef __cplusplus
 }
 #endif

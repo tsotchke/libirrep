@@ -20,6 +20,9 @@ static int test_cube_8_3_2_structure(void) {
     /* CSS orthogonality: H_X · H_Zᵀ = 0 (mod 2). */
     IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
 
+    /* k = 3 by the [[8, 3, 2]] name (3 logical qubits in a single cube). */
+    IRREP_ASSERT(irrep_css_code_logical_qubits(&cs) == 3);
+
     /* Full pairwise commutativity. */
     irrep_stabilizer_group_t g;
     IRREP_ASSERT(irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK);
@@ -85,6 +88,9 @@ static int test_rm_15_1_3_structure(void) {
 
     /* CSS orthogonality. */
     IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
+
+    /* k = 1 by the [[15, 1, 3]] name. */
+    IRREP_ASSERT(irrep_css_code_logical_qubits(&cs) == 1);
 
     /* Materialise + commutativity. */
     irrep_stabilizer_group_t g;

@@ -60,6 +60,7 @@ static int test_hex_19_1_5_structure(void) {
 
     /* CSS orthogonality and full stabilizer commutativity. */
     IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
+    IRREP_ASSERT(irrep_css_code_logical_qubits(&cs) == 1);  /* [[19, 1, 5]] */
 
     irrep_stabilizer_group_t g;
     IRREP_ASSERT(irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK);
@@ -181,6 +182,7 @@ static int test_488_17_1_5_structure(void) {
     IRREP_ASSERT(diff == 0);
 
     IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
+    IRREP_ASSERT(irrep_css_code_logical_qubits(&cs) == 1);  /* [[17, 1, 5]] */
 
     irrep_stabilizer_group_t g;
     IRREP_ASSERT(irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK);

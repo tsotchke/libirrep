@@ -194,6 +194,59 @@ static int test_css_rejects_anticomm(void) {
     return s == IRREP_ERR_PRECONDITION ? 0 : 1;
 }
 
+/* F₂-rank primitive and logical-qubit counter against analytical
+ * expectations on Steane [[7,1,3]] (k=1) and a 4x4 identity-rank
+ * stress case. */
+static int test_parity_matrix_rank_and_k(void) {
+    /* Steane [[7,1,3]]: rank(H_X) = rank(H_Z) = 3. */
+    irrep_css_code_t cs;
+    if (irrep_css_code_new(&cs, 7, 3, 3) != IRREP_OK) return 1;
+    const int row0[4] = { 0, 2, 4, 6 };
+    const int row1[4] = { 1, 2, 5, 6 };
+    const int row2[4] = { 3, 4, 5, 6 };
+    for (int i = 0; i < 4; ++i) {
+        irrep_parity_matrix_set(&cs.H_X, 0, row0[i]);
+        irrep_parity_matrix_set(&cs.H_Z, 0, row0[i]);
+        irrep_parity_matrix_set(&cs.H_X, 1, row1[i]);
+        irrep_parity_matrix_set(&cs.H_Z, 1, row1[i]);
+        irrep_parity_matrix_set(&cs.H_X, 2, row2[i]);
+        irrep_parity_matrix_set(&cs.H_Z, 2, row2[i]);
+    }
+    int rc = 0;
+    if (irrep_parity_matrix_rank(&cs.H_X) != 3) rc = 1;
+    if (irrep_parity_matrix_rank(&cs.H_Z) != 3) rc = 1;
+    if (irrep_css_code_logical_qubits(&cs) != 1) rc = 1; /* Steane k = 1 */
+    irrep_css_code_free(&cs);
+
+    /* Rank stress: a 4x4 matrix with one redundant row. */
+    irrep_parity_matrix_t M;
+    if (irrep_parity_matrix_new(&M, 4, 4) != IRREP_OK) return 1;
+    /* Rows: e_1, e_2, e_3, e_1 + e_2 + e_3. Rank = 3. */
+    irrep_parity_matrix_set(&M, 0, 0);
+    irrep_parity_matrix_set(&M, 1, 1);
+    irrep_parity_matrix_set(&M, 2, 2);
+    irrep_parity_matrix_set(&M, 3, 0);
+    irrep_parity_matrix_set(&M, 3, 1);
+    irrep_parity_matrix_set(&M, 3, 2);
+    if (irrep_parity_matrix_rank(&M) != 3) rc = 1;
+    /* 4x4 zero matrix has rank 0. */
+    irrep_parity_matrix_t Z;
+    if (irrep_parity_matrix_new(&Z, 4, 4) != IRREP_OK) { irrep_parity_matrix_free(&M); return 1; }
+    if (irrep_parity_matrix_rank(&Z) != 0) rc = 1;
+    /* 4x4 identity matrix has rank 4. */
+    irrep_parity_matrix_t I4;
+    if (irrep_parity_matrix_new(&I4, 4, 4) != IRREP_OK) {
+        irrep_parity_matrix_free(&M); irrep_parity_matrix_free(&Z); return 1;
+    }
+    for (int i = 0; i < 4; ++i) irrep_parity_matrix_set(&I4, i, i);
+    if (irrep_parity_matrix_rank(&I4) != 4) rc = 1;
+
+    irrep_parity_matrix_free(&M);
+    irrep_parity_matrix_free(&Z);
+    irrep_parity_matrix_free(&I4);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     if (test_parity_matrix_set_get())     { fprintf(stderr, "FAIL test_parity_matrix_set_get\n"); rc = 1; }
@@ -202,5 +255,6 @@ int main(void) {
     if (test_steane_to_stabilizer_group()){ fprintf(stderr, "FAIL test_steane_to_stabilizer_group\n"); rc = 1; }
     if (test_toric_as_css())              { fprintf(stderr, "FAIL test_toric_as_css\n"); rc = 1; }
     if (test_css_rejects_anticomm())      { fprintf(stderr, "FAIL test_css_rejects_anticomm\n"); rc = 1; }
+    if (test_parity_matrix_rank_and_k())  { fprintf(stderr, "FAIL test_parity_matrix_rank_and_k\n"); rc = 1; }
     return rc;
 }

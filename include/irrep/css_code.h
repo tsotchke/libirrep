@@ -144,6 +144,33 @@ IRREP_API irrep_status_t
 irrep_css_code_to_stabilizer_group(const irrep_css_code_t *c,
                                    irrep_stabilizer_group_t *out);
 
+/** @brief Compute the F₂-rank of a parity-check matrix via Gaussian
+ *  elimination.
+ *
+ *  Runs in-place on a workspace copy of `H` so the input is unchanged.
+ *  Complexity: `O(m · n · m / 64)` with bit-packed XOR. Use for
+ *  rank-derived diagnostics (logical-qubit counts, code dimension,
+ *  syndrome redundancies).
+ *
+ *  @param[in] H  Parity-check matrix; can have any dimensions, including
+ *                degenerate (0-row or 0-col).
+ *  @return  Rank of `H` over F₂, in `[0, min(m, n)]`. Returns -1 on
+ *           allocation failure. */
+IRREP_API int
+irrep_parity_matrix_rank(const irrep_parity_matrix_t *H);
+
+/** @brief Number of logical qubits of a CSS code.
+ *
+ *  Computed as `k = n - rank(H_X) - rank(H_Z)`. CSS-orthogonality
+ *  guarantees `rank(H_X) + rank(H_Z) ≤ n`, so `k ≥ 0`. For
+ *  well-formed codes this returns the analytical logical-qubit count
+ *  without any code-family-specific arithmetic.
+ *
+ *  @param[in] c  CSS code (read-only).
+ *  @return  Number of logical qubits, or -1 on error. */
+IRREP_API int
+irrep_css_code_logical_qubits(const irrep_css_code_t *c);
+
 #ifdef __cplusplus
 }
 #endif

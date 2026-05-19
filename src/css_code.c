@@ -178,3 +178,65 @@ irrep_css_code_to_stabilizer_group(const irrep_css_code_t *c,
     }
     return IRREP_OK;
 }
+
+
+/* ====================================================================
+ * F₂-rank of a parity matrix and logical-qubit count of a CSS code.
+ * ==================================================================== */
+
+int
+irrep_parity_matrix_rank(const irrep_parity_matrix_t *H)
+{
+    if (H == NULL) return -1;
+    int m = H->n_rows;
+    int n = H->n_cols;
+    if (m == 0 || n == 0) return 0;
+
+    /* Work-copy of H. */
+    irrep_parity_matrix_t W;
+    if (irrep_parity_matrix_new(&W, m, n) != IRREP_OK) return -1;
+    for (int r = 0; r < m; ++r) {
+        for (int w = 0; w < H->n_words; ++w) {
+            W.data[(size_t)r * (size_t)W.n_words + w] =
+                H->data[(size_t)r * (size_t)H->n_words + w];
+        }
+    }
+
+    int pivot_row = 0;
+    for (int c = 0; c < n && pivot_row < m; ++c) {
+        int r = -1;
+        for (int i = pivot_row; i < m; ++i) {
+            if (irrep_parity_matrix_get(&W, i, c) == 1) { r = i; break; }
+        }
+        if (r == -1) continue;
+        if (r != pivot_row) {
+            uint64_t *a = &W.data[(size_t)pivot_row * (size_t)W.n_words];
+            uint64_t *b = &W.data[(size_t)r          * (size_t)W.n_words];
+            for (int w = 0; w < W.n_words; ++w) {
+                uint64_t t = a[w]; a[w] = b[w]; b[w] = t;
+            }
+        }
+        for (int i = 0; i < m; ++i) {
+            if (i == pivot_row) continue;
+            if (irrep_parity_matrix_get(&W, i, c) == 1) {
+                uint64_t *dst = &W.data[(size_t)i         * (size_t)W.n_words];
+                uint64_t *src = &W.data[(size_t)pivot_row * (size_t)W.n_words];
+                for (int w = 0; w < W.n_words; ++w) dst[w] ^= src[w];
+            }
+        }
+        ++pivot_row;
+    }
+    irrep_parity_matrix_free(&W);
+    return pivot_row;
+}
+
+int
+irrep_css_code_logical_qubits(const irrep_css_code_t *c)
+{
+    if (c == NULL) return -1;
+    int rX = irrep_parity_matrix_rank(&c->H_X);
+    int rZ = irrep_parity_matrix_rank(&c->H_Z);
+    if (rX < 0 || rZ < 0) return -1;
+    int k = c->n - rX - rZ;
+    return k < 0 ? -1 : k;
+}

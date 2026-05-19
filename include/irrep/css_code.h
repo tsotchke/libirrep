@@ -171,6 +171,23 @@ irrep_parity_matrix_rank(const irrep_parity_matrix_t *H);
 IRREP_API int
 irrep_css_code_logical_qubits(const irrep_css_code_t *c);
 
+/** @brief Brute-force code distance via stabilizer-group enumeration.
+ *
+ *  Convenience wrapper that materialises the CSS code as a stabilizer
+ *  group, calls `irrep_qec_distance_brute(g, max_weight)`, and frees
+ *  the working storage. Useful for one-shot code-parameter audits.
+ *
+ *  Complexity: O(C(n, w) · 3^w · m · n) per weight class up to
+ *  `max_weight`. Practical for `n ≤ 25` at distances `≤ 5`.
+ *
+ *  @param[in] c           CSS code (read-only).
+ *  @param[in] max_weight  Largest Pauli weight to enumerate.
+ *  @return  Smallest weight `w ≤ max_weight` for which a non-trivial
+ *           logical operator exists; `max_weight + 1` if none found
+ *           in range; -1 on error. */
+IRREP_API int
+irrep_css_code_distance(const irrep_css_code_t *c, int max_weight);
+
 #ifdef __cplusplus
 }
 #endif

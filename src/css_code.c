@@ -240,3 +240,18 @@ irrep_css_code_logical_qubits(const irrep_css_code_t *c)
     int k = c->n - rX - rZ;
     return k < 0 ? -1 : k;
 }
+
+#include <irrep/qec_distance.h>
+#include <irrep/stabilizer_group.h>
+
+int
+irrep_css_code_distance(const irrep_css_code_t *c, int max_weight)
+{
+    if (c == NULL || max_weight <= 0) return -1;
+    irrep_stabilizer_group_t g;
+    irrep_status_t s = irrep_css_code_to_stabilizer_group(c, &g);
+    if (s != IRREP_OK) return -1;
+    int d = irrep_qec_distance_brute(&g, max_weight);
+    irrep_stabilizer_group_free(&g);
+    return d;
+}

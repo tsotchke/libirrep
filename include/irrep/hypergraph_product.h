@@ -114,6 +114,22 @@ irrep_hgp_repetition_3_13_1_3(irrep_css_code_t *out);
 IRREP_API irrep_status_t
 irrep_hgp_repetition_4_25_1_4(irrep_css_code_t *out);
 
+/** @brief Build the [[41, 1, 5]] hypergraph product of two [5, 1, 5]
+ *  repetition codes.
+ *
+ *  Classical input: `H_a = H_b = 4×5` parity check
+ *     H = [[1,1,0,0,0], [0,1,1,0,0], [0,0,1,1,0], [0,0,0,1,1]]
+ *  of the [5, 1, 5] repetition code. The HGP construction gives:
+ *    - n_qubits = 5·5 + 4·4 = 41
+ *    - m_X = 4·5 = 20,  m_Z = 5·4 = 20
+ *    - k = k_a·k_b + k_a^T·k_b^T = 1·1 + 0·0 = 1
+ *    - d = min(d_a, d_b) = 5
+ *
+ *  Third instance in the HGP(rep-d, rep-d) ladder showing linear
+ *  scaling of both n and d. Caller must `irrep_css_code_free`. */
+IRREP_API irrep_status_t
+irrep_hgp_repetition_5_41_1_5(irrep_css_code_t *out);
+
 #ifdef __cplusplus
 }
 #endif

@@ -213,5 +213,27 @@ int main(void) {
             irrep_css_code_free(&cs);
         }
     }
+    /* Named [[41, 1, 5]] HGP(rep-5, rep-5): structural counts +
+     * CSS-orth + k = 1 + brute-force distance = 5. ~ 0.3 s for n=41. */
+    {
+        irrep_css_code_t cs;
+        if (irrep_hgp_repetition_5_41_1_5(&cs) != IRREP_OK) {
+            fprintf(stderr, "FAIL HGP[[41,1,5]] build\n"); rc = 1;
+        } else {
+            int sub = 0;
+            if (cs.n != 41) sub = 1;
+            if (cs.H_X.n_rows != 20) sub = 1;
+            if (cs.H_Z.n_rows != 20) sub = 1;
+            if (irrep_css_code_verify(&cs) != IRREP_OK) sub = 1;
+            if (irrep_css_code_logical_qubits(&cs) != 1) sub = 1;
+            int d = irrep_css_code_distance(&cs, 5);
+            if (d != 5) {
+                fprintf(stderr, "  [[41,1,5]] HGP d = %d (expected 5)\n", d);
+                sub = 1;
+            }
+            if (sub) { fprintf(stderr, "FAIL HGP[[41,1,5]]\n"); rc = 1; }
+            irrep_css_code_free(&cs);
+        }
+    }
     return rc;
 }

@@ -129,3 +129,19 @@ irrep_hgp_repetition_4_25_1_4(irrep_css_code_t *out)
     irrep_parity_matrix_free(&H);
     return s;
 }
+
+irrep_status_t
+irrep_hgp_repetition_5_41_1_5(irrep_css_code_t *out)
+{
+    if (out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_parity_matrix_t H;
+    irrep_status_t s = irrep_parity_matrix_new(&H, /*rows=*/4, /*cols=*/5);
+    if (s != IRREP_OK) return s;
+    irrep_parity_matrix_set(&H, 0, 0); irrep_parity_matrix_set(&H, 0, 1);
+    irrep_parity_matrix_set(&H, 1, 1); irrep_parity_matrix_set(&H, 1, 2);
+    irrep_parity_matrix_set(&H, 2, 2); irrep_parity_matrix_set(&H, 2, 3);
+    irrep_parity_matrix_set(&H, 3, 3); irrep_parity_matrix_set(&H, 3, 4);
+    s = irrep_hypergraph_product_build(&H, &H, out);
+    irrep_parity_matrix_free(&H);
+    return s;
+}

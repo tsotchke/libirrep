@@ -306,6 +306,45 @@ irrep_ising_walker_wang_simplex3_vertex_count(void);
 IRREP_API long long
 irrep_ising_walker_wang_simplex3_full_count(void);
 
+/* ====================================================================
+ * Walker-Wang plaquette term — diagonal B_p^ψ component
+ *
+ * The full Walker-Wang plaquette operator is
+ *
+ *      B_p = (1/D) Σ_s d_s B_p^s,
+ *
+ * where `B_p^s` inserts a closed ribbon of label `s` around the
+ * plaquette boundary. For `s = 1` this is identity; for `s = ψ` the
+ * ribbon is closed in a single fusion channel (since ψ is abelian),
+ * making `B_p^ψ` strictly DIAGONAL in the edge-label basis. Its
+ * diagonal entry on a boundary configuration `(e_1, ..., e_n)` is
+ *
+ *      B_p^ψ |e_1, ..., e_n⟩ = (Π_i R^{ψ, e_i}_{e_i}) · |e_1, ..., e_n⟩,
+ *
+ * with `R^{ψ,1}_1 = 1`, `R^{ψ,σ}_σ = i`, `R^{ψ,ψ}_1 = -1`. The
+ * resulting phase factors:
+ *      phase(e_1, ..., e_n) = i^{#σ} · (-1)^{#ψ}.
+ *
+ * On admissible configurations (#σ even), the phase is real (±1) and
+ * `B_p^ψ` reduces to a stabilizer-like sign operator — analogous to
+ * the toric-code plaquette operator restricted to its Z₂ subsector.
+ *
+ * The full `B_p` operator (including the σ-ribbon `B_p^σ`) is
+ * non-diagonal because σ × σ → {1, ψ} branches and corner F-symbols
+ * mix neighbouring edge labels. That term is documented but not
+ * shipped in this header — implementing it requires the qutrit
+ * Hilbert-space operator infrastructure rather than just a phase
+ * function.
+ * ==================================================================== */
+
+/** @brief Diagonal entry of the Walker-Wang `B_p^ψ` plaquette operator
+ *  on a boundary configuration of `n` edges.
+ *
+ *  Returns the product `Π_i R^{ψ, e_i}_{e_i}` = `i^{#σ} · (-1)^{#ψ}`. */
+IRREP_API double _Complex
+irrep_ising_walker_wang_plaquette_psi_phase(
+    const irrep_ising_object_t *boundary_labels, int n);
+
 /** @brief Crane-Yetter 4-manifold invariant for a closed orientable
  *  4-manifold M, parameterised by its Euler characteristic and signature.
  *

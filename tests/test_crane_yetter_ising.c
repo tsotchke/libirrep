@@ -194,6 +194,55 @@ static int test_walker_wang_simplex3(void) {
     return 0;
 }
 
+/* Walker-Wang B_p^ψ plaquette phase on representative configurations.
+ * Phase = i^{#σ} · (-1)^{#ψ}. */
+static int test_walker_wang_plaquette_psi_phase(void) {
+    irrep_ising_object_t I_ = IRREP_ISING_OBJ_1;
+    irrep_ising_object_t S_ = IRREP_ISING_OBJ_SIGMA;
+    irrep_ising_object_t P_ = IRREP_ISING_OBJ_PSI;
+
+    /* All-1: phase = 1. */
+    {
+        irrep_ising_object_t b[4] = { I_, I_, I_, I_ };
+        if (cabs(irrep_ising_walker_wang_plaquette_psi_phase(b, 4) - 1.0) > 1e-12) return 1;
+    }
+    /* All-ψ: phase = (-1)^4 = 1. */
+    {
+        irrep_ising_object_t b[4] = { P_, P_, P_, P_ };
+        if (cabs(irrep_ising_walker_wang_plaquette_psi_phase(b, 4) - 1.0) > 1e-12) return 1;
+    }
+    /* Single ψ: phase = -1. */
+    {
+        irrep_ising_object_t b[4] = { P_, I_, I_, I_ };
+        if (cabs(irrep_ising_walker_wang_plaquette_psi_phase(b, 4) - (-1.0)) > 1e-12) return 1;
+    }
+    /* Two σ: phase = i² = -1. */
+    {
+        irrep_ising_object_t b[4] = { S_, S_, I_, I_ };
+        if (cabs(irrep_ising_walker_wang_plaquette_psi_phase(b, 4) - (-1.0)) > 1e-12) return 1;
+    }
+    /* Four σ: phase = i⁴ = 1. */
+    {
+        irrep_ising_object_t b[4] = { S_, S_, S_, S_ };
+        if (cabs(irrep_ising_walker_wang_plaquette_psi_phase(b, 4) - 1.0) > 1e-12) return 1;
+    }
+    /* Two σ + one ψ: phase = i² · (-1) = 1. */
+    {
+        irrep_ising_object_t b[3] = { S_, S_, P_ };
+        if (cabs(irrep_ising_walker_wang_plaquette_psi_phase(b, 3) - 1.0) > 1e-12) return 1;
+    }
+    /* One σ (non-admissible config): phase = i (imaginary). */
+    {
+        irrep_ising_object_t b[3] = { S_, I_, I_ };
+        if (cabs(irrep_ising_walker_wang_plaquette_psi_phase(b, 3) - I) > 1e-12) return 1;
+    }
+    /* Empty plaquette: phase = 1 (empty product). */
+    {
+        if (cabs(irrep_ising_walker_wang_plaquette_psi_phase(NULL, 0)) > 1e-12) return 1;
+    }
+    return 0;
+}
+
 int main(void) {
     int rc = 0;
     if (test_quantum_dimensions())  { fprintf(stderr, "FAIL test_quantum_dimensions\n"); rc = 1; }
@@ -206,5 +255,7 @@ int main(void) {
         { fprintf(stderr, "FAIL test_walker_wang_vertex_admissible\n"); rc = 1; }
     if (test_walker_wang_simplex3())
         { fprintf(stderr, "FAIL test_walker_wang_simplex3\n"); rc = 1; }
+    if (test_walker_wang_plaquette_psi_phase())
+        { fprintf(stderr, "FAIL test_walker_wang_plaquette_psi_phase\n"); rc = 1; }
     return rc;
 }

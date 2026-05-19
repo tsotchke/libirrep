@@ -375,3 +375,20 @@ irrep_ising_walker_wang_simplex3_full_count(void)
 {
     return simplex3_count(/*with_faces=*/1);
 }
+
+double _Complex
+irrep_ising_walker_wang_plaquette_psi_phase(
+    const irrep_ising_object_t *boundary_labels, int n)
+{
+    if (boundary_labels == NULL || n < 0) return 0.0;
+    double _Complex phase = 1.0 + 0.0 * I;
+    for (int i = 0; i < n; ++i) {
+        switch (boundary_labels[i]) {
+            case IRREP_ISING_OBJ_1:                 break;
+            case IRREP_ISING_OBJ_SIGMA: phase *= I; break;
+            case IRREP_ISING_OBJ_PSI:   phase *= -1.0; break;
+            default: return 0.0;
+        }
+    }
+    return phase;
+}

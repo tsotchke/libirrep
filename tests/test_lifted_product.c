@@ -85,7 +85,9 @@ static int test_ell4_1x1(void) {
             if (irrep_css_code_verify(&c) == IRREP_OK) {
                 irrep_stabilizer_group_t g;
                 if (irrep_css_code_to_stabilizer_group(&c, &g) == IRREP_OK) {
-                    if (irrep_stabilizer_group_check_commutativity(&g) == IRREP_OK) rc = 0;
+                    /* k = 2 for this LP instance (verified via F₂-rank). */
+                    if (irrep_stabilizer_group_check_commutativity(&g) == IRREP_OK
+                        && irrep_css_code_logical_qubits(&c) == 2) rc = 0;
                     irrep_stabilizer_group_free(&g);
                 }
             }
@@ -99,7 +101,8 @@ static int test_ell4_1x1(void) {
 
 /* ℓ=3, A = 1×2, B = 1×2 polynomial matrices
  * Lift sizes: lift(A) is 3×6, lift(B) is 3×6.
- * Lifted product: n = 3·(2·2 + 1·1) = 15, m_X = 3·1·2 = 6, m_Z = 3·2·1 = 6. */
+ * Lifted product: n = 3·(2·2 + 1·1) = 15, m_X = 3·1·2 = 6, m_Z = 3·2·1 = 6.
+ * k = 3 (verified via F₂-rank). */
 static int test_ell3_1x2(void) {
     irrep_poly_matrix_t A, B;
     irrep_poly_matrix_new(&A, 1, 2, 3);
@@ -114,7 +117,8 @@ static int test_ell3_1x2(void) {
     int rc = 1;
     if (irrep_lifted_product_build(&A, &B, &c) == IRREP_OK) {
         if (c.n == 15 && c.H_X.n_rows == 6 && c.H_Z.n_rows == 6) {
-            if (irrep_css_code_verify(&c) == IRREP_OK) rc = 0;
+            if (irrep_css_code_verify(&c) == IRREP_OK
+                && irrep_css_code_logical_qubits(&c) == 3) rc = 0;
         }
         irrep_css_code_free(&c);
     }

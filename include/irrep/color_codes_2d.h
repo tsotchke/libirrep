@@ -238,6 +238,19 @@ irrep_color_hex_triangular_n_qubits(int d);
 IRREP_API int
 irrep_color_hex_triangular_n_faces(int d);
 
+/** @brief Canonical logical X̄ for the triangular-hex code at distance d.
+ *
+ *  By the canonical color-code-stim enumeration order, the first `d`
+ *  data qubits (`{0, 1, ..., d-1}`) lie along the bottom edge of the
+ *  triangular patch (y = 0 row, in row-major (y, x) order). The
+ *  weight-d X-string on those qubits is the canonical logical X̄ — it
+ *  commutes with every stabilizer (each face shares 0 or 2 qubits with
+ *  the bottom edge) and is not itself a stabilizer.
+ *
+ *  The Pauli is allocated internally; caller must `irrep_pauli_free`. */
+IRREP_API irrep_status_t
+irrep_color_hex_triangular_logical_X(int d, irrep_pauli_t *out);
+
 #ifdef __cplusplus
 }
 #endif

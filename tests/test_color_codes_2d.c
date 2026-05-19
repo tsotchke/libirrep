@@ -295,12 +295,12 @@ static int test_hex_triangular_generic(void) {
 
     /* d ∈ {7, 9, 11}: verify the closed-form count formulas hold at
      * runtime — n = 3k² + 3k + 1, faces = 3k(k+1)/2 where k = (d-1)/2.
-     * Plus structural counts + CSS-orth + k = 1.
+     * Plus structural counts + CSS-orth + k = 1 + logical_X proof.
      *
      * Brute-force distance verification at d ≥ 7 needs >10^9 Pauli
      * enumerations and is impractical in the test bank; structural
-     * verification (n, k, CSS-orth) plus the BMD distance formula
-     * d=2L+1 are the audit trail. */
+     * verification (n, k, CSS-orth, logical proof) plus the BMD
+     * distance formula d=2L+1 are the audit trail. */
     for (int d = 7; d <= 11; d += 2) {
         int k_idx = (d - 1) / 2;
         int n_expected     = 3 * k_idx * k_idx + 3 * k_idx + 1;
@@ -315,6 +315,29 @@ static int test_hex_triangular_generic(void) {
         IRREP_ASSERT(cs.H_Z.n_rows == faces_expected);
         IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
         IRREP_ASSERT(irrep_css_code_logical_qubits(&cs) == 1);
+
+        /* PROOF that the weight-d canonical logical X̄ on qubits
+         * {0, ..., d-1} is a valid non-trivial logical:
+         *   1. Commutes with every stabilizer.
+         *   2. Has weight exactly d.
+         *   3. Is NOT in the span of the stabilizer group (would
+         *      otherwise be trivial, not a logical). */
+        {
+            irrep_pauli_t Lx;
+            IRREP_ASSERT(irrep_color_hex_triangular_logical_X(d, &Lx) == IRREP_OK);
+            IRREP_ASSERT(irrep_pauli_weight(&Lx) == d);
+
+            irrep_stabilizer_group_t g;
+            IRREP_ASSERT(irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK);
+            for (int i = 0; i < g.n_generators; ++i) {
+                IRREP_ASSERT(irrep_pauli_commute(&g.gens[i], &Lx));
+            }
+            /* Logical lies outside the stabilizer span (i.e., is a
+             * non-trivial element of the centraliser, not a stabilizer). */
+            IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lx) == 0);
+            irrep_stabilizer_group_free(&g);
+            irrep_pauli_free(&Lx);
+        }
         irrep_css_code_free(&cs);
     }
     return IRREP_TEST_END();

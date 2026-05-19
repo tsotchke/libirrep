@@ -398,3 +398,17 @@ irrep_color_hex_triangular_n_faces(int d)
     int k = (d - 1) / 2;
     return 3 * k * (k + 1) / 2;
 }
+
+irrep_status_t
+irrep_color_hex_triangular_logical_X(int d, irrep_pauli_t *out)
+{
+    if (out == NULL || d < 3 || (d % 2) == 0) return IRREP_ERR_INVALID_ARG;
+    int n = irrep_color_hex_triangular_n_qubits(d);
+    irrep_status_t s = irrep_pauli_new(out, n);
+    if (s != IRREP_OK) return s;
+    /* X on the first d qubits = the d data qubits in row y = 0. */
+    for (int q = 0; q < d; ++q) {
+        irrep_pauli_set(out, q, IRREP_PAULI_LETTER_X);
+    }
+    return IRREP_OK;
+}

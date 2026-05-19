@@ -306,6 +306,19 @@ irrep_ising_walker_wang_simplex3_vertex_count(void);
 IRREP_API long long
 irrep_ising_walker_wang_simplex3_full_count(void);
 
+/** @brief Walker-Wang ground state dimension on the unit cube
+ *  (8 vertices, 12 edges, 6 square faces), vertex + face constrained.
+ *
+ *  Enumerates the 3¹² = 531,441 edge-label configurations and counts
+ *  those for which every vertex's 3 incident edges AND every face's
+ *  4 boundary edges satisfy Ising fusion-admissibility.
+ *
+ *  Vertex incidences (qubit index = edge in cube graph):
+ *    v0(0,0,0): {0, 1, 2}   v1(1,0,0): {0, 5, 6}   ...
+ *  Face incidences: bottom (z=0), top (z=1), and the 4 vertical faces. */
+IRREP_API long long
+irrep_ising_walker_wang_cube_full_count(void);
+
 /* ====================================================================
  * Walker-Wang plaquette term — diagonal B_p^ψ component
  *

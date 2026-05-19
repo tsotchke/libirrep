@@ -194,6 +194,19 @@ static int test_walker_wang_simplex3(void) {
     return 0;
 }
 
+/* Walker-Wang on the unit cube: 8 vertices, 12 edges, 6 square faces.
+ * Enumerates 3^12 = 531,441 configurations, applying 8 vertex + 6 face
+ * admissibility constraints. Total runtime ~ few ms with the early-out
+ * vertex pruning. */
+static int test_walker_wang_cube(void) {
+    long long c = irrep_ising_walker_wang_cube_full_count();
+    if (c != 120) {
+        fprintf(stderr, "cube count = %lld (expected 120)\n", c);
+        return 1;
+    }
+    return 0;
+}
+
 /* Walker-Wang B_p^ψ plaquette phase on representative configurations.
  * Phase = i^{#σ} · (-1)^{#ψ}. */
 static int test_walker_wang_plaquette_psi_phase(void) {
@@ -255,6 +268,8 @@ int main(void) {
         { fprintf(stderr, "FAIL test_walker_wang_vertex_admissible\n"); rc = 1; }
     if (test_walker_wang_simplex3())
         { fprintf(stderr, "FAIL test_walker_wang_simplex3\n"); rc = 1; }
+    if (test_walker_wang_cube())
+        { fprintf(stderr, "FAIL test_walker_wang_cube\n"); rc = 1; }
     if (test_walker_wang_plaquette_psi_phase())
         { fprintf(stderr, "FAIL test_walker_wang_plaquette_psi_phase\n"); rc = 1; }
     return rc;

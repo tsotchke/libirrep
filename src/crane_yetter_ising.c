@@ -376,6 +376,85 @@ irrep_ising_walker_wang_simplex3_full_count(void)
     return simplex3_count(/*with_faces=*/1);
 }
 
+/* Unit cube edge indexing:
+ *
+ *   Vertices (x, y, z) ∈ {0, 1}³, with binary index v = 4z + 2y + x.
+ *   12 edges, grouped by direction:
+ *     x-direction (4 edges): edge[0..3] = (0-1), (2-3), (4-5), (6-7)
+ *     y-direction (4 edges): edge[4..7] = (0-2), (1-3), (4-6), (5-7)
+ *     z-direction (4 edges): edge[8..11] = (0-4), (1-5), (2-6), (3-7)
+ *
+ * Each vertex has 3 incident edges (one per direction). Each face has
+ * 4 boundary edges (a closed cycle around the face).
+ *
+ *   Vertex 0 (0,0,0): x-edge 0 (0-1), y-edge 4 (0-2), z-edge  8 (0-4)
+ *   Vertex 1 (1,0,0): x-edge 0 (0-1), y-edge 5 (1-3), z-edge  9 (1-5)
+ *   Vertex 2 (0,1,0): x-edge 1 (2-3), y-edge 4 (0-2), z-edge 10 (2-6)
+ *   Vertex 3 (1,1,0): x-edge 1 (2-3), y-edge 5 (1-3), z-edge 11 (3-7)
+ *   Vertex 4 (0,0,1): x-edge 2 (4-5), y-edge 6 (4-6), z-edge  8 (0-4)
+ *   Vertex 5 (1,0,1): x-edge 2 (4-5), y-edge 7 (5-7), z-edge  9 (1-5)
+ *   Vertex 6 (0,1,1): x-edge 3 (6-7), y-edge 6 (4-6), z-edge 10 (2-6)
+ *   Vertex 7 (1,1,1): x-edge 3 (6-7), y-edge 7 (5-7), z-edge 11 (3-7)
+ *
+ * Faces (6 total):
+ *   z=0 (bottom): boundary edges {0, 4, 1, 5}  (square 0-1-3-2)
+ *   z=1 (top):    {2, 6, 3, 7}                (square 4-5-7-6)
+ *   y=0 (front):  {0, 8, 2, 9}                (square 0-1-5-4)
+ *   y=1 (back):   {1, 10, 3, 11}              (square 2-3-7-6)
+ *   x=0 (left):   {4, 8, 6, 10}               (square 0-2-6-4)
+ *   x=1 (right):  {5, 9, 7, 11}               (square 1-3-7-5)
+ */
+static const int kCubeVertices[8][3] = {
+    {0, 4,  8}, {0, 5,  9}, {1, 4, 10}, {1, 5, 11},
+    {2, 6,  8}, {2, 7,  9}, {3, 6, 10}, {3, 7, 11},
+};
+static const int kCubeFaces[6][4] = {
+    {0, 4, 1, 5}, {2, 6, 3, 7},
+    {0, 8, 2, 9}, {1, 10, 3, 11},
+    {4, 8, 6, 10}, {5, 9, 7, 11},
+};
+
+long long
+irrep_ising_walker_wang_cube_full_count(void)
+{
+    /* 3^12 enumeration; pruning on vertices is applied early to cut
+     * the inner constraint loop. */
+    irrep_ising_object_t labels[12];
+    long long total = 1;
+    for (int i = 0; i < 12; ++i) total *= 3;
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < 12; ++i) {
+            labels[i] = (irrep_ising_object_t)(x % 3);
+            x /= 3;
+        }
+        int ok = 1;
+        /* Vertex constraints first (cheaper; cut more aggressively). */
+        for (int v = 0; v < 8 && ok; ++v) {
+            irrep_ising_object_t local[3] = {
+                labels[kCubeVertices[v][0]],
+                labels[kCubeVertices[v][1]],
+                labels[kCubeVertices[v][2]],
+            };
+            if (!irrep_ising_walker_wang_vertex_admissible(local, 3)) ok = 0;
+        }
+        if (ok) {
+            for (int f = 0; f < 6 && ok; ++f) {
+                irrep_ising_object_t local[4] = {
+                    labels[kCubeFaces[f][0]],
+                    labels[kCubeFaces[f][1]],
+                    labels[kCubeFaces[f][2]],
+                    labels[kCubeFaces[f][3]],
+                };
+                if (!irrep_ising_walker_wang_vertex_admissible(local, 4)) ok = 0;
+            }
+        }
+        if (ok) ++count;
+    }
+    return count;
+}
+
 double _Complex
 irrep_ising_walker_wang_plaquette_psi_phase(
     const irrep_ising_object_t *boundary_labels, int n)

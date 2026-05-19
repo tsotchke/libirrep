@@ -53,7 +53,11 @@ static int test_build_and_verify(int d) {
     if (irrep_css_code_verify(&c) == IRREP_OK) {
         irrep_stabilizer_group_t g;
         if (irrep_css_code_to_stabilizer_group(&c, &g) == IRREP_OK) {
-            if (irrep_stabilizer_group_check_commutativity(&g) == IRREP_OK) rc = 0;
+            if (irrep_stabilizer_group_check_commutativity(&g) == IRREP_OK) {
+                /* Surface code on a planar patch with rough/smooth
+                 * boundaries encodes k = 1 logical qubit at any d ≥ 2. */
+                if (irrep_css_code_logical_qubits(&c) == 1) rc = 0;
+            }
             irrep_stabilizer_group_free(&g);
         }
     }

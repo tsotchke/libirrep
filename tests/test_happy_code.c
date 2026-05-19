@@ -87,11 +87,27 @@ static int test_single_qubit_errors_detected(void) {
     return rc;
 }
 
+/* The [[5, 1, 3]] perfect-tensor code has k = 1 logical qubit. The new
+ * symplectic-rank primitive derives this directly from the 4 stabilizer
+ * generators (n = 5, rank = 4 in the 2n = 10 dim symplectic space). */
+static int test_logical_qubits(void) {
+    irrep_stabilizer_group_t g;
+    if (irrep_happy_perfect_tensor_5_1_3(&g) != IRREP_OK) return 1;
+    int k = irrep_stabilizer_group_n_logical_qubits(&g);
+    irrep_stabilizer_group_free(&g);
+    if (k != 1) {
+        fprintf(stderr, "  [[5,1,3]] k = %d (expected 1)\n", k);
+        return 1;
+    }
+    return 0;
+}
+
 int main(void) {
     int rc = 0;
     if (test_shape())                       { fprintf(stderr, "FAIL test_shape\n"); rc = 1; }
     if (test_pairwise_commute())            { fprintf(stderr, "FAIL test_pairwise_commute\n"); rc = 1; }
     if (test_logical_in_centraliser())      { fprintf(stderr, "FAIL test_logical_in_centraliser\n"); rc = 1; }
     if (test_single_qubit_errors_detected()){ fprintf(stderr, "FAIL test_single_qubit_errors_detected\n"); rc = 1; }
+    if (test_logical_qubits())              { fprintf(stderr, "FAIL test_logical_qubits\n"); rc = 1; }
     return rc;
 }

@@ -247,6 +247,23 @@ irrep_stabilizer_contract_bell(const irrep_stabilizer_group_t *g_in,
                                int a, int b,
                                irrep_stabilizer_group_t *g_out);
 
+/** @brief Number of logical qubits encoded by a stabilizer group.
+ *
+ *  For an n-qubit stabilizer group with m generators, the code
+ *  dimension is `k = n - rank(symplectic generators)`. The
+ *  symplectic representation of a generator `(x, z) ∈ F₂^n × F₂^n`
+ *  is the length-2n F₂ vector `(x|z)`, and the rank is over F₂.
+ *
+ *  Works for both CSS and non-CSS stabilizer codes. For CSS codes
+ *  this returns the same value as `irrep_css_code_logical_qubits`
+ *  on the equivalent CSS structure.
+ *
+ *  @param[in] g  Stabilizer group (read-only). All generators
+ *                assumed to pairwise commute.
+ *  @return  Number of logical qubits, or -1 on error. */
+IRREP_API int
+irrep_stabilizer_group_n_logical_qubits(const irrep_stabilizer_group_t *g);
+
 #ifdef __cplusplus
 }
 #endif

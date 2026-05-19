@@ -2,6 +2,7 @@
 /** @file stabilizer_group.c
  *  @brief Implementation of the abstract stabilizer-group machinery.
  */
+#include <irrep/css_code.h>
 #include <irrep/stabilizer_group.h>
 #include <irrep/types.h>
 
@@ -523,4 +524,42 @@ irrep_stabilizer_contract_bell(const irrep_stabilizer_group_t *g_in,
     free(old_to_new);
     irrep_stabilizer_group_free(&g_work);
     return IRREP_OK;
+}
+
+/* ====================================================================
+ * Logical-qubit count via symplectic F₂-rank.
+ *
+ * Build the m × 2n matrix W whose row i is (x_i | z_i) concatenated.
+ * Then rank(W) over F₂ = (n - k), since the stabilizer group has F₂
+ * dimension exactly (n - k) over the symplectic vector space.
+ * ==================================================================== */
+
+int
+irrep_stabilizer_group_n_logical_qubits(const irrep_stabilizer_group_t *g)
+{
+    if (g == NULL) return -1;
+    int n = g->n;
+    int m = g->n_generators;
+    if (m == 0) return n;
+
+    /* Allocate m × 2n parity matrix. */
+    irrep_parity_matrix_t W;
+    irrep_status_t s = irrep_parity_matrix_new(&W, m, 2 * n);
+    if (s != IRREP_OK) return -1;
+
+    /* Fill rows: row i columns [0, n) = x_i, columns [n, 2n) = z_i. */
+    for (int i = 0; i < m; ++i) {
+        for (int q = 0; q < n; ++q) {
+            uint64_t xbit = (g->gens[i].x[q / 64] >> (q % 64)) & 1ULL;
+            uint64_t zbit = (g->gens[i].z[q / 64] >> (q % 64)) & 1ULL;
+            if (xbit) irrep_parity_matrix_set(&W, i, q);
+            if (zbit) irrep_parity_matrix_set(&W, i, n + q);
+        }
+    }
+
+    int rk = irrep_parity_matrix_rank(&W);
+    irrep_parity_matrix_free(&W);
+    if (rk < 0) return -1;
+    int k = n - rk;
+    return k < 0 ? -1 : k;
 }

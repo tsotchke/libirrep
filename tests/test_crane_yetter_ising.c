@@ -232,6 +232,32 @@ static int test_walker_wang_octahedron(void) {
     return 0;
 }
 
+/* Walker-Wang on the triangular bipyramid (V=5, E=9, F=6 triangles) vs
+ * the triangular prism (V=6, E=9, F=2 triangles + 3 squares). The two
+ * polyhedra are dual — bipyramid (V=5, F=6) ↔ prism (V=6, F=5) — so
+ * WW invariance under duality predicts identical ground-state dim.
+ *
+ * PROOF: both produce 1. Third instance of the duality web (after
+ * the self-dual tetrahedron and the cube/octahedron pair). */
+static int test_walker_wang_bipyramid_prism_duality(void) {
+    long long c_bp = irrep_ising_walker_wang_tri_bipyramid_full_count();
+    long long c_pr = irrep_ising_walker_wang_tri_prism_full_count();
+    if (c_bp != 1) {
+        fprintf(stderr, "bipyramid count = %lld (expected 1)\n", c_bp);
+        return 1;
+    }
+    if (c_pr != 1) {
+        fprintf(stderr, "prism count = %lld (expected 1)\n", c_pr);
+        return 1;
+    }
+    if (c_bp != c_pr) {
+        fprintf(stderr, "WW duality bipyramid↔prism failed: %lld vs %lld\n",
+                c_bp, c_pr);
+        return 1;
+    }
+    return 0;
+}
+
 /* Walker-Wang B_p^ψ plaquette phase on representative configurations.
  * Phase = i^{#σ} · (-1)^{#ψ}. */
 static int test_walker_wang_plaquette_psi_phase(void) {
@@ -299,5 +325,7 @@ int main(void) {
         { fprintf(stderr, "FAIL test_walker_wang_plaquette_psi_phase\n"); rc = 1; }
     if (test_walker_wang_octahedron())
         { fprintf(stderr, "FAIL test_walker_wang_octahedron\n"); rc = 1; }
+    if (test_walker_wang_bipyramid_prism_duality())
+        { fprintf(stderr, "FAIL test_walker_wang_bipyramid_prism_duality\n"); rc = 1; }
     return rc;
 }

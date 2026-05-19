@@ -470,6 +470,129 @@ static const int kOctahedronFaces[8][3] = {
     { 7, 4, 11 },  /* B-M3-M0 */
 };
 
+/* Triangular bipyramid incidences:
+ *   Vertices: T (top apex), B (bottom apex), R0, R1, R2 (ring). 5 total.
+ *   Edges (9):
+ *     0: T-R0  1: T-R1  2: T-R2
+ *     3: B-R0  4: B-R1  5: B-R2
+ *     6: R0-R1 7: R1-R2 8: R2-R0
+ *   T, B are 3-valent; R0, R1, R2 are 4-valent.
+ *   6 triangular faces (3 top + 3 bottom). */
+static const int kBipyramidVertexSizes[5] = { 3, 3, 4, 4, 4 };
+static const int kBipyramidVertices[5][4] = {
+    {  0,  1,  2, -1 },     /* T: TR0, TR1, TR2 */
+    {  3,  4,  5, -1 },     /* B: BR0, BR1, BR2 */
+    {  0,  3,  6,  8 },     /* R0 */
+    {  1,  4,  6,  7 },     /* R1 */
+    {  2,  5,  7,  8 },     /* R2 */
+};
+static const int kBipyramidFaces[6][3] = {
+    { 0, 1, 6 },  /* T-R0-R1 */
+    { 1, 2, 7 },  /* T-R1-R2 */
+    { 2, 0, 8 },  /* T-R2-R0 */
+    { 3, 4, 6 },  /* B-R0-R1 */
+    { 4, 5, 7 },  /* B-R1-R2 */
+    { 5, 3, 8 },  /* B-R2-R0 */
+};
+
+long long
+irrep_ising_walker_wang_tri_bipyramid_full_count(void)
+{
+    irrep_ising_object_t labels[9];
+    long long total = 1;
+    for (int i = 0; i < 9; ++i) total *= 3;
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < 9; ++i) {
+            labels[i] = (irrep_ising_object_t)(x % 3);
+            x /= 3;
+        }
+        int ok = 1;
+        for (int v = 0; v < 5 && ok; ++v) {
+            int nv = kBipyramidVertexSizes[v];
+            irrep_ising_object_t local[4];
+            for (int k = 0; k < nv; ++k) {
+                local[k] = labels[kBipyramidVertices[v][k]];
+            }
+            if (!irrep_ising_walker_wang_vertex_admissible(local, nv)) ok = 0;
+        }
+        if (ok) {
+            for (int f = 0; f < 6 && ok; ++f) {
+                irrep_ising_object_t local[3] = {
+                    labels[kBipyramidFaces[f][0]],
+                    labels[kBipyramidFaces[f][1]],
+                    labels[kBipyramidFaces[f][2]],
+                };
+                if (!irrep_ising_walker_wang_vertex_admissible(local, 3)) ok = 0;
+            }
+        }
+        if (ok) ++count;
+    }
+    return count;
+}
+
+/* Triangular prism incidences:
+ *   Vertices: T0, T1, T2 (top), B0, B1, B2 (bottom). 6 total, all 3-valent.
+ *   Edges (9):
+ *     0: T0-T1  1: T1-T2  2: T2-T0
+ *     3: B0-B1  4: B1-B2  5: B2-B0
+ *     6: T0-B0  7: T1-B1  8: T2-B2
+ *   Faces (5): 2 triangles (top, bottom) + 3 squares (sides). */
+static const int kPrismVertices[6][3] = {
+    { 0, 2, 6 },  /* T0 */
+    { 0, 1, 7 },  /* T1 */
+    { 1, 2, 8 },  /* T2 */
+    { 3, 5, 6 },  /* B0 */
+    { 3, 4, 7 },  /* B1 */
+    { 4, 5, 8 },  /* B2 */
+};
+static const int kPrismFaceSizes[5] = { 3, 3, 4, 4, 4 };
+static const int kPrismFaces[5][4] = {
+    { 0, 1, 2, -1 },  /* Top triangle T0-T1-T2 */
+    { 3, 4, 5, -1 },  /* Bottom triangle B0-B1-B2 */
+    { 0, 7, 3,  6 },  /* Side square T0-T1-B1-B0 */
+    { 1, 8, 4,  7 },  /* Side square T1-T2-B2-B1 */
+    { 2, 6, 5,  8 },  /* Side square T2-T0-B0-B2 */
+};
+
+long long
+irrep_ising_walker_wang_tri_prism_full_count(void)
+{
+    irrep_ising_object_t labels[9];
+    long long total = 1;
+    for (int i = 0; i < 9; ++i) total *= 3;
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < 9; ++i) {
+            labels[i] = (irrep_ising_object_t)(x % 3);
+            x /= 3;
+        }
+        int ok = 1;
+        for (int v = 0; v < 6 && ok; ++v) {
+            irrep_ising_object_t local[3] = {
+                labels[kPrismVertices[v][0]],
+                labels[kPrismVertices[v][1]],
+                labels[kPrismVertices[v][2]],
+            };
+            if (!irrep_ising_walker_wang_vertex_admissible(local, 3)) ok = 0;
+        }
+        if (ok) {
+            for (int f = 0; f < 5 && ok; ++f) {
+                int nf = kPrismFaceSizes[f];
+                irrep_ising_object_t local[4];
+                for (int k = 0; k < nf; ++k) {
+                    local[k] = labels[kPrismFaces[f][k]];
+                }
+                if (!irrep_ising_walker_wang_vertex_admissible(local, nf)) ok = 0;
+            }
+        }
+        if (ok) ++count;
+    }
+    return count;
+}
+
 long long
 irrep_ising_walker_wang_octahedron_full_count(void)
 {

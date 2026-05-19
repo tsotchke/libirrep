@@ -359,6 +359,35 @@ irrep_ising_walker_wang_cube_full_count(void);
 IRREP_API long long
 irrep_ising_walker_wang_octahedron_full_count(void);
 
+/** @brief Walker-Wang ground state dimension on the triangular bipyramid
+ *  (5 vertices, 9 edges, 6 triangular faces), vertex + face constrained.
+ *
+ *  Two tetrahedra glued on a common triangular face: 2 apex vertices
+ *  (3-valent) + 3 ring vertices (4-valent), 6 triangular faces.
+ *
+ *  ## PROOF of duality (second instance)
+ *
+ *  The triangular bipyramid (V=5, E=9, F=6) is dual to the triangular
+ *  prism (V=6, E=9, F=5). Walker-Wang/Crane-Yetter invariance under
+ *  polyhedral duality predicts identical ground-state dimensions for
+ *  the bipyramid and prism state-sums — see
+ *  `irrep_ising_walker_wang_tri_prism_full_count`. */
+IRREP_API long long
+irrep_ising_walker_wang_tri_bipyramid_full_count(void);
+
+/** @brief Walker-Wang ground state dimension on the triangular prism
+ *  (6 vertices, 9 edges, 2 triangular + 3 square faces),
+ *  vertex + face constrained.
+ *
+ *  All 6 vertices are 3-valent (top and bottom triangles + 3 vertical
+ *  edges). 5 faces: 2 weight-3 triangles + 3 weight-4 squares.
+ *
+ *  Dual to the triangular bipyramid; the WW state-sum count should
+ *  match `irrep_ising_walker_wang_tri_bipyramid_full_count` by
+ *  polyhedral duality of MTC state-sums. */
+IRREP_API long long
+irrep_ising_walker_wang_tri_prism_full_count(void);
+
 /* ====================================================================
  * Walker-Wang plaquette term — diagonal B_p^ψ component
  *

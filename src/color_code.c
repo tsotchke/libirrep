@@ -36,3 +36,25 @@ irrep_color_steane(irrep_css_code_t *out)
     }
     return IRREP_OK;
 }
+
+irrep_status_t
+irrep_color_hamming_15_7_3(irrep_css_code_t *out)
+{
+    if (out == NULL) return IRREP_ERR_INVALID_ARG;
+
+    irrep_status_t s = irrep_css_code_new(out, /*n=*/15, /*m_X=*/4, /*m_Z=*/4);
+    if (s != IRREP_OK) return s;
+
+    /* H_X = H_Z: row b has support {q : bit b of (q + 1) is set}.
+     * Each row has weight 8 (the 8 positions in {1..15} with that bit set). */
+    for (int b = 0; b < 4; ++b) {
+        for (int q = 0; q < 15; ++q) {
+            int point = q + 1;
+            if ((point >> b) & 1) {
+                irrep_parity_matrix_set(&out->H_X, b, q);
+                irrep_parity_matrix_set(&out->H_Z, b, q);
+            }
+        }
+    }
+    return IRREP_OK;
+}

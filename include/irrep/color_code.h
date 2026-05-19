@@ -79,6 +79,41 @@ extern "C" {
 IRREP_API irrep_status_t
 irrep_color_steane(irrep_css_code_t *out);
 
+/** @brief Build the [[15, 7, 3]] CSS code derived from the [15, 11, 3]
+ *  punctured Reed-Muller code RM(2, 4)^punctured.
+ *
+ *  The natural Steane-style extension to 15 qubits. The classical
+ *  parent code [15, 11, 3] has a 4×15 parity-check matrix whose rows
+ *  are the indicator vectors of single coordinate bits of PG(3, 2):
+ *
+ *    row_b = {q ∈ 0..14 : bit b of (q+1) is set},   b ∈ {0, 1, 2, 3}.
+ *
+ *  Setting `H_X = H_Z = parity check of [15, 11, 3]` gives a CSS code
+ *  with:
+ *    - n_qubits = 15
+ *    - m_X = m_Z = 4 (single-bit indicators, each weight 8)
+ *    - k = 15 - 4 - 4 = 7 logical qubits
+ *    - d = 3 (the minimum-weight codewords of C_Z^⊥ \ C_X are weight 3 —
+ *      PG(3, 2) lines like {0, 1, 2})
+ *
+ *  CSS orthogonality: pair-of-rows intersection has size 4 (positions
+ *  where two specified bits are set), which is even. ✓
+ *
+ *  ## Relation to other 15-qubit codes
+ *
+ *  - The [[15, 1, 3]] Reed-Muller code (`irrep_color_3d_rm_15_1_3`)
+ *    uses the same 4 single-bit rows for `H_X` but adds 6 weight-4
+ *    "pair" rows to `H_Z`, dropping k from 7 to 1 in exchange for the
+ *    transversal-T property.
+ *  - The two codes share the same X-stabilizers but differ in the
+ *    Z-stabilizer side. This `[[15, 7, 3]]` instance is the "minimal"
+ *    Hamming-style CSS code, in the sense that it has the largest k
+ *    consistent with the [15, 11, 3] parity-check structure.
+ *
+ *  Caller must `irrep_css_code_free(out)` when done. */
+IRREP_API irrep_status_t
+irrep_color_hamming_15_7_3(irrep_css_code_t *out);
+
 /* Triangular [[19, 1, 5]] (6.6.6) and [[17, 1, 5]] (4.8.8) variants
  * are shipped in `<irrep/color_codes_2d.h>` (closes R1 and R2 of
  * `docs/qec_research_roadmap.md`). */

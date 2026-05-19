@@ -70,11 +70,36 @@ static int test_steane_stabilizer_group(void) {
     return rc;
 }
 
+/* [[15, 7, 3]] Hamming-CSS code from [15, 11, 3] punctured RM(2, 4):
+ * structural counts + CSS orthogonality + k = 7 + brute-force d = 3. */
+static int test_hamming_15_7_3(void) {
+    irrep_css_code_t cs;
+    if (irrep_color_hamming_15_7_3(&cs) != IRREP_OK) return 1;
+    int rc = 0;
+    if (cs.n != 15)              rc = 1;
+    if (cs.H_X.n_rows != 4)      rc = 1;
+    if (cs.H_Z.n_rows != 4)      rc = 1;
+    if (irrep_css_code_verify(&cs) != IRREP_OK) rc = 1;
+    if (irrep_css_code_logical_qubits(&cs) != 7) {
+        fprintf(stderr, "  [[15,7,3]] k = %d (expected 7)\n",
+                irrep_css_code_logical_qubits(&cs));
+        rc = 1;
+    }
+    if (irrep_css_code_distance(&cs, 3) != 3) {
+        fprintf(stderr, "  [[15,7,3]] d = %d (expected 3)\n",
+                irrep_css_code_distance(&cs, 3));
+        rc = 1;
+    }
+    irrep_css_code_free(&cs);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     if (test_steane_shape())                 { fprintf(stderr, "FAIL test_steane_shape\n"); rc = 1; }
     if (test_steane_x_z_support_coincide())  { fprintf(stderr, "FAIL test_steane_x_z_support_coincide\n"); rc = 1; }
     if (test_steane_css_verify())            { fprintf(stderr, "FAIL test_steane_css_verify\n"); rc = 1; }
     if (test_steane_stabilizer_group())      { fprintf(stderr, "FAIL test_steane_stabilizer_group\n"); rc = 1; }
+    if (test_hamming_15_7_3())               { fprintf(stderr, "FAIL test_hamming_15_7_3\n"); rc = 1; }
     return rc;
 }

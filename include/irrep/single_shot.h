@@ -113,6 +113,47 @@ irrep_single_shot_meta_syndrome_Z(const irrep_single_shot_code_t *c,
                                   const uint64_t *syndrome,
                                   uint64_t *meta_syndrome);
 
+/* ====================================================================
+ * Generic single-shot lifter
+ *
+ * For any CSS code, the meta-check matrices `(M_X, M_Z)` are the bases
+ * of the left-nullspaces of `(H_X, H_Z)` respectively (i.e., the
+ * F₂-linear redundancies between the stabilizer rows).
+ *
+ *   M_X · H_X = 0   ⟺   rows of M_X span { v ∈ F₂^{m_X} : v · H_X = 0 }
+ *
+ * For codes with no inter-stabilizer redundancy (Steane, [[5,1,3]],
+ * minimal-distance surface code) the nullity is 0 and M_X / M_Z are
+ * 0-row matrices — the code is not natively single-shot. For codes
+ * with topological redundancy (3D toric, 4D toric, X-cube, 3D color
+ * code) the nullity is positive and the lift gives a canonical
+ * meta-check generator set.
+ * ==================================================================== */
+
+/** @brief Auto-compute meta-checks `(M_X, M_Z)` for a CSS code via
+ *  F₂ left-nullspace.
+ *
+ *  Internally:
+ *    - Deep-copies `css` into `out->css` (caller retains ownership of
+ *      the original `css`, which can be independently freed).
+ *    - Computes M_X as the basis of the left-nullspace of H_X using
+ *      F₂ Gaussian elimination on the augmented matrix [H_X | I_{m_X}].
+ *    - Computes M_Z analogously from H_Z.
+ *    - `out->M_X.n_rows = m_X - rank(H_X)` (the nullity of H_X);
+ *      `out->M_Z.n_rows = m_Z - rank(H_Z)`. Either may be 0.
+ *
+ *  Post-condition: `irrep_single_shot_verify_meta(out) == IRREP_OK`.
+ *
+ *  @param[in]  css  Source CSS code (read-only).
+ *  @param[out] out  Caller-allocated; on success holds a deep copy of
+ *                   `css` plus the computed meta-checks. Caller must
+ *                   `irrep_single_shot_code_free(out)` when done.
+ *  @return  `IRREP_OK` on success; `IRREP_ERR_OUT_OF_MEMORY` on allocation
+ *           failure; `IRREP_ERR_INVALID_ARG` if either pointer is NULL. */
+IRREP_API irrep_status_t
+irrep_single_shot_lift(const irrep_css_code_t *css,
+                       irrep_single_shot_code_t *out);
+
 #ifdef __cplusplus
 }
 #endif

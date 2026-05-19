@@ -132,7 +132,7 @@ The plan is to build these in order of (complexity × utility):
 | 9 | `hypergraph_product` | qLDPC from classical (H_a, H_b) | medium-term | 200 |
 | 10 | `lifted_product` | asymptotically-good qLDPC | long-term | 400 |
 | 11 | `subsystem_code` | gauge group + stabilizer group | long-term | 350 |
-| 12 | `single_shot_lifter` | upgrade CSS to single-shot | research-track | 500 |
+| 12 | `single_shot_lifter` | upgrade CSS to single-shot | ✅ shipped: `irrep_single_shot_lift` (F₂ left-nullspace via Gaussian elimination on [H \| I_m]) | 500 |
 
 ## API design highlights
 

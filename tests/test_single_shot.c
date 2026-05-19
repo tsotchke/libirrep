@@ -177,6 +177,96 @@ static int test_meta_syndrome_decoupling(int Lx, int Ly, int Lz) {
     return 0;
 }
 
+/* Auto-lifter: irrep_single_shot_lift computes meta-checks via F₂
+ * left-nullspace. Verifies:
+ *   (a) verify_meta passes on the lifted code (so M_X · H_X = 0 and
+ *       M_Z · H_Z = 0 by construction).
+ *   (b) For 3D toric code at (Lx, Ly, Lz), the lifted M_X has at least
+ *       1 row (the all-vertex redundancy) and M_Z has at least
+ *       Lx·Ly·Lz - 1 rows (the cube redundancies modulo a global
+ *       redundancy on T³). Exact rank check is L-dependent; the lower
+ *       bound is robust. */
+static int test_3d_toric_auto_lift(int Lx, int Ly, int Lz) {
+    irrep_toric3d_params_t p;
+    irrep_toric3d_init(&p, Lx, Ly, Lz);
+    irrep_css_code_t css;
+    if (irrep_toric3d_build(&p, &css) != IRREP_OK) return 1;
+
+    irrep_single_shot_code_t ss;
+    if (irrep_single_shot_lift(&css, &ss) != IRREP_OK) {
+        irrep_css_code_free(&css);
+        return 1;
+    }
+    int rc = 0;
+    if (irrep_single_shot_verify_meta(&ss) != IRREP_OK) rc = 1;
+
+    /* X-side: at least 1 redundancy on T³ (sum of all vertex stabs = 0). */
+    if (ss.M_X.n_rows < 1) {
+        fprintf(stderr, "FAIL auto-lift X: expected ≥1 meta row, got %d\n",
+                ss.M_X.n_rows);
+        rc = 1;
+    }
+    /* Z-side: cube redundancies, expected count = Lx·Ly·Lz - 1 (one
+     * cube redundancy per cube, minus one global redundancy on T³). */
+    int expected_Z_min = Lx * Ly * Lz - 1;
+    if (ss.M_Z.n_rows < expected_Z_min) {
+        fprintf(stderr, "FAIL auto-lift Z: expected ≥%d meta rows, got %d\n",
+                expected_Z_min, ss.M_Z.n_rows);
+        rc = 1;
+    }
+    irrep_single_shot_code_free(&ss);
+    irrep_css_code_free(&css);
+    return rc;
+}
+
+/* The Steane [[7, 1, 3]] code has no inter-stabilizer redundancy
+ * (rank(H_X) = m_X = 3, rank(H_Z) = m_Z = 3), so the lift returns
+ * M_X and M_Z each with 0 rows. */
+static int test_steane_no_redundancy(void) {
+    irrep_css_code_t css;
+    if (irrep_css_code_new(&css, 7, 3, 3) != IRREP_OK) return 1;
+    /* Steane stabilizers (H_X = H_Z = parity matrix of [7,4,3] Hamming):
+     *   row 0: {0, 2, 4, 6}
+     *   row 1: {1, 2, 5, 6}
+     *   row 2: {3, 4, 5, 6}  */
+    const int row0[4] = { 0, 2, 4, 6 };
+    const int row1[4] = { 1, 2, 5, 6 };
+    const int row2[4] = { 3, 4, 5, 6 };
+    for (int i = 0; i < 4; ++i) {
+        irrep_parity_matrix_set(&css.H_X, 0, row0[i]);
+        irrep_parity_matrix_set(&css.H_Z, 0, row0[i]);
+        irrep_parity_matrix_set(&css.H_X, 1, row1[i]);
+        irrep_parity_matrix_set(&css.H_Z, 1, row1[i]);
+        irrep_parity_matrix_set(&css.H_X, 2, row2[i]);
+        irrep_parity_matrix_set(&css.H_Z, 2, row2[i]);
+    }
+    if (irrep_css_code_verify(&css) != IRREP_OK) {
+        irrep_css_code_free(&css);
+        return 1;
+    }
+    irrep_single_shot_code_t ss;
+    if (irrep_single_shot_lift(&css, &ss) != IRREP_OK) {
+        irrep_css_code_free(&css);
+        return 1;
+    }
+    int rc = 0;
+    if (ss.M_X.n_rows != 0) {
+        fprintf(stderr, "FAIL Steane M_X: expected 0 rows, got %d\n",
+                ss.M_X.n_rows);
+        rc = 1;
+    }
+    if (ss.M_Z.n_rows != 0) {
+        fprintf(stderr, "FAIL Steane M_Z: expected 0 rows, got %d\n",
+                ss.M_Z.n_rows);
+        rc = 1;
+    }
+    /* Trivially M_X · H_X = 0 and M_Z · H_Z = 0 when M has 0 rows. */
+    if (irrep_single_shot_verify_meta(&ss) != IRREP_OK) rc = 1;
+    irrep_single_shot_code_free(&ss);
+    irrep_css_code_free(&css);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     int sizes[][3] = { {2, 2, 2}, {3, 2, 2}, {3, 3, 3} };
@@ -188,6 +278,10 @@ int main(void) {
             { fprintf(stderr, "FAIL test_meta_syndrome_zero(%d,%d,%d)\n", Lx, Ly, Lz); rc = 1; }
         if (test_meta_syndrome_decoupling(Lx, Ly, Lz))
             { fprintf(stderr, "FAIL test_meta_syndrome_decoupling(%d,%d,%d)\n", Lx, Ly, Lz); rc = 1; }
+        if (test_3d_toric_auto_lift(Lx, Ly, Lz))
+            { fprintf(stderr, "FAIL test_3d_toric_auto_lift(%d,%d,%d)\n", Lx, Ly, Lz); rc = 1; }
     }
+    if (test_steane_no_redundancy())
+        { fprintf(stderr, "FAIL test_steane_no_redundancy\n"); rc = 1; }
     return rc;
 }

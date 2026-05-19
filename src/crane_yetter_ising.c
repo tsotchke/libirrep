@@ -209,6 +209,33 @@ irrep_ising_twist_from_R_residual(void)
 }
 
 double
+irrep_crane_yetter_connected_sum_residual(void)
+{
+    /* Test pairs (M, N) and the resulting connected sum M#N. */
+    struct { int chi_m, sig_m, chi_n, sig_n; } pairs[] = {
+        { 3,  1, 3,  1 },  /* CP² # CP² */
+        { 3, -1, 3, -1 },  /* ‾CP² # ‾CP² */
+        { 3,  1, 3, -1 },  /* CP² # ‾CP² */
+        { 4,  0, 4,  0 },  /* (S² × S²) # (S² × S²) */
+        { 2,  0, 3,  1 },  /* S⁴ # CP² = CP² (test) */
+    };
+    int n_pairs = sizeof(pairs) / sizeof(pairs[0]);
+    double max_err = 0.0;
+    double _Complex Z_S4 = irrep_crane_yetter_ising_invariant(2, 0);
+    for (int i = 0; i < n_pairs; ++i) {
+        int chi_sum = pairs[i].chi_m + pairs[i].chi_n - 2;
+        int sig_sum = pairs[i].sig_m + pairs[i].sig_n;
+        double _Complex Z_MN = irrep_crane_yetter_ising_invariant(chi_sum, sig_sum);
+        double _Complex Z_M  = irrep_crane_yetter_ising_invariant(pairs[i].chi_m, pairs[i].sig_m);
+        double _Complex Z_N  = irrep_crane_yetter_ising_invariant(pairs[i].chi_n, pairs[i].sig_n);
+        double _Complex RHS  = Z_M * Z_N / Z_S4;
+        double err = cabs(Z_MN - RHS);
+        if (err > max_err) max_err = err;
+    }
+    return max_err;
+}
+
+double
 irrep_ising_S_squared_residual(void)
 {
     double max_err = 0.0;

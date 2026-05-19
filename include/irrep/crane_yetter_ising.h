@@ -188,6 +188,29 @@ irrep_ising_R_symbol(irrep_ising_object_t a, irrep_ising_object_t b,
 IRREP_API double
 irrep_ising_twist_from_R_residual(void);
 
+/** @brief Verify the Crane-Yetter connected-sum multiplicativity at
+ *  runtime.
+ *
+ *  For closed orientable 4-manifolds M and N, the CY invariant
+ *  satisfies the multiplicativity relation
+ *
+ *      Z_CY(M # N) = Z_CY(M) · Z_CY(N) / Z_CY(S⁴)
+ *
+ *  (the S⁴ correction accounts for the deletion of the "neck"
+ *  4-ball in the connected sum). For Ising, Z(S⁴) = D^{-2} = 1/4, so
+ *  the relation reads `Z(M#N) = 4 · Z(M) · Z(N)`.
+ *
+ *  Tests it on the pair M = N = CP² (χ=3, σ=1):
+ *      M # N has χ = 4, σ = 2
+ *      LHS = Z(CP² # CP²) = (1/16) · exp(iπ/4)
+ *      RHS = 4 · Z(CP²)² = 4 · ((1/8) · ζ)² = (1/16) · ζ²
+ *      ζ = exp(iπ/8) ⇒ ζ² = exp(iπ/4)
+ *
+ *  @return Max absolute deviation |LHS - RHS| over a few test pairs.
+ *          Should be < 1e-12. */
+IRREP_API double
+irrep_crane_yetter_connected_sum_residual(void);
+
 /** @brief Verify the modular relation S² = I on the Ising MTC.
  *
  *  For any MTC, S² acts as the charge-conjugation matrix C. The Ising

@@ -204,6 +204,21 @@ irrep_toric_mtc_walker_wang_cube_full_count(void);
 IRREP_API long long
 irrep_toric_mtc_walker_wang_octahedron_full_count(void);
 
+/** @brief Z₂×Z₂ Walker-Wang ground-state dim on the triangular
+ *  bipyramid (V=5, E=9, F=6 triangles).
+ *
+ *  Companion to `irrep_ising_walker_wang_tri_bipyramid_full_count`
+ *  (= 1 for Ising) — verifies the same duality at the Z₂×Z₂ MTC. */
+IRREP_API long long
+irrep_toric_mtc_walker_wang_tri_bipyramid_full_count(void);
+
+/** @brief Z₂×Z₂ Walker-Wang ground-state dim on the triangular
+ *  prism (V=6, E=9, F=2 triangles + 3 squares).
+ *
+ *  Dual to the triangular bipyramid; should give the same count. */
+IRREP_API long long
+irrep_toric_mtc_walker_wang_tri_prism_full_count(void);
+
 /* ====================================================================
  * Crane-Yetter 4-manifold invariant for the Z₂ × Z₂ MTC.
  * ==================================================================== */

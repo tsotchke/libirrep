@@ -396,3 +396,97 @@ irrep_toric_mtc_walker_wang_octahedron_full_count(void)
     }
     return count;
 }
+
+/* Bipyramid + prism incidences (copied from the Ising module). */
+static const int kBipyramidVertexSizesToric[5] = { 3, 3, 4, 4, 4 };
+static const int kBipyramidVerticesToric[5][4] = {
+    {  0,  1,  2, -1 },
+    {  3,  4,  5, -1 },
+    {  0,  3,  6,  8 },
+    {  1,  4,  6,  7 },
+    {  2,  5,  7,  8 },
+};
+static const int kBipyramidFacesToric[6][3] = {
+    { 0, 1, 6 }, { 1, 2, 7 }, { 2, 0, 8 },
+    { 3, 4, 6 }, { 4, 5, 7 }, { 5, 3, 8 },
+};
+
+long long
+irrep_toric_mtc_walker_wang_tri_bipyramid_full_count(void)
+{
+    irrep_toric_mtc_object_t labels[9];
+    long long total = 1;
+    for (int i = 0; i < 9; ++i) total *= 4;
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < 9; ++i) {
+            labels[i] = (irrep_toric_mtc_object_t)(x % 4);
+            x /= 4;
+        }
+        int ok = 1;
+        for (int v = 0; v < 5 && ok; ++v) {
+            int nv = kBipyramidVertexSizesToric[v];
+            irrep_toric_mtc_object_t local[4];
+            for (int k = 0; k < nv; ++k) local[k] = labels[kBipyramidVerticesToric[v][k]];
+            if (!irrep_toric_mtc_admissible(local, nv)) ok = 0;
+        }
+        if (ok) {
+            for (int f = 0; f < 6 && ok; ++f) {
+                irrep_toric_mtc_object_t local[3] = {
+                    labels[kBipyramidFacesToric[f][0]],
+                    labels[kBipyramidFacesToric[f][1]],
+                    labels[kBipyramidFacesToric[f][2]],
+                };
+                if (!irrep_toric_mtc_admissible(local, 3)) ok = 0;
+            }
+        }
+        if (ok) ++count;
+    }
+    return count;
+}
+
+static const int kPrismVerticesToric[6][3] = {
+    { 0, 2, 6 }, { 0, 1, 7 }, { 1, 2, 8 },
+    { 3, 5, 6 }, { 3, 4, 7 }, { 4, 5, 8 },
+};
+static const int kPrismFaceSizesToric[5] = { 3, 3, 4, 4, 4 };
+static const int kPrismFacesToric[5][4] = {
+    { 0, 1, 2, -1 }, { 3, 4, 5, -1 },
+    { 0, 7, 3,  6 }, { 1, 8, 4,  7 }, { 2, 6, 5,  8 },
+};
+
+long long
+irrep_toric_mtc_walker_wang_tri_prism_full_count(void)
+{
+    irrep_toric_mtc_object_t labels[9];
+    long long total = 1;
+    for (int i = 0; i < 9; ++i) total *= 4;
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < 9; ++i) {
+            labels[i] = (irrep_toric_mtc_object_t)(x % 4);
+            x /= 4;
+        }
+        int ok = 1;
+        for (int v = 0; v < 6 && ok; ++v) {
+            irrep_toric_mtc_object_t local[3] = {
+                labels[kPrismVerticesToric[v][0]],
+                labels[kPrismVerticesToric[v][1]],
+                labels[kPrismVerticesToric[v][2]],
+            };
+            if (!irrep_toric_mtc_admissible(local, 3)) ok = 0;
+        }
+        if (ok) {
+            for (int f = 0; f < 5 && ok; ++f) {
+                int nf = kPrismFaceSizesToric[f];
+                irrep_toric_mtc_object_t local[4];
+                for (int k = 0; k < nf; ++k) local[k] = labels[kPrismFacesToric[f][k]];
+                if (!irrep_toric_mtc_admissible(local, nf)) ok = 0;
+            }
+        }
+        if (ok) ++count;
+    }
+    return count;
+}

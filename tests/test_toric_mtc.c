@@ -145,6 +145,18 @@ static int test_walker_wang_duality(void) {
     return IRREP_TEST_END();
 }
 
+/* Z₂×Z₂ bipyramid ↔ prism duality (second cross-MTC duality pair).
+ * Both = 1. Matches Ising's bipyramid ↔ prism duality (also 1). */
+static int test_walker_wang_bipyramid_prism(void) {
+    IRREP_TEST_START("toric_mtc_walker_wang_bipyramid_prism_duality");
+    long long c_bp = irrep_toric_mtc_walker_wang_tri_bipyramid_full_count();
+    long long c_pr = irrep_toric_mtc_walker_wang_tri_prism_full_count();
+    IRREP_ASSERT(c_bp == 1);
+    IRREP_ASSERT(c_pr == 1);
+    IRREP_ASSERT(c_bp == c_pr);
+    return IRREP_TEST_END();
+}
+
 static int test_admissibility_basic(void) {
     IRREP_TEST_START("toric_mtc_admissibility");
     irrep_toric_mtc_object_t E_ = IRREP_TORIC_MTC_OBJ_E;
@@ -178,6 +190,7 @@ int main(void) {
     rc |= test_walker_wang_simplex3();
     rc |= test_walker_wang_cube();
     rc |= test_walker_wang_duality();
+    rc |= test_walker_wang_bipyramid_prism();
 
     /* Crane-Yetter invariant on canonical 4-manifolds (Z₂×Z₂ side).
      *   S⁴: Z = 2^{-2} = 1/4.  CP²: Z = 2^{-3} = 1/8. */

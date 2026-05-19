@@ -59,6 +59,12 @@ int main(void) {
     printf("  octahedron (dual)    %5lld    %5lld   (= cube count: WW duality)\n",
            irrep_ising_walker_wang_octahedron_full_count(),
            irrep_toric_mtc_walker_wang_octahedron_full_count());
+    printf("  bipyramid (V=5)      %5lld    %5lld\n",
+           irrep_ising_walker_wang_tri_bipyramid_full_count(),
+           irrep_toric_mtc_walker_wang_tri_bipyramid_full_count());
+    printf("  prism (dual to bp)   %5lld    %5lld   (= bipyramid: WW duality)\n",
+           irrep_ising_walker_wang_tri_prism_full_count(),
+           irrep_toric_mtc_walker_wang_tri_prism_full_count());
 
     printf("\nAll residuals are runtime-computed; a value > 1e-12 would indicate\n");
     printf("an MTC axiom violation. The polyhedral-duality equality is exact\n");

@@ -143,6 +143,31 @@ irrep_bb_code_build(const irrep_bb_poly_t *A,
  * ==================================================================== */
 
 irrep_status_t
+irrep_bb_code_ibm_72_12_6(irrep_css_code_t *out)
+{
+    if (out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_bb_poly_t A, B;
+    irrep_status_t s = irrep_bb_poly_new(&A, /*ell=*/6, /*m=*/6);
+    if (s != IRREP_OK) return s;
+    s = irrep_bb_poly_new(&B, /*ell=*/6, /*m=*/6);
+    if (s != IRREP_OK) { irrep_bb_poly_free(&A); return s; }
+
+    /* A = x³ + y + y². */
+    irrep_bb_poly_add_monomial(&A, 3, 0);
+    irrep_bb_poly_add_monomial(&A, 0, 1);
+    irrep_bb_poly_add_monomial(&A, 0, 2);
+    /* B = y³ + x + x². */
+    irrep_bb_poly_add_monomial(&B, 0, 3);
+    irrep_bb_poly_add_monomial(&B, 1, 0);
+    irrep_bb_poly_add_monomial(&B, 2, 0);
+
+    s = irrep_bb_code_build(&A, &B, out);
+    irrep_bb_poly_free(&A);
+    irrep_bb_poly_free(&B);
+    return s;
+}
+
+irrep_status_t
 irrep_bb_code_ibm_144_12_12(irrep_css_code_t *out)
 {
     if (out == NULL) return IRREP_ERR_INVALID_ARG;

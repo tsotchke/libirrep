@@ -122,6 +122,10 @@ irrep_bb_code_build(const irrep_bb_poly_t *A,
  * at physical-error rate ~0.7%. The polynomial-pair specifications
  * follow Table 3 of that paper:
  *
+ *   [[72, 12, 6]]   : ℓ =  6, m = 6
+ *                     A(x, y) = x³ + y + y²
+ *                     B(x, y) = y³ + x + x²
+ *
  *   [[144, 12, 12]] : ℓ = 12, m = 6
  *                     A(x, y) = x³ + y + y²
  *                     B(x, y) = y³ + x + x²
@@ -134,6 +138,13 @@ irrep_bb_code_build(const irrep_bb_poly_t *A,
  * distance `d = 12` and `d = 18` respectively. The encoding rate
  * `k/n = 1/12` is the appeal versus the surface code's `1/d²`.
  * ==================================================================== */
+
+/** @brief Build the [[72, 12, 6]] IBM bivariate-bicycle code.
+ *
+ *  Allocates `out` and fills it with the CSS code defined by
+ *  `A = x³ + y + y²` and `B = y³ + x + x²` in `F₂[x, y]/(x⁶ - 1, y⁶ - 1)`. */
+IRREP_API irrep_status_t
+irrep_bb_code_ibm_72_12_6(irrep_css_code_t *out);
 
 /** @brief Build the [[144, 12, 12]] IBM bivariate-bicycle code.
  *

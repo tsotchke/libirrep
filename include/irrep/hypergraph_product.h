@@ -75,6 +75,28 @@ irrep_hypergraph_product_build(const irrep_parity_matrix_t *H_a,
                                const irrep_parity_matrix_t *H_b,
                                irrep_css_code_t *out);
 
+/* ====================================================================
+ * Named hypergraph-product instances
+ * ==================================================================== */
+
+/** @brief Build the [[13, 1, 3]] hypergraph product of two [3, 1, 3]
+ *  repetition codes.
+ *
+ *  Classical input: `H_a = H_b = [[1,1,0],[0,1,1]]` (2×3 parity-check
+ *  matrix of the [3, 1, 3] repetition code). The HGP construction
+ *  gives:
+ *    - n_qubits = n_a · n_b + m_a · m_b = 9 + 4 = 13
+ *    - m_X = m_a · n_b = 6
+ *    - m_Z = n_a · m_b = 6
+ *    - k_HGP = k_a · k_b + k_a^T · k_b^T = 1·1 + 0·0 = 1
+ *    - d_HGP = min(d_a, d_b) = 3
+ *
+ *  This is the smallest non-trivial HGP instance and serves as a
+ *  worked example of the construction. Caller must
+ *  `irrep_css_code_free(out)` when done. */
+IRREP_API irrep_status_t
+irrep_hgp_repetition_3_13_1_3(irrep_css_code_t *out);
+
 #ifdef __cplusplus
 }
 #endif

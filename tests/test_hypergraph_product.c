@@ -144,11 +144,33 @@ done:
     return rc;
 }
 
+/* Named instance: [[13, 1, 3]] HGP of repetition-3 × repetition-3.
+ *
+ * Verifies: structural counts, CSS orthogonality, and k = 1 via the
+ * F₂-rank logical-qubit primitive. */
+static int test_hgp_named_13_1_3(void) {
+    irrep_css_code_t cs;
+    if (irrep_hgp_repetition_3_13_1_3(&cs) != IRREP_OK) return 1;
+    int rc = 0;
+    if (cs.n != 13) rc = 1;
+    if (cs.H_X.n_rows != 6) rc = 1;
+    if (cs.H_Z.n_rows != 6) rc = 1;
+    if (irrep_css_code_verify(&cs) != IRREP_OK) rc = 1;
+    if (irrep_css_code_logical_qubits(&cs) != 1) {
+        fprintf(stderr, "  [[13,1,3]] HGP k = %d (expected 1)\n",
+                irrep_css_code_logical_qubits(&cs));
+        rc = 1;
+    }
+    irrep_css_code_free(&cs);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     if (test_hgp_trivial())               { fprintf(stderr, "FAIL test_hgp_trivial\n"); rc = 1; }
     if (test_hgp_repetition_3x3())        { fprintf(stderr, "FAIL test_hgp_repetition_3x3\n"); rc = 1; }
     if (test_hgp_repetition_4x4())        { fprintf(stderr, "FAIL test_hgp_repetition_4x4\n"); rc = 1; }
     if (test_hgp_explicit_orthogonality()){ fprintf(stderr, "FAIL test_hgp_explicit_orthogonality\n"); rc = 1; }
+    if (test_hgp_named_13_1_3())          { fprintf(stderr, "FAIL test_hgp_named_13_1_3\n"); rc = 1; }
     return rc;
 }

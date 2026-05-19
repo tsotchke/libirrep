@@ -293,15 +293,15 @@ static int test_hex_triangular_generic(void) {
         irrep_css_code_free(&b);
     }
 
-    /* d ∈ {7, 9, 11}: verify the closed-form count formulas hold at
-     * runtime — n = 3k² + 3k + 1, faces = 3k(k+1)/2 where k = (d-1)/2.
+    /* d ∈ {7, 9, 11, 13}: verify the closed-form count formulas hold
+     * at runtime — n = 3k² + 3k + 1, faces = 3k(k+1)/2 where k = (d-1)/2.
      * Plus structural counts + CSS-orth + k = 1 + logical_X proof.
      *
      * Brute-force distance verification at d ≥ 7 needs >10^9 Pauli
      * enumerations and is impractical in the test bank; structural
      * verification (n, k, CSS-orth, logical proof) plus the BMD
      * distance formula d=2L+1 are the audit trail. */
-    for (int d = 7; d <= 11; d += 2) {
+    for (int d = 7; d <= 13; d += 2) {
         int k_idx = (d - 1) / 2;
         int n_expected     = 3 * k_idx * k_idx + 3 * k_idx + 1;
         int faces_expected = 3 * k_idx * (k_idx + 1) / 2;

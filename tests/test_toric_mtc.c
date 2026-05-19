@@ -134,6 +134,17 @@ static int test_walker_wang_cube(void) {
     return IRREP_TEST_END();
 }
 
+/* PROOF: polyhedral duality holds for the Z₂×Z₂ MTC.
+ * Cube and octahedron are dual; both produce 64. */
+static int test_walker_wang_duality(void) {
+    IRREP_TEST_START("toric_mtc_walker_wang_cube_octahedron_duality");
+    long long c_cube = irrep_toric_mtc_walker_wang_cube_full_count();
+    long long c_oct  = irrep_toric_mtc_walker_wang_octahedron_full_count();
+    IRREP_ASSERT(c_oct == 64);
+    IRREP_ASSERT(c_cube == c_oct);
+    return IRREP_TEST_END();
+}
+
 static int test_admissibility_basic(void) {
     IRREP_TEST_START("toric_mtc_admissibility");
     irrep_toric_mtc_object_t E_ = IRREP_TORIC_MTC_OBJ_E;
@@ -166,6 +177,7 @@ int main(void) {
     rc |= test_admissibility_basic();
     rc |= test_walker_wang_simplex3();
     rc |= test_walker_wang_cube();
+    rc |= test_walker_wang_duality();
 
     /* Crane-Yetter invariant on canonical 4-manifolds (Z₂×Z₂ side).
      *   S⁴: Z = 2^{-2} = 1/4.  CP²: Z = 2^{-3} = 1/8. */

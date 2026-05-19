@@ -348,3 +348,51 @@ irrep_toric_mtc_connected_sum_residual(void)
     }
     return max_err;
 }
+
+static const int kOctahedronVerticesToric[6][4] = {
+    {  0, 1, 2,  3 }, {  4, 5, 6,  7 },
+    {  0, 4, 8, 11 }, {  1, 5, 8,  9 },
+    {  2, 6, 9, 10 }, {  3, 7, 10, 11 },
+};
+static const int kOctahedronFacesToric[8][3] = {
+    { 0, 1,  8 }, { 1, 2,  9 }, { 2, 3, 10 }, { 3, 0, 11 },
+    { 4, 5,  8 }, { 5, 6,  9 }, { 6, 7, 10 }, { 7, 4, 11 },
+};
+
+long long
+irrep_toric_mtc_walker_wang_octahedron_full_count(void)
+{
+    irrep_toric_mtc_object_t labels[12];
+    long long total = 1;
+    for (int i = 0; i < 12; ++i) total *= 4;
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < 12; ++i) {
+            labels[i] = (irrep_toric_mtc_object_t)(x % 4);
+            x /= 4;
+        }
+        int ok = 1;
+        for (int v = 0; v < 6 && ok; ++v) {
+            irrep_toric_mtc_object_t local[4] = {
+                labels[kOctahedronVerticesToric[v][0]],
+                labels[kOctahedronVerticesToric[v][1]],
+                labels[kOctahedronVerticesToric[v][2]],
+                labels[kOctahedronVerticesToric[v][3]],
+            };
+            if (!irrep_toric_mtc_admissible(local, 4)) ok = 0;
+        }
+        if (ok) {
+            for (int f = 0; f < 8 && ok; ++f) {
+                irrep_toric_mtc_object_t local[3] = {
+                    labels[kOctahedronFacesToric[f][0]],
+                    labels[kOctahedronFacesToric[f][1]],
+                    labels[kOctahedronFacesToric[f][2]],
+                };
+                if (!irrep_toric_mtc_admissible(local, 3)) ok = 0;
+            }
+        }
+        if (ok) ++count;
+    }
+    return count;
+}

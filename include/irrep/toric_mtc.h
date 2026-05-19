@@ -189,6 +189,21 @@ irrep_toric_mtc_walker_wang_simplex3_full_count(void);
 IRREP_API long long
 irrep_toric_mtc_walker_wang_cube_full_count(void);
 
+/** @brief Walker-Wang ground-state dim on the regular octahedron
+ *  (6 vertices 4-valent, 12 edges, 8 triangular faces) for Z₂×Z₂.
+ *
+ *  Companion to `irrep_toric_mtc_walker_wang_cube_full_count`. The
+ *  cube and octahedron are dual polyhedra; WW invariance under
+ *  duality predicts the same count on both.
+ *
+ *  PROOF: octahedron count = cube count = 64 (verified at runtime).
+ *  Combined with Ising's 120 = 120 result, this shows that
+ *  polyhedral duality of the WW state-sum holds for BOTH MTCs in
+ *  the library, even though the counts themselves differ between
+ *  MTCs (Ising → 120, Z₂×Z₂ → 64). */
+IRREP_API long long
+irrep_toric_mtc_walker_wang_octahedron_full_count(void);
+
 /* ====================================================================
  * Crane-Yetter 4-manifold invariant for the Z₂ × Z₂ MTC.
  * ==================================================================== */

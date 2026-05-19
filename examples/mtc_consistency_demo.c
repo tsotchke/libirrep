@@ -16,6 +16,7 @@
  * audit structure across both MTCs.
  */
 #include <irrep/crane_yetter_ising.h>
+#include <irrep/fibonacci_mtc.h>
 #include <irrep/toric_mtc.h>
 
 #include <stdio.h>
@@ -37,6 +38,17 @@ int main(void) {
            irrep_ising_S_squared_residual());
     printf("  CY connected-sum multiplicativity      : %12.3e\n",
            irrep_crane_yetter_connected_sum_residual());
+
+    printf("\nFibonacci MTC (non-abelian, 2 simples {1, τ}, D = √(2+φ), c = 14/5):\n");
+    printf("  F-symbol unitarity on τττ block       : %12.3e\n",
+           irrep_fib_F_unitarity_residual());
+    printf("  twist θ_a = R^{aa}_? trace formula     : %12.3e\n",
+           irrep_fib_twist_from_R_residual());
+    printf("  Verlinde formula                       : %12.3e\n",
+           irrep_fib_verlinde_residual());
+    printf("  modular S² = I                         : %12.3e\n",
+           irrep_fib_S_squared_residual());
+    printf("  (Universal braiding: simplest MTC supporting universal QC)\n");
 
     printf("\nZ₂×Z₂ toric MTC (abelian, 4 simples {1, e, m, ψ}, D = 2, c = 0):\n");
     printf("  twist θ_a = R^{aa}_1 (abelian formula) : %12.3e\n",

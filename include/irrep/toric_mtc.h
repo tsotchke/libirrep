@@ -146,6 +146,34 @@ irrep_toric_mtc_verlinde_residual(void);
 IRREP_API double
 irrep_toric_mtc_twist_from_R_residual(void);
 
+/* ====================================================================
+ * Walker-Wang admissibility for Z₂ × Z₂.
+ * ==================================================================== */
+
+/** @brief Admissibility of a multiset of Z₂×Z₂ labels.
+ *
+ *  For an abelian MTC, the multiset {a_1, ..., a_n} fuses to vacuum
+ *  iff their product (under Z₂×Z₂ multiplication) is the identity.
+ *  Equivalently: viewing each simple as a pair (a_e, a_m) ∈ Z₂²,
+ *  the multiset is admissible iff Σ a_e and Σ a_m are both even. */
+IRREP_API int
+irrep_toric_mtc_admissible(const irrep_toric_mtc_object_t *labels, int n);
+
+/** @brief Walker-Wang ground-state dim on the 3-simplex (tetrahedron)
+ *  for the Z₂×Z₂ toric-code MTC, vertex + face constrained.
+ *
+ *  Counts edge labelings of the 6-edge tetrahedron (4^6 = 4096
+ *  configurations) for which every vertex's 3 incident edges AND
+ *  every triangular face's 3 boundary edges fuse to vacuum.
+ *
+ *  Direct companion to `irrep_ising_walker_wang_simplex3_full_count`
+ *  (= 16 for Ising); this gives the corresponding number for the
+ *  abelian toric MTC. Different MTC, different count — showing that
+ *  the WW ground-state dim depends on both the topology AND the
+ *  underlying anyon model. */
+IRREP_API long long
+irrep_toric_mtc_walker_wang_simplex3_full_count(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -202,3 +202,65 @@ irrep_toric_mtc_twist_from_R_residual(void)
     }
     return max_err;
 }
+
+/* ====================================================================
+ * Walker-Wang on the 3-simplex (toric MTC version).
+ * ==================================================================== */
+
+int
+irrep_toric_mtc_admissible(const irrep_toric_mtc_object_t *labels, int n)
+{
+    if (labels == NULL || n < 0) return 0;
+    if (n == 0) return 1;
+    irrep_toric_mtc_object_t prod = labels[0];
+    for (int i = 1; i < n; ++i) {
+        prod = kFusionTable[prod][labels[i]];
+    }
+    return prod == IRREP_TORIC_MTC_OBJ_1 ? 1 : 0;
+}
+
+/* Re-use the tetrahedron edge incidences from the Ising module — same
+ * 3-simplex geometry, different MTC. */
+static const int kSimplex3VtxToric[4][3] = {
+    {0, 1, 2}, {0, 3, 4}, {1, 3, 5}, {2, 4, 5},
+};
+static const int kSimplex3FaceToric[4][3] = {
+    {0, 1, 3}, {0, 2, 4}, {1, 2, 5}, {3, 4, 5},
+};
+
+long long
+irrep_toric_mtc_walker_wang_simplex3_full_count(void)
+{
+    irrep_toric_mtc_object_t labels[6];
+    long long total = 1;
+    for (int i = 0; i < 6; ++i) total *= 4;  /* 4^6 = 4096 */
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < 6; ++i) {
+            labels[i] = (irrep_toric_mtc_object_t)(x % 4);
+            x /= 4;
+        }
+        int ok = 1;
+        for (int v = 0; v < 4 && ok; ++v) {
+            irrep_toric_mtc_object_t local[3] = {
+                labels[kSimplex3VtxToric[v][0]],
+                labels[kSimplex3VtxToric[v][1]],
+                labels[kSimplex3VtxToric[v][2]],
+            };
+            if (!irrep_toric_mtc_admissible(local, 3)) ok = 0;
+        }
+        if (ok) {
+            for (int f = 0; f < 4 && ok; ++f) {
+                irrep_toric_mtc_object_t local[3] = {
+                    labels[kSimplex3FaceToric[f][0]],
+                    labels[kSimplex3FaceToric[f][1]],
+                    labels[kSimplex3FaceToric[f][2]],
+                };
+                if (!irrep_toric_mtc_admissible(local, 3)) ok = 0;
+            }
+        }
+        if (ok) ++count;
+    }
+    return count;
+}

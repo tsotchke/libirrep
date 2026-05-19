@@ -109,6 +109,42 @@ static int test_consistency_proofs(void) {
     return IRREP_TEST_END();
 }
 
+/* Walker-Wang admissibility on the 3-simplex for Z₂×Z₂. Counts edge
+ * labelings of the tetrahedron with all 4 vertex + 4 face constraints
+ * satisfied.
+ *
+ * Cross-MTC observation: both Z₂×Z₂ and Ising give 16 on the 3-simplex
+ * — even though one is abelian and one non-abelian, they share global
+ * dimension D = 2, and the WW ground-state-dim on this small geometry
+ * depends on D rather than the detailed anyon-model algebra. */
+static int test_walker_wang_simplex3(void) {
+    IRREP_TEST_START("toric_mtc_walker_wang_simplex3");
+    long long c = irrep_toric_mtc_walker_wang_simplex3_full_count();
+    IRREP_ASSERT(c == 16);
+    return IRREP_TEST_END();
+}
+
+static int test_admissibility_basic(void) {
+    IRREP_TEST_START("toric_mtc_admissibility");
+    irrep_toric_mtc_object_t E_ = IRREP_TORIC_MTC_OBJ_E;
+    irrep_toric_mtc_object_t M_ = IRREP_TORIC_MTC_OBJ_M;
+    irrep_toric_mtc_object_t P_ = IRREP_TORIC_MTC_OBJ_PSI;
+    irrep_toric_mtc_object_t I_ = IRREP_TORIC_MTC_OBJ_1;
+
+    irrep_toric_mtc_object_t emp[3] = { E_, M_, P_ };
+    IRREP_ASSERT(irrep_toric_mtc_admissible(emp, 3) == 1);   /* e × m × ψ = 1 ✓ */
+
+    irrep_toric_mtc_object_t eee[3] = { E_, E_, E_ };
+    IRREP_ASSERT(irrep_toric_mtc_admissible(eee, 3) == 0);   /* e × e × e = e ≠ 1 */
+
+    irrep_toric_mtc_object_t eemm[4] = { E_, E_, M_, M_ };
+    IRREP_ASSERT(irrep_toric_mtc_admissible(eemm, 4) == 1);  /* (e²)(m²) = 1 ✓ */
+
+    irrep_toric_mtc_object_t all_one[3] = { I_, I_, I_ };
+    IRREP_ASSERT(irrep_toric_mtc_admissible(all_one, 3) == 1);
+    return IRREP_TEST_END();
+}
+
 int main(void) {
     int rc = 0;
     rc |= test_basics();
@@ -117,5 +153,7 @@ int main(void) {
     rc |= test_T_eigenvalues();
     rc |= test_R_symbols();
     rc |= test_consistency_proofs();
+    rc |= test_admissibility_basic();
+    rc |= test_walker_wang_simplex3();
     return rc;
 }

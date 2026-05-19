@@ -184,6 +184,14 @@ static int test_walker_wang_vertex_admissible(void) {
     return 0;
 }
 
+/* Walker-Wang on the 3-simplex: ground state space dimension under
+ * (a) vertex-only admissibility and (b) vertex + face admissibility. */
+static int test_walker_wang_simplex3(void) {
+    if (irrep_ising_walker_wang_simplex3_vertex_count() != 36) return 1;
+    if (irrep_ising_walker_wang_simplex3_full_count() != 16)   return 1;
+    return 0;
+}
+
 int main(void) {
     int rc = 0;
     if (test_quantum_dimensions())  { fprintf(stderr, "FAIL test_quantum_dimensions\n"); rc = 1; }
@@ -194,5 +202,7 @@ int main(void) {
     if (test_F_R_symbols())         { fprintf(stderr, "FAIL test_F_R_symbols\n"); rc = 1; }
     if (test_walker_wang_vertex_admissible())
         { fprintf(stderr, "FAIL test_walker_wang_vertex_admissible\n"); rc = 1; }
+    if (test_walker_wang_simplex3())
+        { fprintf(stderr, "FAIL test_walker_wang_simplex3\n"); rc = 1; }
     return rc;
 }

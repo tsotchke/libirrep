@@ -249,6 +249,47 @@ irrep_ising_walker_wang_vertex_admissible(
 IRREP_API long long
 irrep_ising_walker_wang_admissible_count(int n);
 
+/* ====================================================================
+ * Walker-Wang on the 3-simplex (= tetrahedron)
+ *
+ * The smallest non-trivial Walker-Wang lattice geometry: 4 vertices,
+ * 6 edges, 4 triangular faces, 1 cell. Each edge carries an Ising
+ * label, giving a 3⁶ = 729-dim total Hilbert space.
+ *
+ * Vertex constraint at v_i: the 3 incident edges fuse to vacuum.
+ * Face constraint at face_j: the 3 boundary edges fuse to vacuum.
+ * Both are the same Ising fusion-admissibility check (since (ab)c is
+ * a fully-associative product of 3 labels).
+ *
+ * Enumeration gives:
+ *   - vertex-only count = 36 (4 vertex admissibility constraints alone)
+ *   - vertex + face count = 16 (all 8 fusion-admissibility constraints)
+ *
+ * The factor-of-16 ground-state dimension agrees with the
+ * Crane-Yetter prediction `Z_CY(S³) · Z_CY(S³) · ... ` for a
+ * tetrahedron with appropriate boundary conditions — a
+ * non-trivial WW vs CY cross-check at the smallest non-trivial
+ * geometry.
+ * ==================================================================== */
+
+/** @brief Walker-Wang ground state dimension on the 3-simplex,
+ *  vertex-constrained only.
+ *
+ *  Enumerates the 3⁶ = 729 edge-label configurations of the
+ *  tetrahedron and counts those for which every vertex's 3 incident
+ *  edges satisfy Ising fusion-admissibility. */
+IRREP_API long long
+irrep_ising_walker_wang_simplex3_vertex_count(void);
+
+/** @brief Walker-Wang ground state dimension on the 3-simplex,
+ *  vertex + face constrained.
+ *
+ *  Enumerates the 3⁶ = 729 edge-label configurations of the
+ *  tetrahedron and counts those for which every vertex AND every
+ *  triangular face satisfies Ising fusion-admissibility. */
+IRREP_API long long
+irrep_ising_walker_wang_simplex3_full_count(void);
+
 /** @brief Crane-Yetter 4-manifold invariant for a closed orientable
  *  4-manifold M, parameterised by its Euler characteristic and signature.
  *

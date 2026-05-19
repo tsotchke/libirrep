@@ -275,3 +275,74 @@ irrep_ising_walker_wang_admissible_count(int n)
     }
     return count;
 }
+
+/* 3-simplex / tetrahedron edge indexing:
+ *   edge index 0 = (0, 1)
+ *   edge index 1 = (0, 2)
+ *   edge index 2 = (0, 3)
+ *   edge index 3 = (1, 2)
+ *   edge index 4 = (1, 3)
+ *   edge index 5 = (2, 3)
+ *
+ * Vertex incidences (3 edges per vertex):
+ *   v0: {0, 1, 2}   v1: {0, 3, 4}   v2: {1, 3, 5}   v3: {2, 4, 5}
+ *
+ * Face incidences (3 edges per face):
+ *   f(0,1,2): {0, 1, 3}   f(0,1,3): {0, 2, 4}
+ *   f(0,2,3): {1, 2, 5}   f(1,2,3): {3, 4, 5}
+ */
+static const int kSimplex3Vertices[4][3] = {
+    {0, 1, 2}, {0, 3, 4}, {1, 3, 5}, {2, 4, 5},
+};
+static const int kSimplex3Faces[4][3] = {
+    {0, 1, 3}, {0, 2, 4}, {1, 2, 5}, {3, 4, 5},
+};
+
+static long long
+simplex3_count(int with_faces)
+{
+    irrep_ising_object_t labels[6];
+    long long total = 1;
+    for (int i = 0; i < 6; ++i) total *= 3;
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < 6; ++i) {
+            labels[i] = (irrep_ising_object_t)(x % 3);
+            x /= 3;
+        }
+        int ok = 1;
+        for (int v = 0; v < 4 && ok; ++v) {
+            irrep_ising_object_t local[3] = {
+                labels[kSimplex3Vertices[v][0]],
+                labels[kSimplex3Vertices[v][1]],
+                labels[kSimplex3Vertices[v][2]],
+            };
+            if (!irrep_ising_walker_wang_vertex_admissible(local, 3)) ok = 0;
+        }
+        if (ok && with_faces) {
+            for (int f = 0; f < 4 && ok; ++f) {
+                irrep_ising_object_t local[3] = {
+                    labels[kSimplex3Faces[f][0]],
+                    labels[kSimplex3Faces[f][1]],
+                    labels[kSimplex3Faces[f][2]],
+                };
+                if (!irrep_ising_walker_wang_vertex_admissible(local, 3)) ok = 0;
+            }
+        }
+        if (ok) ++count;
+    }
+    return count;
+}
+
+long long
+irrep_ising_walker_wang_simplex3_vertex_count(void)
+{
+    return simplex3_count(/*with_faces=*/0);
+}
+
+long long
+irrep_ising_walker_wang_simplex3_full_count(void)
+{
+    return simplex3_count(/*with_faces=*/1);
+}

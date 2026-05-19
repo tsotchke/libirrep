@@ -252,6 +252,65 @@ static int test_488_17_1_5_invalid_args(void) {
     return IRREP_TEST_END();
 }
 
+/* Generic triangular-hex builder: verify it reproduces the hardcoded
+ * [[19,1,5]] layout (face supports identical, modulo face ordering) and
+ * produces the next-distance instance [[37,1,7]] with the expected
+ * (n=37, k=1) structural counts. */
+static int test_hex_triangular_generic(void) {
+    IRREP_TEST_START("color_hex_triangular_generic");
+
+    /* d = 3: Steane-equivalent [[7, 1, 3]]. */
+    {
+        irrep_css_code_t cs;
+        IRREP_ASSERT(irrep_color_hex_triangular_build(3, &cs) == IRREP_OK);
+        IRREP_ASSERT(cs.n == 7);
+        IRREP_ASSERT(cs.H_X.n_rows == 3);
+        IRREP_ASSERT(cs.H_Z.n_rows == 3);
+        IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
+        IRREP_ASSERT(irrep_css_code_logical_qubits(&cs) == 1);
+        IRREP_ASSERT(irrep_css_code_distance(&cs, 3) == 3);
+        irrep_css_code_free(&cs);
+    }
+
+    /* d = 5: must reproduce irrep_color_hex_19_1_5 face-by-face. */
+    {
+        irrep_css_code_t a, b;
+        IRREP_ASSERT(irrep_color_hex_19_1_5(&a) == IRREP_OK);
+        IRREP_ASSERT(irrep_color_hex_triangular_build(5, &b) == IRREP_OK);
+        IRREP_ASSERT(a.n == b.n);
+        IRREP_ASSERT(a.H_X.n_rows == b.H_X.n_rows);
+        IRREP_ASSERT(a.H_Z.n_rows == b.H_Z.n_rows);
+        /* Face supports identical row-by-row (same enumeration order). */
+        for (int r = 0; r < a.H_X.n_rows; ++r) {
+            for (int q = 0; q < a.n; ++q) {
+                IRREP_ASSERT(irrep_parity_matrix_get(&a.H_X, r, q)
+                             == irrep_parity_matrix_get(&b.H_X, r, q));
+                IRREP_ASSERT(irrep_parity_matrix_get(&a.H_Z, r, q)
+                             == irrep_parity_matrix_get(&b.H_Z, r, q));
+            }
+        }
+        irrep_css_code_free(&a);
+        irrep_css_code_free(&b);
+    }
+
+    /* d = 7: new [[37, 1, 7]] instance. Verify counts + CSS + k. */
+    {
+        irrep_css_code_t cs;
+        IRREP_ASSERT(irrep_color_hex_triangular_build(7, &cs) == IRREP_OK);
+        IRREP_ASSERT(cs.n == 37);
+        IRREP_ASSERT(cs.H_X.n_rows == 18);
+        IRREP_ASSERT(cs.H_Z.n_rows == 18);
+        IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
+        IRREP_ASSERT(irrep_css_code_logical_qubits(&cs) == 1);
+        /* Brute-force distance verification at d=7 would require
+         * enumerating ~C(37, 7)·3^7 ≈ 22B Paulis — impractical in the
+         * test bank. Structural verification (n, k, CSS-orth) plus the
+         * documented BMD distance formula d=2L+1 are the audit trail. */
+        irrep_css_code_free(&cs);
+    }
+    return IRREP_TEST_END();
+}
+
 int main(void) {
     int rc = 0;
     rc |= test_hex_19_1_5_structure();
@@ -262,5 +321,6 @@ int main(void) {
     rc |= test_488_17_1_5_distance();
     rc |= test_488_17_1_5_logicals();
     rc |= test_488_17_1_5_invalid_args();
+    rc |= test_hex_triangular_generic();
     return rc;
 }

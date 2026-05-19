@@ -178,6 +178,52 @@ irrep_color_488_17_1_5_logical_X(irrep_pauli_t *out);
 IRREP_API irrep_status_t
 irrep_color_488_17_1_5_logical_Z(irrep_pauli_t *out);
 
+/* ====================================================================
+ * Generic triangular-hex color code builder
+ *
+ * The full Bombín-Martín-Delgado `[[(3d² + 1)/4, 1, d]]` family on the
+ * 6.6.6 honeycomb at any odd distance `d ≥ 3`. The L=2 instance is
+ * the [[19, 1, 5]] code above; the L=1 case is the Steane [[7, 1, 3]]
+ * code; L=3 gives [[37, 1, 7]], L=4 gives [[61, 1, 9]], and so on.
+ *
+ * Construction follows the same color-code-stim integer grid as
+ * `irrep_color_hex_19_1_5`:
+ *   - Position grid: `(x, y)` with `2y ≤ x ≤ 4L - 2y` and
+ *     `x ≡ 2y (mod 4)`, where `L = 3·(d-1)/2`.
+ *   - Data qubits and ancilla (face) positions are split by the
+ *     3-coloring rule `round((x/2 - y) / 2) mod 3 == kAncColor[y mod 3]`
+ *     with `kAncColor = (2, 0, 1)`.
+ *   - For each ancilla at `(xa, ya)`, the 6 hexagonal neighbours sit
+ *     at offsets `(-2, 1), (2, 1), (4, 0), (2, -1), (-2, -1), (-4, 0)`;
+ *     neighbours that fall outside the patch (off the triangle) are
+ *     dropped, giving weight-6 interior hexagons and weight-≤6
+ *     boundary-truncated hexagons.
+ *
+ * Counts: `n_qubits = 3 k² + 3 k + 1` where `k = (d-1)/2`. Faces =
+ * `3 k (k + 1) / 2`. Both X- and Z-stabilizers occupy the same face
+ * supports.
+ * ==================================================================== */
+
+/** @brief Build the triangular hex color code at any odd distance.
+ *
+ *  Allocates and fills the [[n, 1, d]] CSS code where
+ *  `n = 3·((d-1)/2)² + 3·((d-1)/2) + 1` and the number of faces is
+ *  `3·((d-1)/2)·((d+1)/2) / 2`. CSS-orthogonal by construction (every
+ *  face pair intersects in 0 or 2 data qubits on the 6.6.6 lattice).
+ *
+ *  At `d = 3` reproduces the Steane code support (up to qubit
+ *  relabelling). At `d = 5` reproduces `irrep_color_hex_19_1_5` (same
+ *  H_X and H_Z supports). At `d = 7` gives the [[37, 1, 7]] instance.
+ *
+ *  @param[in]  d    Odd distance ≥ 3.
+ *  @param[out] out  Caller-allocated `irrep_css_code_t`; must
+ *                   `irrep_css_code_free(out)` when done.
+ *  @return  `IRREP_OK` on success;
+ *           `IRREP_ERR_INVALID_ARG` if `d` is invalid or `out` is NULL;
+ *           `IRREP_ERR_OUT_OF_MEMORY` on allocation failure. */
+IRREP_API irrep_status_t
+irrep_color_hex_triangular_build(int d, irrep_css_code_t *out);
+
 #ifdef __cplusplus
 }
 #endif

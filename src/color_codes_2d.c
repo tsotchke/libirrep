@@ -242,3 +242,143 @@ irrep_color_488_17_1_5_logical_Z(irrep_pauli_t *out)
     }
     return IRREP_OK;
 }
+
+/* ====================================================================
+ * Generic triangular-hex builder
+ *
+ * Geometry: position grid `(x, y)` with `2y ≤ x ≤ 4L - 2y` and
+ * `x ≡ 2y (mod 4)`, where `L = 3·(d-1)/2`. Each `y` row has `L + 1 - y`
+ * positions; total positions = (L+1)(L+2)/2.
+ *
+ * 3-coloring: `color_class(x, y) = round((x/2 - y) / 2) mod 3`. Ancilla
+ * positions are those with `color_class == kAncColor[y mod 3]` for
+ * `kAncColor = (2, 0, 1)`. The remaining positions are data qubits.
+ *
+ * Face supports: each ancilla at `(xa, ya)` connects to 6 hex neighbours
+ * at offsets `(-2, 1), (2, 1), (4, 0), (2, -1), (-2, -1), (-4, 0)`;
+ * neighbours that fall outside the patch are dropped.
+ * ==================================================================== */
+
+#include <stdlib.h>
+#include <string.h>
+
+static int hex_color_class(int x, int y)
+{
+    /* round((x/2 - y) / 2) mod 3.  Note: with x even (guaranteed by the
+     * grid rule), x/2 is an integer; (x/2 - y) is also an integer; we
+     * divide by 2 with C-style truncation for non-negative inputs,
+     * but for negative we round half-up via (n + 1) / 2 trick if
+     * needed. Inputs here are non-negative by construction. */
+    int t = x / 2 - y;
+    int half = (t >= 0) ? (t + 1) / 2 : -((-t + 1) / 2);
+    int m = half % 3;
+    if (m < 0) m += 3;
+    return m;
+}
+
+irrep_status_t
+irrep_color_hex_triangular_build(int d, irrep_css_code_t *out)
+{
+    if (out == NULL || d < 3 || (d % 2) == 0) return IRREP_ERR_INVALID_ARG;
+
+    int k = (d - 1) / 2;
+    int L = 3 * k;
+    int n_data_expected = 3 * k * k + 3 * k + 1;
+    int n_faces_expected = 3 * k * (k + 1) / 2;
+
+    /* Enumerate positions and classify. */
+    int n_pos = 0;
+    for (int y = 0; y <= L; ++y) {
+        int x_min = 2 * y;
+        int x_max = 4 * L - 2 * y;
+        if (x_max < x_min) continue;
+        for (int x = x_min; x <= x_max; x += 4) {
+            /* x must satisfy x ≡ 2y (mod 4); since we start at x_min = 2y
+             * and step by 4, this is automatic. */
+            ++n_pos;
+        }
+    }
+    if (n_pos != n_data_expected + n_faces_expected) {
+        return IRREP_ERR_PRECONDITION; /* unexpected: geometry mismatch */
+    }
+
+    int *pos_x = (int *)malloc((size_t)n_pos * sizeof(int));
+    int *pos_y = (int *)malloc((size_t)n_pos * sizeof(int));
+    int *pos_is_anc = (int *)malloc((size_t)n_pos * sizeof(int));
+    int *pos_data_idx = (int *)malloc((size_t)n_pos * sizeof(int));
+    int *pos_anc_idx  = (int *)malloc((size_t)n_pos * sizeof(int));
+    if (!pos_x || !pos_y || !pos_is_anc || !pos_data_idx || !pos_anc_idx) {
+        free(pos_x); free(pos_y); free(pos_is_anc);
+        free(pos_data_idx); free(pos_anc_idx);
+        return IRREP_ERR_OUT_OF_MEMORY;
+    }
+
+    static const int kAncColor[3] = { 2, 0, 1 };
+    int n_data = 0, n_anc = 0;
+    {
+        int i = 0;
+        for (int y = 0; y <= L; ++y) {
+            int x_min = 2 * y;
+            int x_max = 4 * L - 2 * y;
+            if (x_max < x_min) continue;
+            for (int x = x_min; x <= x_max; x += 4) {
+                pos_x[i] = x;
+                pos_y[i] = y;
+                int cls = hex_color_class(x, y);
+                int is_anc = (cls == kAncColor[y % 3]) ? 1 : 0;
+                pos_is_anc[i] = is_anc;
+                if (is_anc) {
+                    pos_anc_idx[i] = n_anc++;
+                    pos_data_idx[i] = -1;
+                } else {
+                    pos_data_idx[i] = n_data++;
+                    pos_anc_idx[i] = -1;
+                }
+                ++i;
+            }
+        }
+    }
+    if (n_data != n_data_expected || n_anc != n_faces_expected) {
+        free(pos_x); free(pos_y); free(pos_is_anc);
+        free(pos_data_idx); free(pos_anc_idx);
+        return IRREP_ERR_PRECONDITION;
+    }
+
+    /* Build a (x, y) → data_idx lookup. Use a sparse linear scan since
+     * n_pos is small. Helper: find_data_at(x, y). */
+    irrep_status_t s = irrep_css_code_new(out, n_data, n_anc, n_anc);
+    if (s != IRREP_OK) {
+        free(pos_x); free(pos_y); free(pos_is_anc);
+        free(pos_data_idx); free(pos_anc_idx);
+        return s;
+    }
+
+    /* 6 hexagonal-neighbour offsets. */
+    static const int kOff[6][2] = {
+        { -2,  1 }, { 2,  1 }, { 4,  0 },
+        {  2, -1 }, { -2, -1 }, { -4, 0 },
+    };
+
+    for (int i = 0; i < n_pos; ++i) {
+        if (!pos_is_anc[i]) continue;
+        int xa = pos_x[i], ya = pos_y[i];
+        int f = pos_anc_idx[i];
+        for (int o = 0; o < 6; ++o) {
+            int nx = xa + kOff[o][0];
+            int ny = ya + kOff[o][1];
+            /* Look up (nx, ny) in the position list. */
+            for (int j = 0; j < n_pos; ++j) {
+                if (pos_x[j] == nx && pos_y[j] == ny && !pos_is_anc[j]) {
+                    int q = pos_data_idx[j];
+                    irrep_parity_matrix_set(&out->H_X, f, q);
+                    irrep_parity_matrix_set(&out->H_Z, f, q);
+                    break;
+                }
+            }
+        }
+    }
+
+    free(pos_x); free(pos_y); free(pos_is_anc);
+    free(pos_data_idx); free(pos_anc_idx);
+    return IRREP_OK;
+}

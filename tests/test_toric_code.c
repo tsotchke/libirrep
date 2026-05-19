@@ -190,6 +190,21 @@ static int test_toric_code_build_css_k(int Lx, int Ly) {
     return rc;
 }
 
+/* Brute-force distance verification: 2D toric on L × L torus has
+ * d = L. Tested at L = 2, 3, 4 (only L=2,3 use brute; L=4 too slow). */
+static int test_toric_code_brute_distance(int L) {
+    irrep_toric_params_t p;
+    irrep_toric_init(&p, L, L);
+    irrep_css_code_t c;
+    if (irrep_toric_code_build_css(&p, &c) != IRREP_OK) return 1;
+    int d = irrep_css_code_distance(&c, L);
+    int rc = (d == L) ? 0 : 1;
+    if (rc) fprintf(stderr, "  2D toric L=%d: brute-distance = %d (expected %d)\n",
+                    L, d, L);
+    irrep_css_code_free(&c);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     if (test_toric_init()) { fprintf(stderr, "FAIL test_toric_init\n"); rc = 1; }
@@ -203,5 +218,7 @@ int main(void) {
     if (test_toric_code_build_css_k(3, 3)) { fprintf(stderr, "FAIL test_toric_code_build_css_k(3,3)\n"); rc = 1; }
     if (test_toric_code_build_css_k(3, 4)) { fprintf(stderr, "FAIL test_toric_code_build_css_k(3,4)\n"); rc = 1; }
     if (test_toric_code_build_css_k(5, 5)) { fprintf(stderr, "FAIL test_toric_code_build_css_k(5,5)\n"); rc = 1; }
+    if (test_toric_code_brute_distance(2)) { fprintf(stderr, "FAIL test_toric_code_brute_distance(L=2)\n"); rc = 1; }
+    if (test_toric_code_brute_distance(3)) { fprintf(stderr, "FAIL test_toric_code_brute_distance(L=3)\n"); rc = 1; }
     return rc;
 }

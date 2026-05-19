@@ -20,6 +20,7 @@
 #include "harness.h"
 #include <irrep/css_code.h>
 #include <irrep/hypergraph_product.h>
+#include <irrep/qec_distance.h>
 #include <irrep/stabilizer_group.h>
 #include <stdio.h>
 
@@ -146,8 +147,9 @@ done:
 
 /* Named instance: [[13, 1, 3]] HGP of repetition-3 × repetition-3.
  *
- * Verifies: structural counts, CSS orthogonality, and k = 1 via the
- * F₂-rank logical-qubit primitive. */
+ * Verifies: structural counts, CSS orthogonality, k = 1 via the
+ * F₂-rank logical-qubit primitive, AND d = 3 via brute-force
+ * enumeration of weight ≤ 3 Paulis. */
 static int test_hgp_named_13_1_3(void) {
     irrep_css_code_t cs;
     if (irrep_hgp_repetition_3_13_1_3(&cs) != IRREP_OK) return 1;
@@ -159,6 +161,18 @@ static int test_hgp_named_13_1_3(void) {
     if (irrep_css_code_logical_qubits(&cs) != 1) {
         fprintf(stderr, "  [[13,1,3]] HGP k = %d (expected 1)\n",
                 irrep_css_code_logical_qubits(&cs));
+        rc = 1;
+    }
+    /* Distance verification via the brute-force enumerator. */
+    irrep_stabilizer_group_t g;
+    if (irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK) {
+        int d = irrep_qec_distance_brute(&g, /*max_weight*/ 3);
+        if (d != 3) {
+            fprintf(stderr, "  [[13,1,3]] HGP d = %d (expected 3)\n", d);
+            rc = 1;
+        }
+        irrep_stabilizer_group_free(&g);
+    } else {
         rc = 1;
     }
     irrep_css_code_free(&cs);

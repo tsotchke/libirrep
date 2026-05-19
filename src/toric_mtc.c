@@ -313,3 +313,38 @@ irrep_toric_mtc_walker_wang_cube_full_count(void)
     }
     return count;
 }
+
+double _Complex
+irrep_toric_mtc_invariant(int euler_char, int signature)
+{
+    /* Z(M) = D^{-χ} · exp(2πi c σ / 8). For Z₂×Z₂: D=2, c=0. */
+    (void)signature;
+    double D = irrep_toric_mtc_global_dim();
+    return pow(D, -(double)euler_char);
+}
+
+double
+irrep_toric_mtc_connected_sum_residual(void)
+{
+    struct { int chi_m, sig_m, chi_n, sig_n; } pairs[] = {
+        { 3,  1, 3,  1 },
+        { 3, -1, 3, -1 },
+        { 3,  1, 3, -1 },
+        { 4,  0, 4,  0 },
+        { 2,  0, 3,  1 },
+    };
+    int n_pairs = sizeof(pairs) / sizeof(pairs[0]);
+    double max_err = 0.0;
+    double _Complex Z_S4 = irrep_toric_mtc_invariant(2, 0);
+    for (int i = 0; i < n_pairs; ++i) {
+        int chi_sum = pairs[i].chi_m + pairs[i].chi_n - 2;
+        int sig_sum = pairs[i].sig_m + pairs[i].sig_n;
+        double _Complex Z_MN = irrep_toric_mtc_invariant(chi_sum, sig_sum);
+        double _Complex Z_M  = irrep_toric_mtc_invariant(pairs[i].chi_m, pairs[i].sig_m);
+        double _Complex Z_N  = irrep_toric_mtc_invariant(pairs[i].chi_n, pairs[i].sig_n);
+        double _Complex RHS  = Z_M * Z_N / Z_S4;
+        double err = cabs(Z_MN - RHS);
+        if (err > max_err) max_err = err;
+    }
+    return max_err;
+}

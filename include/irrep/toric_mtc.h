@@ -189,6 +189,37 @@ irrep_toric_mtc_walker_wang_simplex3_full_count(void);
 IRREP_API long long
 irrep_toric_mtc_walker_wang_cube_full_count(void);
 
+/* ====================================================================
+ * Crane-Yetter 4-manifold invariant for the Z₂ × Z₂ MTC.
+ * ==================================================================== */
+
+/** @brief Crane-Yetter 4-manifold invariant for the Z₂×Z₂ MTC.
+ *
+ *  Closed-form for any MTC: `Z(M) = D^{-χ(M)} · exp(2πi c σ(M) / 8)`.
+ *  For Z₂×Z₂: D = 2, c = 0, so the phase vanishes:
+ *
+ *      Z_Z2Z2(M) = 2^{-χ(M)}   (real, no σ-dependence)
+ *
+ *  This is simpler than the Ising case (where ζ = exp(iπ/8) gives the
+ *  σ-twist phase). Distinguishes manifolds purely by Euler char χ. */
+IRREP_API double _Complex
+irrep_toric_mtc_invariant(int euler_char, int signature);
+
+/** @brief Verify Z₂×Z₂ CY connected-sum multiplicativity at runtime.
+ *
+ *  Same axiom as the Ising version (`irrep_crane_yetter_connected_sum_residual`):
+ *
+ *      Z(M # N) = Z(M) · Z(N) / Z(S⁴)
+ *
+ *  For Z₂×Z₂, Z(S⁴) = 2^{-2} = 1/4, so Z(M#N) = 4·Z(M)·Z(N) — same
+ *  factor as Ising (both have D = 2). Verified on the same 5-pair
+ *  test set. Distinct from Ising's residual since Z₂×Z₂'s Z is real
+ *  while Ising's is complex (ζ-phase).
+ *
+ *  @return Max absolute deviation over the test set; < 1e-12. */
+IRREP_API double
+irrep_toric_mtc_connected_sum_residual(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -166,5 +166,25 @@ int main(void) {
     rc |= test_admissibility_basic();
     rc |= test_walker_wang_simplex3();
     rc |= test_walker_wang_cube();
+
+    /* Crane-Yetter invariant on canonical 4-manifolds (Z₂×Z₂ side).
+     *   S⁴: Z = 2^{-2} = 1/4.  CP²: Z = 2^{-3} = 1/8. */
+    {
+        double _Complex Z_S4 = irrep_toric_mtc_invariant(2, 0);
+        double _Complex Z_CP2 = irrep_toric_mtc_invariant(3, 1);
+        IRREP_TEST_START("toric_mtc_invariant_values");
+        IRREP_ASSERT_NEAR(creal(Z_S4),  0.25,  1e-12);
+        IRREP_ASSERT_NEAR(cimag(Z_S4),  0.0,   1e-12);
+        IRREP_ASSERT_NEAR(creal(Z_CP2), 0.125, 1e-12);
+        /* No σ-phase for Z₂×Z₂ (c = 0). */
+        IRREP_ASSERT_NEAR(cimag(Z_CP2), 0.0,   1e-12);
+        rc |= IRREP_TEST_END();
+    }
+    /* Connected-sum multiplicativity. */
+    {
+        IRREP_TEST_START("toric_mtc_connected_sum");
+        IRREP_ASSERT(irrep_toric_mtc_connected_sum_residual() < 1e-12);
+        rc |= IRREP_TEST_END();
+    }
     return rc;
 }

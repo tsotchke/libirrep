@@ -23,10 +23,16 @@ SO_MAJOR := 1
 # _POSIX_C_SOURCE 200809L exposes clock_gettime / CLOCK_MONOTONIC from
 # <time.h> on glibc and MinGW (the 199309L variant is too narrow — it
 # hides vsnprintf and other C99 utilities on some toolchains). macOS
-# exposes the real-time clock unconditionally. The library proper does
-# not require this macro; benchmarks and timing-using examples do.
-# Setting it library-wide is harmless on every supported toolchain.
-CFLAGS_COMMON  = -std=c11 -Iinclude -fvisibility=hidden -D_POSIX_C_SOURCE=200809L
+# exposes the real-time clock unconditionally.
+#
+# _DEFAULT_SOURCE re-enables BSD extensions on glibc that _POSIX_C_SOURCE
+# alone hides — notably the math constants M_PI, M_E, M_SQRT2 from
+# <math.h>. On macOS these are exposed unconditionally; the explicit
+# define is required only on glibc Linux. Setting both library-wide
+# is harmless on every supported toolchain (macOS / Linux glibc /
+# MinGW / musl).
+CFLAGS_COMMON  = -std=c11 -Iinclude -fvisibility=hidden \
+                 -D_POSIX_C_SOURCE=200809L -D_DEFAULT_SOURCE
 CFLAGS_WARN    = -Wall -Wextra -Wpedantic -Wno-unused-parameter
 # -ffp-contract=on: force consistent a*b+c -> fma contraction across
 # compilers so the NEON / AVX2 kernels (which use explicit fma

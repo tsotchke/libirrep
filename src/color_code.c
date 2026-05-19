@@ -58,3 +58,29 @@ irrep_color_hamming_15_7_3(irrep_css_code_t *out)
     }
     return IRREP_OK;
 }
+
+#include <irrep/stabilizer_group.h>
+
+irrep_status_t
+irrep_color_steane_logical_X(irrep_pauli_t *out)
+{
+    if (out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_status_t s = irrep_pauli_new(out, /*n=*/7);
+    if (s != IRREP_OK) return s;
+    irrep_pauli_set(out, 0, IRREP_PAULI_LETTER_X);
+    irrep_pauli_set(out, 1, IRREP_PAULI_LETTER_X);
+    irrep_pauli_set(out, 2, IRREP_PAULI_LETTER_X);
+    return IRREP_OK;
+}
+
+irrep_status_t
+irrep_color_steane_logical_Z(irrep_pauli_t *out)
+{
+    if (out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_status_t s = irrep_pauli_new(out, /*n=*/7);
+    if (s != IRREP_OK) return s;
+    irrep_pauli_set(out, 0, IRREP_PAULI_LETTER_Z);
+    irrep_pauli_set(out, 1, IRREP_PAULI_LETTER_Z);
+    irrep_pauli_set(out, 2, IRREP_PAULI_LETTER_Z);
+    return IRREP_OK;
+}

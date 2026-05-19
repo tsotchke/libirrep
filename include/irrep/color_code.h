@@ -79,6 +79,29 @@ extern "C" {
 IRREP_API irrep_status_t
 irrep_color_steane(irrep_css_code_t *out);
 
+/** @brief Canonical logical X̄ for the [[7, 1, 3]] Steane code.
+ *
+ *  Weight-3 X-string on qubits `{0, 1, 2}` (a Fano-plane line, in the
+ *  conventional Steane qubit numbering). Commutes with every Z-stab
+ *  (each Z-stab support shares 0 or 2 qubits with `{0, 1, 2}`) and is
+ *  not in the span of the X-stabs (which only contains weights
+ *  0, 4, 7 — never weight 3).
+ *
+ *  Anti-commutes with `irrep_color_steane_logical_Z` on each shared
+ *  qubit {0, 1, 2}: |overlap| = 3 (odd) ⇒ anti-commute.
+ *
+ *  Caller must `irrep_pauli_free` when done. */
+IRREP_API irrep_status_t
+irrep_color_steane_logical_X(irrep_pauli_t *out);
+
+/** @brief Canonical logical Z̄ for the [[7, 1, 3]] Steane code.
+ *
+ *  Weight-3 Z-string on qubits `{0, 1, 2}` (same Fano line as L̄_X).
+ *  The two share full support, so they anti-commute on every
+ *  shared qubit; total symplectic inner product = 3 mod 2 = 1. */
+IRREP_API irrep_status_t
+irrep_color_steane_logical_Z(irrep_pauli_t *out);
+
 /** @brief Build the [[15, 7, 3]] CSS code derived from the [15, 11, 3]
  *  punctured Reed-Muller code RM(2, 4)^punctured.
  *

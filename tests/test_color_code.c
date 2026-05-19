@@ -101,5 +101,34 @@ int main(void) {
     if (test_steane_css_verify())            { fprintf(stderr, "FAIL test_steane_css_verify\n"); rc = 1; }
     if (test_steane_stabilizer_group())      { fprintf(stderr, "FAIL test_steane_stabilizer_group\n"); rc = 1; }
     if (test_hamming_15_7_3())               { fprintf(stderr, "FAIL test_hamming_15_7_3\n"); rc = 1; }
+    /* Steane logical operators: weight 3, commute with all stabs,
+     * not in stab span, mutually anti-commute. */
+    {
+        irrep_css_code_t cs;
+        if (irrep_color_steane(&cs) != IRREP_OK) { rc = 1; }
+        else {
+            irrep_pauli_t Lx, Lz;
+            if (irrep_color_steane_logical_X(&Lx) != IRREP_OK) rc = 1;
+            if (irrep_color_steane_logical_Z(&Lz) != IRREP_OK) rc = 1;
+            if (irrep_pauli_weight(&Lx) != 3) rc = 1;
+            if (irrep_pauli_weight(&Lz) != 3) rc = 1;
+            irrep_stabilizer_group_t g;
+            if (irrep_css_code_to_stabilizer_group(&cs, &g) != IRREP_OK) rc = 1;
+            else {
+                for (int i = 0; i < g.n_generators; ++i) {
+                    if (!irrep_pauli_commute(&g.gens[i], &Lx)) rc = 1;
+                    if (!irrep_pauli_commute(&g.gens[i], &Lz)) rc = 1;
+                }
+                if (irrep_pauli_in_stabilizer_span(&g, &Lx) != 0) rc = 1;
+                if (irrep_pauli_in_stabilizer_span(&g, &Lz) != 0) rc = 1;
+                if (irrep_pauli_commute(&Lx, &Lz)) rc = 1; /* anti-commute */
+                irrep_stabilizer_group_free(&g);
+            }
+            irrep_pauli_free(&Lx);
+            irrep_pauli_free(&Lz);
+            irrep_css_code_free(&cs);
+        }
+        if (rc) fprintf(stderr, "FAIL Steane logical-operator proof\n");
+    }
     return rc;
 }

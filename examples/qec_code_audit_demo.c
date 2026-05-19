@@ -36,6 +36,7 @@
 #include <irrep/css_code.h>
 #include <irrep/hypergraph_product.h>
 #include <irrep/stabilizer_group.h>
+#include <irrep/toric_code.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -72,6 +73,14 @@ int main(void) {
     { irrep_css_code_t cs;
       if (irrep_color_steane(&cs) == IRREP_OK) {
           audit_code("Steane [[7, 1, 3]]", &cs, 4);
+          irrep_css_code_free(&cs);
+      } }
+    /* 2D toric on a 3×3 torus = [[18, 2, 3]]. */
+    { irrep_toric_params_t p;
+      irrep_toric_init(&p, 3, 3);
+      irrep_css_code_t cs;
+      if (irrep_toric_code_build_css(&p, &cs) == IRREP_OK) {
+          audit_code("2D toric [[18, 2, 3]] (3×3)", &cs, 4);
           irrep_css_code_free(&cs);
       } }
     /* [[15, 7, 3]] Hamming-CSS. */

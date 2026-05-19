@@ -293,19 +293,28 @@ static int test_hex_triangular_generic(void) {
         irrep_css_code_free(&b);
     }
 
-    /* d = 7: new [[37, 1, 7]] instance. Verify counts + CSS + k. */
-    {
+    /* d ∈ {7, 9, 11}: verify the closed-form count formulas hold at
+     * runtime — n = 3k² + 3k + 1, faces = 3k(k+1)/2 where k = (d-1)/2.
+     * Plus structural counts + CSS-orth + k = 1.
+     *
+     * Brute-force distance verification at d ≥ 7 needs >10^9 Pauli
+     * enumerations and is impractical in the test bank; structural
+     * verification (n, k, CSS-orth) plus the BMD distance formula
+     * d=2L+1 are the audit trail. */
+    for (int d = 7; d <= 11; d += 2) {
+        int k_idx = (d - 1) / 2;
+        int n_expected     = 3 * k_idx * k_idx + 3 * k_idx + 1;
+        int faces_expected = 3 * k_idx * (k_idx + 1) / 2;
+        IRREP_ASSERT(irrep_color_hex_triangular_n_qubits(d) == n_expected);
+        IRREP_ASSERT(irrep_color_hex_triangular_n_faces(d)  == faces_expected);
+
         irrep_css_code_t cs;
-        IRREP_ASSERT(irrep_color_hex_triangular_build(7, &cs) == IRREP_OK);
-        IRREP_ASSERT(cs.n == 37);
-        IRREP_ASSERT(cs.H_X.n_rows == 18);
-        IRREP_ASSERT(cs.H_Z.n_rows == 18);
+        IRREP_ASSERT(irrep_color_hex_triangular_build(d, &cs) == IRREP_OK);
+        IRREP_ASSERT(cs.n == n_expected);
+        IRREP_ASSERT(cs.H_X.n_rows == faces_expected);
+        IRREP_ASSERT(cs.H_Z.n_rows == faces_expected);
         IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
         IRREP_ASSERT(irrep_css_code_logical_qubits(&cs) == 1);
-        /* Brute-force distance verification at d=7 would require
-         * enumerating ~C(37, 7)·3^7 ≈ 22B Paulis — impractical in the
-         * test bank. Structural verification (n, k, CSS-orth) plus the
-         * documented BMD distance formula d=2L+1 are the audit trail. */
         irrep_css_code_free(&cs);
     }
     return IRREP_TEST_END();

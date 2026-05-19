@@ -224,6 +224,20 @@ irrep_color_488_17_1_5_logical_Z(irrep_pauli_t *out);
 IRREP_API irrep_status_t
 irrep_color_hex_triangular_build(int d, irrep_css_code_t *out);
 
+/** @brief Number of data qubits in the triangular hex code at distance d.
+ *
+ *  Closed form: `n = 3k² + 3k + 1` where `k = (d - 1)/2`. Returns 0 for
+ *  invalid d (even or < 3). */
+IRREP_API int
+irrep_color_hex_triangular_n_qubits(int d);
+
+/** @brief Number of face stabilizers (= X-stabs = Z-stabs) in the
+ *  triangular hex code at distance d.
+ *
+ *  Closed form: `faces = 3k(k+1)/2` where `k = (d - 1)/2`. */
+IRREP_API int
+irrep_color_hex_triangular_n_faces(int d);
+
 #ifdef __cplusplus
 }
 #endif

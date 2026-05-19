@@ -382,3 +382,19 @@ irrep_color_hex_triangular_build(int d, irrep_css_code_t *out)
     free(pos_data_idx); free(pos_anc_idx);
     return IRREP_OK;
 }
+
+int
+irrep_color_hex_triangular_n_qubits(int d)
+{
+    if (d < 3 || (d % 2) == 0) return 0;
+    int k = (d - 1) / 2;
+    return 3 * k * k + 3 * k + 1;
+}
+
+int
+irrep_color_hex_triangular_n_faces(int d)
+{
+    if (d < 3 || (d % 2) == 0) return 0;
+    int k = (d - 1) / 2;
+    return 3 * k * (k + 1) / 2;
+}

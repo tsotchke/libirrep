@@ -114,6 +114,43 @@ irrep_bb_code_build(const irrep_bb_poly_t *A,
                     const irrep_bb_poly_t *B,
                     irrep_css_code_t *out);
 
+/* ====================================================================
+ * Named IBM bivariate-bicycle instances
+ *
+ * These are the headline qLDPC codes from Bravyi et al. 2024 (Nature
+ * 627, 778) that beat the surface code on IBM-Heron-class hardware
+ * at physical-error rate ~0.7%. The polynomial-pair specifications
+ * follow Table 3 of that paper:
+ *
+ *   [[144, 12, 12]] : ℓ = 12, m = 6
+ *                     A(x, y) = x³ + y + y²
+ *                     B(x, y) = y³ + x + x²
+ *
+ *   [[288, 12, 18]] : ℓ = 12, m = 12
+ *                     A(x, y) = x³ + y² + y⁷
+ *                     B(x, y) = y³ + x + x²
+ *
+ * Both have `n = 2 ℓ m` qubits and `k = 12` logical qubits, with
+ * distance `d = 12` and `d = 18` respectively. The encoding rate
+ * `k/n = 1/12` is the appeal versus the surface code's `1/d²`.
+ * ==================================================================== */
+
+/** @brief Build the [[144, 12, 12]] IBM bivariate-bicycle code.
+ *
+ *  Allocates `out` and fills it with the CSS code defined by
+ *  `A = x³ + y + y²` and `B = y³ + x + x²` in `F₂[x, y]/(x¹² - 1, y⁶ - 1)`.
+ *  Caller must `irrep_css_code_free(out)` when done. */
+IRREP_API irrep_status_t
+irrep_bb_code_ibm_144_12_12(irrep_css_code_t *out);
+
+/** @brief Build the [[288, 12, 18]] IBM bivariate-bicycle code.
+ *
+ *  Allocates `out` and fills it with the CSS code defined by
+ *  `A = x³ + y² + y⁷` and `B = y³ + x + x²` in
+ *  `F₂[x, y]/(x¹² - 1, y¹² - 1)`. */
+IRREP_API irrep_status_t
+irrep_bb_code_ibm_288_12_18(irrep_css_code_t *out);
+
 #ifdef __cplusplus
 }
 #endif

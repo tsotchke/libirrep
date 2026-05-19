@@ -137,3 +137,57 @@ irrep_bb_code_build(const irrep_bb_poly_t *A,
     }
     return IRREP_OK;
 }
+
+/* ====================================================================
+ * Named IBM bivariate-bicycle instances (Bravyi et al. 2024, Table 3)
+ * ==================================================================== */
+
+irrep_status_t
+irrep_bb_code_ibm_144_12_12(irrep_css_code_t *out)
+{
+    if (out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_bb_poly_t A, B;
+    irrep_status_t s = irrep_bb_poly_new(&A, /*ell=*/12, /*m=*/6);
+    if (s != IRREP_OK) return s;
+    s = irrep_bb_poly_new(&B, /*ell=*/12, /*m=*/6);
+    if (s != IRREP_OK) { irrep_bb_poly_free(&A); return s; }
+
+    /* A = x³ + y + y². */
+    irrep_bb_poly_add_monomial(&A, /*a=*/3, /*b=*/0);
+    irrep_bb_poly_add_monomial(&A, /*a=*/0, /*b=*/1);
+    irrep_bb_poly_add_monomial(&A, /*a=*/0, /*b=*/2);
+    /* B = y³ + x + x². */
+    irrep_bb_poly_add_monomial(&B, /*a=*/0, /*b=*/3);
+    irrep_bb_poly_add_monomial(&B, /*a=*/1, /*b=*/0);
+    irrep_bb_poly_add_monomial(&B, /*a=*/2, /*b=*/0);
+
+    s = irrep_bb_code_build(&A, &B, out);
+    irrep_bb_poly_free(&A);
+    irrep_bb_poly_free(&B);
+    return s;
+}
+
+irrep_status_t
+irrep_bb_code_ibm_288_12_18(irrep_css_code_t *out)
+{
+    if (out == NULL) return IRREP_ERR_INVALID_ARG;
+    irrep_bb_poly_t A, B;
+    irrep_status_t s = irrep_bb_poly_new(&A, /*ell=*/12, /*m=*/12);
+    if (s != IRREP_OK) return s;
+    s = irrep_bb_poly_new(&B, /*ell=*/12, /*m=*/12);
+    if (s != IRREP_OK) { irrep_bb_poly_free(&A); return s; }
+
+    /* A = x³ + y² + y⁷. */
+    irrep_bb_poly_add_monomial(&A, /*a=*/3, /*b=*/0);
+    irrep_bb_poly_add_monomial(&A, /*a=*/0, /*b=*/2);
+    irrep_bb_poly_add_monomial(&A, /*a=*/0, /*b=*/7);
+    /* B = y³ + x + x². */
+    irrep_bb_poly_add_monomial(&B, /*a=*/0, /*b=*/3);
+    irrep_bb_poly_add_monomial(&B, /*a=*/1, /*b=*/0);
+    irrep_bb_poly_add_monomial(&B, /*a=*/2, /*b=*/0);
+
+    s = irrep_bb_code_build(&A, &B, out);
+    irrep_bb_poly_free(&A);
+    irrep_bb_poly_free(&B);
+    return s;
+}

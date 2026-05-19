@@ -115,10 +115,39 @@ static int test_bb_72_12_6(void) {
     return rc;
 }
 
+/* Named IBM instances: build, verify CSS orthogonality, check structural
+ * counts. Distance verification is impractical via brute-force at these
+ * sizes; we trust the polynomial-pair construction (Bravyi 2024 Table 3). */
+static int test_bb_ibm_144_12_12(void) {
+    irrep_css_code_t c;
+    if (irrep_bb_code_ibm_144_12_12(&c) != IRREP_OK) return 1;
+    int rc = 0;
+    if (c.n != 144) rc = 1;
+    if (c.H_X.n_rows != 72) rc = 1;
+    if (c.H_Z.n_rows != 72) rc = 1;
+    if (irrep_css_code_verify(&c) != IRREP_OK) rc = 1;
+    irrep_css_code_free(&c);
+    return rc;
+}
+
+static int test_bb_ibm_288_12_18(void) {
+    irrep_css_code_t c;
+    if (irrep_bb_code_ibm_288_12_18(&c) != IRREP_OK) return 1;
+    int rc = 0;
+    if (c.n != 288) rc = 1;
+    if (c.H_X.n_rows != 144) rc = 1;
+    if (c.H_Z.n_rows != 144) rc = 1;
+    if (irrep_css_code_verify(&c) != IRREP_OK) rc = 1;
+    irrep_css_code_free(&c);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     if (test_bb_poly_set_get()) { fprintf(stderr, "FAIL test_bb_poly_set_get\n"); rc = 1; }
     if (test_bb_toy_18())       { fprintf(stderr, "FAIL test_bb_toy_18\n"); rc = 1; }
     if (test_bb_72_12_6())      { fprintf(stderr, "FAIL test_bb_72_12_6\n"); rc = 1; }
+    if (test_bb_ibm_144_12_12()) { fprintf(stderr, "FAIL test_bb_ibm_144_12_12\n"); rc = 1; }
+    if (test_bb_ibm_288_12_18()) { fprintf(stderr, "FAIL test_bb_ibm_288_12_18\n"); rc = 1; }
     return rc;
 }

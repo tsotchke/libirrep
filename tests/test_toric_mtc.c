@@ -124,6 +124,16 @@ static int test_walker_wang_simplex3(void) {
     return IRREP_TEST_END();
 }
 
+/* WW on the unit cube for Z₂×Z₂: differs from Ising's 120. This is
+ * the runtime proof that beyond the smallest geometries the MTC
+ * algebra affects the state-sum count. */
+static int test_walker_wang_cube(void) {
+    IRREP_TEST_START("toric_mtc_walker_wang_cube");
+    long long c = irrep_toric_mtc_walker_wang_cube_full_count();
+    IRREP_ASSERT(c == 64);
+    return IRREP_TEST_END();
+}
+
 static int test_admissibility_basic(void) {
     IRREP_TEST_START("toric_mtc_admissibility");
     irrep_toric_mtc_object_t E_ = IRREP_TORIC_MTC_OBJ_E;
@@ -155,5 +165,6 @@ int main(void) {
     rc |= test_consistency_proofs();
     rc |= test_admissibility_basic();
     rc |= test_walker_wang_simplex3();
+    rc |= test_walker_wang_cube();
     return rc;
 }

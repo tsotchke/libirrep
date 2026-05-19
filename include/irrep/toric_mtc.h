@@ -174,6 +174,21 @@ irrep_toric_mtc_admissible(const irrep_toric_mtc_object_t *labels, int n);
 IRREP_API long long
 irrep_toric_mtc_walker_wang_simplex3_full_count(void);
 
+/** @brief Walker-Wang ground-state dim on the unit cube
+ *  (8 vertices 3-valent, 12 edges, 6 square faces) for Z₂×Z₂.
+ *
+ *  Enumerates 4¹² = 16,777,216 edge labelings under all 8 vertex
+ *  + 6 face admissibility constraints. Runs in ~50 ms with
+ *  early-out vertex pruning.
+ *
+ *  Cross-MTC fact: this differs from
+ *  `irrep_ising_walker_wang_cube_full_count()` (= 120), proving
+ *  that the WW state-sum depends on the underlying anyon model
+ *  beyond just the global dimension D once the geometry is
+ *  non-trivial enough. */
+IRREP_API long long
+irrep_toric_mtc_walker_wang_cube_full_count(void);
+
 #ifdef __cplusplus
 }
 #endif

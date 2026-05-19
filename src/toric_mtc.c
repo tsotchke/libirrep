@@ -264,3 +264,52 @@ irrep_toric_mtc_walker_wang_simplex3_full_count(void)
     }
     return count;
 }
+
+/* Cube geometry — same incidences as the Ising module. */
+static const int kCubeVerticesToric[8][3] = {
+    {0, 4,  8}, {0, 5,  9}, {1, 4, 10}, {1, 5, 11},
+    {2, 6,  8}, {2, 7,  9}, {3, 6, 10}, {3, 7, 11},
+};
+static const int kCubeFacesToric[6][4] = {
+    {0, 4, 1, 5}, {2, 6, 3, 7},
+    {0, 8, 2, 9}, {1, 10, 3, 11},
+    {4, 8, 6, 10}, {5, 9, 7, 11},
+};
+
+long long
+irrep_toric_mtc_walker_wang_cube_full_count(void)
+{
+    irrep_toric_mtc_object_t labels[12];
+    long long total = 1;
+    for (int i = 0; i < 12; ++i) total *= 4;  /* 4^12 ≈ 16.7M */
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < 12; ++i) {
+            labels[i] = (irrep_toric_mtc_object_t)(x % 4);
+            x /= 4;
+        }
+        int ok = 1;
+        for (int v = 0; v < 8 && ok; ++v) {
+            irrep_toric_mtc_object_t local[3] = {
+                labels[kCubeVerticesToric[v][0]],
+                labels[kCubeVerticesToric[v][1]],
+                labels[kCubeVerticesToric[v][2]],
+            };
+            if (!irrep_toric_mtc_admissible(local, 3)) ok = 0;
+        }
+        if (ok) {
+            for (int f = 0; f < 6 && ok; ++f) {
+                irrep_toric_mtc_object_t local[4] = {
+                    labels[kCubeFacesToric[f][0]],
+                    labels[kCubeFacesToric[f][1]],
+                    labels[kCubeFacesToric[f][2]],
+                    labels[kCubeFacesToric[f][3]],
+                };
+                if (!irrep_toric_mtc_admissible(local, 4)) ok = 0;
+            }
+        }
+        if (ok) ++count;
+    }
+    return count;
+}

@@ -145,6 +145,45 @@ static int test_F_R_symbols(void) {
     return 0;
 }
 
+/* Walker-Wang vertex admissibility: counts at small valencies match
+ * the closed-form Ising fusion-multiplet enumeration.
+ *
+ *   n=1:  only label-1 admissible (need σ-count even AND if σ-count=0
+ *         then ψ-count even). 1 of 3. — actually for n=1: σ-count=0
+ *         → ψ-count must be even → only the "1" configuration.
+ *   n=2:  admissible iff #σ even AND (if #σ=0 then #ψ even).
+ *         Configurations: (1,1), (ψ,ψ), (σ,σ). Count = 3.
+ *   n=3:  10 of 27 (computed above; matches the σ²-pair + 1-mixed and
+ *         the all-(1, ψ) even-ψ subsets).
+ *   n=4:  33 of 81.
+ *   n=5:  for σ-count = 0 with #ψ even (∈ {0,2,4}):
+ *           C(5,0)+C(5,2)+C(5,4) = 1+10+5 = 16;
+ *         σ-count = 2: C(5,2) · 2³ = 80;
+ *         σ-count = 4: C(5,4) · 2 = 10.
+ *         Total = 16 + 80 + 10 = 106. */
+static int test_walker_wang_vertex_admissible(void) {
+    if (irrep_ising_walker_wang_admissible_count(0) != 1)   return 1;
+    if (irrep_ising_walker_wang_admissible_count(1) != 1)   return 1;
+    if (irrep_ising_walker_wang_admissible_count(2) != 3)   return 1;
+    if (irrep_ising_walker_wang_admissible_count(3) != 10)  return 1;
+    if (irrep_ising_walker_wang_admissible_count(4) != 33)  return 1;
+    if (irrep_ising_walker_wang_admissible_count(5) != 106) return 1;
+
+    /* Spot-check a few specific configurations. */
+    irrep_ising_object_t all_one[3]   = { IRREP_ISING_OBJ_1,     IRREP_ISING_OBJ_1,     IRREP_ISING_OBJ_1     };
+    irrep_ising_object_t two_psi[3]   = { IRREP_ISING_OBJ_PSI,   IRREP_ISING_OBJ_PSI,   IRREP_ISING_OBJ_1     };
+    irrep_ising_object_t two_sigma[3] = { IRREP_ISING_OBJ_SIGMA, IRREP_ISING_OBJ_SIGMA, IRREP_ISING_OBJ_1     };
+    irrep_ising_object_t three_sigma[3]={IRREP_ISING_OBJ_SIGMA, IRREP_ISING_OBJ_SIGMA, IRREP_ISING_OBJ_SIGMA };
+    irrep_ising_object_t one_psi[3]   = { IRREP_ISING_OBJ_PSI,   IRREP_ISING_OBJ_1,     IRREP_ISING_OBJ_1     };
+    if (!irrep_ising_walker_wang_vertex_admissible(all_one,    3)) return 1;
+    if (!irrep_ising_walker_wang_vertex_admissible(two_psi,    3)) return 1;
+    if (!irrep_ising_walker_wang_vertex_admissible(two_sigma,  3)) return 1;
+    if ( irrep_ising_walker_wang_vertex_admissible(three_sigma,3)) return 1; /* #σ=3 odd */
+    if ( irrep_ising_walker_wang_vertex_admissible(one_psi,    3)) return 1; /* #σ=0, #ψ=1 odd */
+
+    return 0;
+}
+
 int main(void) {
     int rc = 0;
     if (test_quantum_dimensions())  { fprintf(stderr, "FAIL test_quantum_dimensions\n"); rc = 1; }
@@ -153,5 +192,7 @@ int main(void) {
     if (test_T_eigenvalues())       { fprintf(stderr, "FAIL test_T_eigenvalues\n"); rc = 1; }
     if (test_CY_invariant())        { fprintf(stderr, "FAIL test_CY_invariant\n"); rc = 1; }
     if (test_F_R_symbols())         { fprintf(stderr, "FAIL test_F_R_symbols\n"); rc = 1; }
+    if (test_walker_wang_vertex_admissible())
+        { fprintf(stderr, "FAIL test_walker_wang_vertex_admissible\n"); rc = 1; }
     return rc;
 }

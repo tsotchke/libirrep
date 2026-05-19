@@ -195,6 +195,60 @@ irrep_ising_twist_from_R_residual(void);
 IRREP_API double
 irrep_ising_F_unitarity_residual(void);
 
+/* ====================================================================
+ * Walker-Wang 3+1D Hamiltonian — vertex term
+ *
+ * The Walker-Wang Hamiltonian for an MTC `A` on a lattice is
+ *
+ *      H_WW = -Σ_v A_v - Σ_p B_p
+ *
+ * where `A_v` is the vertex term (projector onto fusion-admissible
+ * configurations at vertex `v`) and `B_p` is the plaquette term
+ * (R-symbol-weighted projector around face `p`). Its ground state
+ * realises the Crane-Yetter TQFT for `A`.
+ *
+ * This header exposes the **vertex admissibility primitive** for
+ * Ising-MTC labels on an arbitrary-valency vertex. The vertex
+ * projector `A_v` acts as identity on admissible configurations
+ * (those that fuse to vacuum at `v`) and as zero otherwise; the
+ * primitive here is the diagonal coefficient of `A_v` in the edge-
+ * label basis.
+ *
+ * ## Ising admissibility (closed form)
+ *
+ * A multiset `(a_1, ..., a_n)` of Ising labels fuses to vacuum iff
+ *
+ *   (a) the σ-count is even, AND
+ *   (b) if the σ-count is 0, the ψ-count is also even
+ *       (otherwise — σ-count ≥ 2 — admissibility holds for any
+ *       ψ-count, since σσ → {1, ψ} provides both parities).
+ *
+ * For 3-valent vertices: 10 of 27 configurations are admissible.
+ * For 4-valent vertices: 33 of 81. For n-valent: derivable from the
+ * Ising fusion-ring generating function.
+ * ==================================================================== */
+
+/** @brief Walker-Wang vertex admissibility for Ising labels.
+ *
+ *  Returns 1 if the multiset `(edge_labels[0], ..., edge_labels[n-1])`
+ *  fuses to vacuum under the Ising fusion rules, else 0. This is the
+ *  diagonal entry of the WW vertex projector `A_v` at the configuration
+ *  given by `edge_labels`.
+ *
+ *  @param[in] edge_labels  Length-n array of Ising simples.
+ *  @param[in] n            Vertex valency. */
+IRREP_API int
+irrep_ising_walker_wang_vertex_admissible(
+    const irrep_ising_object_t *edge_labels, int n);
+
+/** @brief Count admissible vertex configurations at valency n.
+ *
+ *  Enumerates all `3^n` label tuples and counts those satisfying
+ *  `irrep_ising_walker_wang_vertex_admissible`. For small n this is
+ *  the dimension of the admissible subspace. */
+IRREP_API long long
+irrep_ising_walker_wang_admissible_count(int n);
+
 /** @brief Crane-Yetter 4-manifold invariant for a closed orientable
  *  4-manifold M, parameterised by its Euler characteristic and signature.
  *

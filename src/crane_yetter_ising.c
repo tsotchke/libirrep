@@ -231,3 +231,47 @@ irrep_ising_F_unitarity_residual(void)
     }
     return max_err;
 }
+
+/* ====================================================================
+ * Walker-Wang 3+1D Hamiltonian: vertex admissibility
+ * ==================================================================== */
+
+int
+irrep_ising_walker_wang_vertex_admissible(
+    const irrep_ising_object_t *edge_labels, int n)
+{
+    if (edge_labels == NULL || n < 0) return 0;
+    int sigma = 0, psi = 0;
+    for (int i = 0; i < n; ++i) {
+        switch (edge_labels[i]) {
+            case IRREP_ISING_OBJ_SIGMA: ++sigma; break;
+            case IRREP_ISING_OBJ_PSI:   ++psi;   break;
+            default: break;
+        }
+    }
+    if (sigma % 2 != 0) return 0;
+    if (sigma == 0 && (psi % 2) != 0) return 0;
+    return 1;
+}
+
+long long
+irrep_ising_walker_wang_admissible_count(int n)
+{
+    if (n < 0) return 0;
+    if (n == 0) return 1; /* Empty configuration trivially admissible. */
+    /* Enumerate all 3^n label tuples. */
+    long long total = 1;
+    for (int i = 0; i < n; ++i) total *= 3;
+    irrep_ising_object_t labels[64];
+    if (n > 64) return -1; /* Sanity bound. */
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < n; ++i) {
+            labels[i] = (irrep_ising_object_t)(x % 3);
+            x /= 3;
+        }
+        if (irrep_ising_walker_wang_vertex_admissible(labels, n)) ++count;
+    }
+    return count;
+}

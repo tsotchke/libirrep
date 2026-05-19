@@ -45,9 +45,9 @@
  *    the X-Z-symmetric stabilizer geometry that the larger 3D-color
  *    codes inherit.
  *  - It is the natural pedagogical entry point to 3D-color-code
- *    machinery before the full rectified-3-cubic-lattice construction
- *    (which is documented in `docs/qec_research_roadmap.md` as a
- *    research-track item requiring a generic 3-colex generator).
+ *    machinery; the full rectified-3-cubic-lattice construction can
+ *    be assembled from face-and-cell-list data via the generic
+ *    3-colex framework in `<irrep/color_lattice_3d.h>`.
  *
  *  ## Primary references
  *
@@ -56,8 +56,9 @@
  *  - Campbell, *The smallest interesting colour code*,
  *    [arXiv:1907.13278] (2019) — the [[8, 3, 2]] cubic instance.
  *  - Bombín, *Topological subsystem codes*, Phys. Rev. A 81 (2010)
- *    032301 — the gauge / subsystem variant on 3-colex, still a
- *    research-track item.
+ *    032301 — the gauge / subsystem variant on 3-colex; tetrahedral
+ *    instance shipped as `irrep_subsystem_bombin_3d_tetrahedron` in
+ *    `<irrep/subsystem_code.h>`.
  */
 #ifndef IRREP_COLOR_CODE_3D_H
 #define IRREP_COLOR_CODE_3D_H

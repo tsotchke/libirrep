@@ -44,12 +44,11 @@
  *
  *  The resulting holographic code is `[[20, 6, ?]]`, with the 6 bulk
  *  qubits as the encoded logical qubits and the 20 free boundary
- *  qubits as the physical realisation. This module exposes the
+ *  qubits as the physical realisation. This module exposes both the
  *  **uncontracted joined stabilizer group** of the 6-tile network
- *  (36 qubits, 36 tile generators) so callers can perform the
- *  contraction step themselves; explicit Bell-pair-contracted boundary
- *  code extraction requires a symplectic-elimination primitive that
- *  remains research-track.
+ *  (36 qubits, 36 tile generators) AND the **Bell-pair-contracted
+ *  isometry** on 26 qubits (`irrep_happy_network_depth2_contracted`),
+ *  with bulk-qubit indices reported in the contracted frame.
  *
  *  ## Primary references
  *
@@ -119,13 +118,14 @@ irrep_happy_perfect_tensor_6leg(irrep_stabilizer_group_t *out);
  *  the 36-qubit space) = 36 generators total. All pairwise commuting
  *  by construction (tiles are disjoint).
  *
- *  Contraction edges (NOT added to the stabilizer group — see the
- *  research-track note in the header docstring): the central tile's
- *  boundary qubits 1..5 are paired with layer-1 tile k's boundary
- *  qubit 1 (= absolute index `6·(k+1) + 1` for `k = 0..4`). Adding the
+ *  Contraction edges (NOT added to this uncontracted joined group;
+ *  apply them via `irrep_happy_network_depth2_contracted` to get the
+ *  [[20, 6, ?]] boundary isometry): the central tile's boundary
+ *  qubits 1..5 are paired with layer-1 tile k's boundary qubit 1
+ *  (= absolute index `6·(k+1) + 1` for `k = 0..4`). Adding the
  *  corresponding Bell-pair stabilizers `(X_a X_b, Z_a Z_b)` and
- *  performing symplectic elimination yields the [[20, 6, ?]] boundary
- *  code.
+ *  performing symplectic elimination via the Bell-pair contraction
+ *  primitive yields the [[20, 6, ?]] boundary code.
  *
  *  @param[out] out  Stabilizer group with `n = 36`, `n_generators = 36`.
  *                   Caller must `irrep_stabilizer_group_free` when done.

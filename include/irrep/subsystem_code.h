@@ -136,8 +136,9 @@ irrep_subsystem_bacon_shor_9_1_3(irrep_subsystem_code_t *out);
  *      commute with every weight-2 edge generator).
  *    - It is the **smallest 3-colex** on which the Bombín gauge color
  *      code construction is well-defined; full distance-d instances
- *      on the rectified-3-cubic lattice are research-track work
- *      (see `docs/qec_research_roadmap.md` R3).
+ *      on the rectified-3-cubic lattice are now reducible to face-
+ *      and-cell-list data against the generic 3-colex framework in
+ *      `<irrep/color_lattice_3d.h>`.
  *
  *  Primary reference: Bombín, *Topological subsystem codes*, Phys.
  *  Rev. A 81 (2010) 032301. */

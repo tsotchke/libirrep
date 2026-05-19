@@ -79,10 +79,9 @@ extern "C" {
 IRREP_API irrep_status_t
 irrep_color_steane(irrep_css_code_t *out);
 
-/* TODO: triangular [[19, 1, 5]] (6.6.6) and [[17, 1, 5]] (4.8.8) variants
- * are tracked as a future extension. Their geometric construction
- * (vertex layout + hexagon adjacency) is non-trivial enough to warrant
- * a separate cycle. */
+/* Triangular [[19, 1, 5]] (6.6.6) and [[17, 1, 5]] (4.8.8) variants
+ * are shipped in `<irrep/color_codes_2d.h>` (closes R1 and R2 of
+ * `docs/qec_research_roadmap.md`). */
 
 #ifdef __cplusplus
 }

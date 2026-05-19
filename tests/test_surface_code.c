@@ -12,6 +12,7 @@
  */
 #include "harness.h"
 #include <irrep/css_code.h>
+#include <irrep/qec_distance.h>
 #include <irrep/stabilizer_group.h>
 #include <irrep/surface_code.h>
 #include <stdio.h>
@@ -60,6 +61,26 @@ static int test_build_and_verify(int d) {
             }
             irrep_stabilizer_group_free(&g);
         }
+    }
+    irrep_css_code_free(&c);
+    return rc;
+}
+
+/* Brute-force distance verification: at small d, the planar surface code
+ * actually achieves distance d. For d ∈ {2, 3} the enumeration is fast
+ * (n = 4 or 9 qubits); for d=5 it takes a few seconds. */
+static int test_brute_distance(int d) {
+    irrep_surface_params_t p;
+    if (irrep_surface_init(&p, d) != IRREP_OK) return 1;
+    irrep_css_code_t c;
+    if (irrep_surface_build(&p, &c) != IRREP_OK) return 1;
+    int rc = 1;
+    irrep_stabilizer_group_t g;
+    if (irrep_css_code_to_stabilizer_group(&c, &g) == IRREP_OK) {
+        int dist = irrep_qec_distance_brute(&g, /*max_weight*/ d);
+        if (dist == d) rc = 0;
+        else fprintf(stderr, "  surface d=%d: brute-distance = %d\n", d, dist);
+        irrep_stabilizer_group_free(&g);
     }
     irrep_css_code_free(&c);
     return rc;
@@ -155,6 +176,8 @@ int main(void) {
     if (test_build_and_verify(5))    { fprintf(stderr, "FAIL test_build_and_verify(d=5)\n"); rc = 1; }
     if (test_build_and_verify(7))    { fprintf(stderr, "FAIL test_build_and_verify(d=7)\n"); rc = 1; }
     if (test_build_and_verify(9))    { fprintf(stderr, "FAIL test_build_and_verify(d=9)\n"); rc = 1; }
+    if (test_brute_distance(2))      { fprintf(stderr, "FAIL test_brute_distance(d=2)\n"); rc = 1; }
+    if (test_brute_distance(3))      { fprintf(stderr, "FAIL test_brute_distance(d=3)\n"); rc = 1; }
     if (test_d3_explicit_weights())  { fprintf(stderr, "FAIL test_d3_explicit_weights\n"); rc = 1; }
     if (test_d5_weights())           { fprintf(stderr, "FAIL test_d5_weights\n"); rc = 1; }
     if (test_logical_operators(3))   { fprintf(stderr, "FAIL test_logical_operators(d=3)\n"); rc = 1; }

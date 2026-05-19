@@ -17,6 +17,7 @@
  */
 #include "harness.h"
 #include <irrep/happy_code.h>
+#include <irrep/qec_distance.h>
 #include <irrep/stabilizer_group.h>
 #include <stdio.h>
 
@@ -102,6 +103,20 @@ static int test_logical_qubits(void) {
     return 0;
 }
 
+/* Brute-force distance verification: [[5, 1, 3]] has d = 3. Weight-3
+ * enumeration is trivial (n=5). */
+static int test_brute_distance(void) {
+    irrep_stabilizer_group_t g;
+    if (irrep_happy_perfect_tensor_5_1_3(&g) != IRREP_OK) return 1;
+    int d = irrep_qec_distance_brute(&g, /*max_weight*/ 3);
+    irrep_stabilizer_group_free(&g);
+    if (d != 3) {
+        fprintf(stderr, "  [[5,1,3]] brute-distance = %d (expected 3)\n", d);
+        return 1;
+    }
+    return 0;
+}
+
 int main(void) {
     int rc = 0;
     if (test_shape())                       { fprintf(stderr, "FAIL test_shape\n"); rc = 1; }
@@ -109,5 +124,6 @@ int main(void) {
     if (test_logical_in_centraliser())      { fprintf(stderr, "FAIL test_logical_in_centraliser\n"); rc = 1; }
     if (test_single_qubit_errors_detected()){ fprintf(stderr, "FAIL test_single_qubit_errors_detected\n"); rc = 1; }
     if (test_logical_qubits())              { fprintf(stderr, "FAIL test_logical_qubits\n"); rc = 1; }
+    if (test_brute_distance())              { fprintf(stderr, "FAIL test_brute_distance\n"); rc = 1; }
     return rc;
 }

@@ -94,6 +94,66 @@ static int test_consistency_proofs(void) {
     return IRREP_TEST_END();
 }
 
+/* Walker-Wang admissibility-restricted ground-state-dim counts on the
+ * five polyhedra (simplex, cube, octahedron, bipyramid, prism) for the
+ * Fibonacci MTC. Distinct from Ising and Z₂×Z₂ counts — proves the
+ * MTC dependence visible across all three modules.
+ *
+ * Polyhedral duality (cube=octahedron, bipyramid=prism) holds for
+ * Fibonacci just as for Ising and Z₂×Z₂. */
+static int test_walker_wang_polyhedra(void) {
+    IRREP_TEST_START("fibonacci_mtc_walker_wang_polyhedra");
+    long long c_simplex    = irrep_fib_walker_wang_simplex3_full_count();
+    long long c_cube       = irrep_fib_walker_wang_cube_full_count();
+    long long c_octahedron = irrep_fib_walker_wang_octahedron_full_count();
+    long long c_bipyramid  = irrep_fib_walker_wang_tri_bipyramid_full_count();
+    long long c_prism      = irrep_fib_walker_wang_tri_prism_full_count();
+
+    IRREP_ASSERT(c_simplex    == 11);
+    IRREP_ASSERT(c_cube       == 145);
+    IRREP_ASSERT(c_octahedron == 145);
+    IRREP_ASSERT(c_bipyramid  == 33);
+    IRREP_ASSERT(c_prism      == 33);
+
+    /* Polyhedral duality. */
+    IRREP_ASSERT(c_cube == c_octahedron);
+    IRREP_ASSERT(c_bipyramid == c_prism);
+    return IRREP_TEST_END();
+}
+
+/* Admissibility primitive: only #τ == 1 is non-admissible. */
+static int test_admissibility(void) {
+    IRREP_TEST_START("fibonacci_mtc_admissibility");
+    irrep_fib_object_t I_ = IRREP_FIB_OBJ_1;
+    irrep_fib_object_t s = IRREP_FIB_OBJ_TAU;
+    /* #τ = 0 (all 1's): admissible. */
+    {
+        irrep_fib_object_t v[3] = { I_, I_, I_ };
+        IRREP_ASSERT(irrep_fib_admissible(v, 3) == 1);
+    }
+    /* #τ = 1: NOT admissible. */
+    {
+        irrep_fib_object_t v[3] = { s, I_, I_ };
+        IRREP_ASSERT(irrep_fib_admissible(v, 3) == 0);
+    }
+    /* #τ = 2: admissible (τ² = 1 + τ). */
+    {
+        irrep_fib_object_t v[3] = { s, s, I_ };
+        IRREP_ASSERT(irrep_fib_admissible(v, 3) == 1);
+    }
+    /* #τ = 3: admissible (τ³ = 1 + 2τ). */
+    {
+        irrep_fib_object_t v[3] = { s, s, s };
+        IRREP_ASSERT(irrep_fib_admissible(v, 3) == 1);
+    }
+    /* #τ = 4: admissible (τ⁴ = 2 + 3τ). */
+    {
+        irrep_fib_object_t v[4] = { s, s, s, s };
+        IRREP_ASSERT(irrep_fib_admissible(v, 4) == 1);
+    }
+    return IRREP_TEST_END();
+}
+
 int main(void) {
     int rc = 0;
     rc |= test_basics();
@@ -103,5 +163,7 @@ int main(void) {
     rc |= test_F_symbol();
     rc |= test_R_symbols();
     rc |= test_consistency_proofs();
+    rc |= test_admissibility();
+    rc |= test_walker_wang_polyhedra();
     return rc;
 }

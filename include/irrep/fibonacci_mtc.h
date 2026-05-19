@@ -152,6 +152,55 @@ irrep_fib_verlinde_residual(void);
 IRREP_API double
 irrep_fib_twist_from_R_residual(void);
 
+/* ====================================================================
+ * Walker-Wang fusion-admissibility primitive for Fibonacci.
+ *
+ * Multiset {a_1, ..., a_n} of Fibonacci labels fuses to vacuum iff
+ * τ^(#τ in multiset) contains 1 with non-zero multiplicity.
+ *
+ * Closed form (F_k = Fibonacci numbers, F_0 = 0, F_1 = 1, F_2 = 1, ...):
+ *   τ^n = F_{n-1} · 1 + F_n · τ
+ *
+ * So coefficient of 1 in τ^n is F_{n-1}, which is > 0 iff n - 1 ≥ 1,
+ * i.e., n ≠ 1. Hence:
+ *
+ *   Admissibility: multiset fuses to vacuum  ⇔  #τ ≠ 1.
+ *
+ * (Slightly counterintuitive: #τ = 0 trivially admissible; #τ ≥ 2 also
+ * admissible since fusion multiplicities give non-zero coefficient of 1;
+ * only #τ = 1 is non-admissible.)
+ * ==================================================================== */
+
+/** @brief Fibonacci multiset admissibility. Returns 1 if `#τ ≠ 1`
+ *  (= can fuse to vacuum), else 0. */
+IRREP_API int
+irrep_fib_admissible(const irrep_fib_object_t *labels, int n);
+
+/** @brief Walker-Wang admissibility count on the 3-simplex
+ *  (tetrahedron). 4 vertices (3-valent) + 4 triangular faces. */
+IRREP_API long long
+irrep_fib_walker_wang_simplex3_full_count(void);
+
+/** @brief Walker-Wang admissibility count on the unit cube
+ *  (8 vertices 3-valent, 12 edges, 6 square faces). */
+IRREP_API long long
+irrep_fib_walker_wang_cube_full_count(void);
+
+/** @brief Walker-Wang admissibility count on the regular octahedron
+ *  (6 vertices 4-valent, 12 edges, 8 triangular faces).
+ *  Dual to the cube; should give the same count. */
+IRREP_API long long
+irrep_fib_walker_wang_octahedron_full_count(void);
+
+/** @brief Walker-Wang admissibility count on the triangular bipyramid. */
+IRREP_API long long
+irrep_fib_walker_wang_tri_bipyramid_full_count(void);
+
+/** @brief Walker-Wang admissibility count on the triangular prism
+ *  (dual to the bipyramid). */
+IRREP_API long long
+irrep_fib_walker_wang_tri_prism_full_count(void);
+
 #ifdef __cplusplus
 }
 #endif

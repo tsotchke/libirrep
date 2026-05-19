@@ -96,11 +96,29 @@ static int test_vertex_three_stab_redundancy(int Lx, int Ly, int Lz) {
     return rc;
 }
 
+/* X-cube on T³: k = 2(Lx + Ly + Lz) - 3 — the sub-extensive logical-qubit
+ * count characteristic of fracton models. Linear in lattice side lengths,
+ * not the volume. */
+static int test_xcube_k(int Lx, int Ly, int Lz, int expected_k) {
+    irrep_xcube_params_t p;
+    irrep_xcube_init(&p, Lx, Ly, Lz);
+    irrep_css_code_t c;
+    if (irrep_xcube_build(&p, &c) != IRREP_OK) return 1;
+    int got = irrep_css_code_logical_qubits(&c);
+    int rc = (got == expected_k) ? 0 : 1;
+    if (rc) fprintf(stderr,
+                    "  X-cube (%d,%d,%d) k = %d (expected %d)\n",
+                    Lx, Ly, Lz, got, expected_k);
+    irrep_css_code_free(&c);
+    return rc;
+}
+
 int main(void) {
     int rc = 0;
     int sizes[][3] = { {2, 2, 2}, {3, 2, 2}, {3, 3, 3}, {4, 3, 2} };
     for (size_t k = 0; k < sizeof(sizes)/sizeof(sizes[0]); ++k) {
         int Lx = sizes[k][0], Ly = sizes[k][1], Lz = sizes[k][2];
+        int expected = 2 * (Lx + Ly + Lz) - 3;
         if (test_counts(Lx, Ly, Lz))
             { fprintf(stderr, "FAIL test_counts(%d,%d,%d)\n", Lx, Ly, Lz); rc = 1; }
         if (test_weights(Lx, Ly, Lz))
@@ -111,6 +129,8 @@ int main(void) {
             { fprintf(stderr, "FAIL test_stabilizer_group(%d,%d,%d)\n", Lx, Ly, Lz); rc = 1; }
         if (test_vertex_three_stab_redundancy(Lx, Ly, Lz))
             { fprintf(stderr, "FAIL test_vertex_three_stab_redundancy(%d,%d,%d)\n", Lx, Ly, Lz); rc = 1; }
+        if (test_xcube_k(Lx, Ly, Lz, expected))
+            { fprintf(stderr, "FAIL test_xcube_k(%d,%d,%d)\n", Lx, Ly, Lz); rc = 1; }
     }
     return rc;
 }

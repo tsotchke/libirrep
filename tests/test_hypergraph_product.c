@@ -186,5 +186,32 @@ int main(void) {
     if (test_hgp_repetition_4x4())        { fprintf(stderr, "FAIL test_hgp_repetition_4x4\n"); rc = 1; }
     if (test_hgp_explicit_orthogonality()){ fprintf(stderr, "FAIL test_hgp_explicit_orthogonality\n"); rc = 1; }
     if (test_hgp_named_13_1_3())          { fprintf(stderr, "FAIL test_hgp_named_13_1_3\n"); rc = 1; }
+
+    /* Named [[25, 1, 4]] HGP(rep-4, rep-4): structural counts +
+     * CSS-orth + k = 1 + brute-force distance = 4. */
+    {
+        irrep_css_code_t cs;
+        if (irrep_hgp_repetition_4_25_1_4(&cs) != IRREP_OK) {
+            fprintf(stderr, "FAIL HGP[[25,1,4]] build\n"); rc = 1;
+        } else {
+            int sub = 0;
+            if (cs.n != 25) sub = 1;
+            if (cs.H_X.n_rows != 12) sub = 1;
+            if (cs.H_Z.n_rows != 12) sub = 1;
+            if (irrep_css_code_verify(&cs) != IRREP_OK) sub = 1;
+            if (irrep_css_code_logical_qubits(&cs) != 1) sub = 1;
+            irrep_stabilizer_group_t g;
+            if (irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK) {
+                int d = irrep_qec_distance_brute(&g, /*max_weight*/ 4);
+                if (d != 4) {
+                    fprintf(stderr, "  [[25,1,4]] HGP d = %d (expected 4)\n", d);
+                    sub = 1;
+                }
+                irrep_stabilizer_group_free(&g);
+            } else { sub = 1; }
+            if (sub) { fprintf(stderr, "FAIL HGP[[25,1,4]]\n"); rc = 1; }
+            irrep_css_code_free(&cs);
+        }
+    }
     return rc;
 }

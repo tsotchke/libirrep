@@ -97,6 +97,23 @@ irrep_hypergraph_product_build(const irrep_parity_matrix_t *H_a,
 IRREP_API irrep_status_t
 irrep_hgp_repetition_3_13_1_3(irrep_css_code_t *out);
 
+/** @brief Build the [[25, 1, 4]] hypergraph product of two [4, 1, 4]
+ *  repetition codes.
+ *
+ *  Classical input: `H_a = H_b = 3×4` parity check
+ *     H = [[1,1,0,0], [0,1,1,0], [0,0,1,1]]
+ *  of the [4, 1, 4] repetition code. The HGP construction gives:
+ *    - n_qubits = 4·4 + 3·3 = 25
+ *    - m_X = 3·4 = 12,  m_Z = 4·3 = 12
+ *    - k = 1·1 + 0·0 = 1
+ *    - d = min(4, 4) = 4
+ *
+ *  Demonstrates the HGP family scales linearly in both n and d as
+ *  the inner classical code grows. Caller must `irrep_css_code_free`
+ *  when done. */
+IRREP_API irrep_status_t
+irrep_hgp_repetition_4_25_1_4(irrep_css_code_t *out);
+
 #ifdef __cplusplus
 }
 #endif

@@ -108,3 +108,24 @@ irrep_hgp_repetition_3_13_1_3(irrep_css_code_t *out)
     irrep_parity_matrix_free(&H);
     return s;
 }
+
+irrep_status_t
+irrep_hgp_repetition_4_25_1_4(irrep_css_code_t *out)
+{
+    if (out == NULL) return IRREP_ERR_INVALID_ARG;
+
+    /* 3×4 parity check of the [4, 1, 4] repetition code:
+     *   H = [[1, 1, 0, 0],
+     *        [0, 1, 1, 0],
+     *        [0, 0, 1, 1]]                                            */
+    irrep_parity_matrix_t H;
+    irrep_status_t s = irrep_parity_matrix_new(&H, /*rows=*/3, /*cols=*/4);
+    if (s != IRREP_OK) return s;
+    irrep_parity_matrix_set(&H, 0, 0); irrep_parity_matrix_set(&H, 0, 1);
+    irrep_parity_matrix_set(&H, 1, 1); irrep_parity_matrix_set(&H, 1, 2);
+    irrep_parity_matrix_set(&H, 2, 2); irrep_parity_matrix_set(&H, 2, 3);
+
+    s = irrep_hypergraph_product_build(&H, &H, out);
+    irrep_parity_matrix_free(&H);
+    return s;
+}

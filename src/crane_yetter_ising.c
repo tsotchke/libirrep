@@ -209,6 +209,28 @@ irrep_ising_twist_from_R_residual(void)
 }
 
 double
+irrep_ising_S_squared_residual(void)
+{
+    double max_err = 0.0;
+    for (int a = 0; a < IRREP_ISING_N_OBJECTS; ++a) {
+        for (int b = 0; b < IRREP_ISING_N_OBJECTS; ++b) {
+            irrep_ising_object_t A = (irrep_ising_object_t)a;
+            irrep_ising_object_t B = (irrep_ising_object_t)b;
+            /* (S²)_{ab} = Σ_x S_{ax} · S_{xb} */
+            double _Complex acc = 0.0;
+            for (int x = 0; x < IRREP_ISING_N_OBJECTS; ++x) {
+                irrep_ising_object_t X = (irrep_ising_object_t)x;
+                acc += irrep_ising_S_matrix(A, X) * irrep_ising_S_matrix(X, B);
+            }
+            double expected = (a == b) ? 1.0 : 0.0;
+            double err = cabs(acc - expected);
+            if (err > max_err) max_err = err;
+        }
+    }
+    return max_err;
+}
+
+double
 irrep_ising_verlinde_residual(void)
 {
     double max_err = 0.0;

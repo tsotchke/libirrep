@@ -145,6 +145,8 @@ static int test_F_R_symbols(void) {
     if (irrep_ising_S_from_twist_residual() > 1e-12) return 1;
     /* Verlinde formula: N derived from S matches the fusion ring. */
     if (irrep_ising_verlinde_residual() > 1e-12) return 1;
+    /* Modular relation S² = I (self-dual MTC ⇒ charge-conj = I). */
+    if (irrep_ising_S_squared_residual() > 1e-12) return 1;
 
     return 0;
 }

@@ -188,6 +188,20 @@ irrep_ising_R_symbol(irrep_ising_object_t a, irrep_ising_object_t b,
 IRREP_API double
 irrep_ising_twist_from_R_residual(void);
 
+/** @brief Verify the modular relation S² = I on the Ising MTC.
+ *
+ *  For any MTC, S² acts as the charge-conjugation matrix C. The Ising
+ *  MTC is self-dual (every simple is its own dual: 1* = 1, σ* = σ,
+ *  ψ* = ψ), so C = I and the modular relation reduces to S² = I.
+ *
+ *  This is the strict modular relation in the SL(2, Z) representation
+ *  (without the central-charge phase that appears in (ST)³).
+ *
+ *  @return Maximum absolute deviation `|S²_{a,b} - δ_{a,b}|` across
+ *          all 9 entries. Should be < 1e-12. */
+IRREP_API double
+irrep_ising_S_squared_residual(void);
+
 /** @brief Verify the Verlinde formula on the Ising MTC.
  *
  *  The Verlinde formula relates the fusion coefficients to the

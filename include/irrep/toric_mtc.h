@@ -1,0 +1,153 @@
+/* SPDX-License-Identifier: MIT */
+/** @file toric_mtc.h
+ *  @brief Z₂ × Z₂ toric-code modular tensor category.
+ *
+ *  The MTC underlying Kitaev's 2D toric code — the simplest non-trivial
+ *  abelian MTC, with 4 simples {1, e, m, ψ} forming the abelian group
+ *  Z₂ × Z₂ under fusion. Companion to `<irrep/crane_yetter_ising.h>`
+ *  which provides the non-abelian Ising MTC.
+ *
+ *  ## Simples and fusion
+ *
+ *  Four simples, all with quantum dimension 1 (abelian):
+ *    - `1` (vacuum)
+ *    - `e` (electric charge / vertex defect)
+ *    - `m` (magnetic flux / plaquette defect)
+ *    - `ψ` = e·m (fermion / dyon)
+ *
+ *  Fusion rules (all multiplicities 1):
+ *    `e × e = 1,  m × m = 1,  ψ × ψ = 1`
+ *    `e × m = ψ,  e × ψ = m,  m × ψ = e`
+ *
+ *  All fusions are commutative; the simples form Z₂ × Z₂ under tensor.
+ *
+ *  ## Modular data
+ *
+ *  Global dimension: `D = √(1 + 1 + 1 + 1) = 2`. Central charge: `c = 0`
+ *  (the Z₂×Z₂ toric code is a non-chiral / "doubled" topological order;
+ *  the boundary CFT is trivial / has c = 0).
+ *
+ *  S-matrix (character table of Z₂ × Z₂, normalised so S is unitary):
+ *
+ *      S = (1/2) [[ 1,  1,  1,  1],
+ *                 [ 1,  1, -1, -1],
+ *                 [ 1, -1,  1, -1],
+ *                 [ 1, -1, -1,  1]]
+ *
+ *  T-matrix (topological twists):
+ *    `T_1 = 1, T_e = 1, T_m = 1, T_ψ = -1`
+ *  (e and m are bosons; ψ is a fermion.)
+ *
+ *  R-symbols (braiding, F-symbols all = 1 since the MTC is abelian):
+ *    Self-braids: R^{ee}_1 = R^{mm}_1 = 1, R^{ψψ}_1 = -1.
+ *    Mutual braids: R^{em}_ψ = R^{me}_ψ = i (their product = -1, the
+ *      mutual-monodromy phase characteristic of e ↔ m anyons).
+ *    Derived: R^{eψ}_m = i, R^{ψe}_m = i, R^{mψ}_e = i, R^{ψm}_e = i.
+ *
+ *  ## Primary references
+ *
+ *  - Kitaev, *Fault-tolerant quantum computation by anyons*, Annals
+ *    Phys. 303 (2003) 2 — the 2D toric code and its Z₂×Z₂ topological
+ *    order.
+ *  - Kitaev, *Anyons in an exactly solved model and beyond*, Annals
+ *    Phys. 321 (2006) 2 — MTC framework, see Appendix B for Z₂×Z₂
+ *    explicit modular data.
+ */
+#ifndef IRREP_TORIC_MTC_H
+#define IRREP_TORIC_MTC_H
+
+#include <complex.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+
+#include <irrep/export.h>
+#include <irrep/types.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/** @brief Z₂ × Z₂ toric-code MTC simple objects. */
+typedef enum {
+    IRREP_TORIC_MTC_OBJ_1   = 0, /**< Vacuum / identity. */
+    IRREP_TORIC_MTC_OBJ_E   = 1, /**< Electric charge (boson). */
+    IRREP_TORIC_MTC_OBJ_M   = 2, /**< Magnetic flux (boson). */
+    IRREP_TORIC_MTC_OBJ_PSI = 3, /**< Dyon ψ = e·m (fermion). */
+} irrep_toric_mtc_object_t;
+
+/** @brief Number of simples in the Z₂×Z₂ toric MTC. */
+#define IRREP_TORIC_MTC_N_OBJECTS 4
+
+/** @brief Quantum dimension d_a (= 1 for every simple of an abelian MTC). */
+IRREP_API double
+irrep_toric_mtc_quantum_dim(irrep_toric_mtc_object_t a);
+
+/** @brief Global quantum dimension D = √(Σ d_a²) = 2. */
+IRREP_API double
+irrep_toric_mtc_global_dim(void);
+
+/** @brief Central charge c = 0 (non-chiral / doubled topological order). */
+IRREP_API double
+irrep_toric_mtc_central_charge(void);
+
+/** @brief Fusion coefficient N^{ab}_c ∈ {0, 1}. */
+IRREP_API int
+irrep_toric_mtc_fusion(irrep_toric_mtc_object_t a,
+                      irrep_toric_mtc_object_t b,
+                      irrep_toric_mtc_object_t c);
+
+/** @brief Modular S-matrix entry. Unitary, normalised so S† S = I.
+ *
+ *      S = (1/2) [[1, 1, 1, 1], [1, 1, -1, -1],
+ *                 [1, -1, 1, -1], [1, -1, -1, 1]]
+ */
+IRREP_API double _Complex
+irrep_toric_mtc_S_matrix(irrep_toric_mtc_object_t a,
+                        irrep_toric_mtc_object_t b);
+
+/** @brief Modular T-matrix (topological twist) T_a = exp(2πi h_a):
+ *
+ *      h_1 = h_e = h_m = 0,  h_ψ = 1/2  →  T = diag(1, 1, 1, -1). */
+IRREP_API double _Complex
+irrep_toric_mtc_T_eigenvalue(irrep_toric_mtc_object_t a);
+
+/** @brief F-symbol [F^{abc}_d]_{e,f} = 1 if allowed by fusion, 0 otherwise.
+ *
+ *  All non-zero F-symbols of an abelian MTC equal 1; there are no
+ *  Hadamard-style mixers as in Ising. */
+IRREP_API double _Complex
+irrep_toric_mtc_F_symbol(irrep_toric_mtc_object_t a, irrep_toric_mtc_object_t b,
+                         irrep_toric_mtc_object_t c, irrep_toric_mtc_object_t d,
+                         irrep_toric_mtc_object_t e, irrep_toric_mtc_object_t f);
+
+/** @brief R-symbol R^{ab}_c — the abelian braiding phase. */
+IRREP_API double _Complex
+irrep_toric_mtc_R_symbol(irrep_toric_mtc_object_t a,
+                         irrep_toric_mtc_object_t b,
+                         irrep_toric_mtc_object_t c);
+
+/* ====================================================================
+ * Consistency proofs (mirror the Ising-MTC layout).
+ * ==================================================================== */
+
+/** @brief Verify modular S² = I (self-dual MTC ⇒ charge conjugation = I).
+ *  Returns max |S²_{ab} - δ_{ab}|. */
+IRREP_API double
+irrep_toric_mtc_S_squared_residual(void);
+
+/** @brief Verify Verlinde formula `N^{ab}_c = Σ_x S_{ax} S_{bx} S*_{cx} / S_{0x}`
+ *  across all 64 (a, b, c) triples. */
+IRREP_API double
+irrep_toric_mtc_verlinde_residual(void);
+
+/** @brief Verify topological twist from R-symbol: θ_a = R^{aa}_1 for an
+ *  abelian MTC (single-channel self-braid). Returns max |θ_a - T_a|. */
+IRREP_API double
+irrep_toric_mtc_twist_from_R_residual(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* IRREP_TORIC_MTC_H */

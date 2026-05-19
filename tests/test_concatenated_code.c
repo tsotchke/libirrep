@@ -39,7 +39,9 @@ static int test_steane_steane_concat(void) {
                 /* Stabilizer-group materialisation passes commutativity. */
                 irrep_stabilizer_group_t g;
                 if (irrep_css_code_to_stabilizer_group(&cat, &g) == IRREP_OK) {
-                    if (irrep_stabilizer_group_check_commutativity(&g) == IRREP_OK) {
+                    if (irrep_stabilizer_group_check_commutativity(&g) == IRREP_OK
+                        /* Steane ⊗ Steane = [[49, 1, ≥9]]: k = 1. */
+                        && irrep_css_code_logical_qubits(&cat) == 1) {
                         rc = 0;
                     }
                     irrep_stabilizer_group_free(&g);

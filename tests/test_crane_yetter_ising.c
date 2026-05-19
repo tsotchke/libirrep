@@ -209,6 +209,29 @@ static int test_walker_wang_cube(void) {
     return 0;
 }
 
+/* Walker-Wang on the regular octahedron: 6 vertices (4-valent), 12 edges,
+ * 8 triangular faces. The octahedron is dual to the cube, so by
+ * Crane-Yetter / Walker-Wang invariance under polyhedral duality the
+ * ground-state dimension should match the cube count.
+ *
+ * PROOF: both enumerators produce 120 — a runtime witness for the
+ * cube ↔ octahedron duality at the smallest non-trivial geometry. */
+static int test_walker_wang_octahedron(void) {
+    long long c_oct = irrep_ising_walker_wang_octahedron_full_count();
+    long long c_cube = irrep_ising_walker_wang_cube_full_count();
+    if (c_oct != 120) {
+        fprintf(stderr, "octahedron count = %lld (expected 120)\n", c_oct);
+        return 1;
+    }
+    /* Polyhedral duality: same ground-state dimension. */
+    if (c_oct != c_cube) {
+        fprintf(stderr, "WW duality failed: oct=%lld vs cube=%lld\n",
+                c_oct, c_cube);
+        return 1;
+    }
+    return 0;
+}
+
 /* Walker-Wang B_p^ψ plaquette phase on representative configurations.
  * Phase = i^{#σ} · (-1)^{#ψ}. */
 static int test_walker_wang_plaquette_psi_phase(void) {
@@ -274,5 +297,7 @@ int main(void) {
         { fprintf(stderr, "FAIL test_walker_wang_cube\n"); rc = 1; }
     if (test_walker_wang_plaquette_psi_phase())
         { fprintf(stderr, "FAIL test_walker_wang_plaquette_psi_phase\n"); rc = 1; }
+    if (test_walker_wang_octahedron())
+        { fprintf(stderr, "FAIL test_walker_wang_octahedron\n"); rc = 1; }
     return rc;
 }

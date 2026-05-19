@@ -443,6 +443,71 @@ static const int kCubeFaces[6][4] = {
     {4, 8, 6, 10}, {5, 9, 7, 11},
 };
 
+/* Octahedron incidences:
+ *   Vertices: T (top), M0..M3 (middle ring), B (bottom). 6 vertices total.
+ *   Edges (12):
+ *     0: T-M0   1: T-M1   2: T-M2   3: T-M3
+ *     4: B-M0   5: B-M1   6: B-M2   7: B-M3
+ *     8: M0-M1  9: M1-M2 10: M2-M3 11: M3-M0
+ *   Each vertex has 4 incident edges (octahedron is 4-valent).
+ *   Each triangular face has 3 boundary edges. */
+static const int kOctahedronVertices[6][4] = {
+    {  0, 1, 2,  3 },     /* T:   TM0, TM1, TM2, TM3 */
+    {  4, 5, 6,  7 },     /* B:   BM0, BM1, BM2, BM3 */
+    {  0, 4, 8, 11 },     /* M0:  TM0, BM0, M0M1, M3M0 */
+    {  1, 5, 8,  9 },     /* M1:  TM1, BM1, M0M1, M1M2 */
+    {  2, 6, 9, 10 },     /* M2:  TM2, BM2, M1M2, M2M3 */
+    {  3, 7, 10, 11 },    /* M3:  TM3, BM3, M2M3, M3M0 */
+};
+static const int kOctahedronFaces[8][3] = {
+    { 0, 1,  8 },  /* T-M0-M1 */
+    { 1, 2,  9 },  /* T-M1-M2 */
+    { 2, 3, 10 },  /* T-M2-M3 */
+    { 3, 0, 11 },  /* T-M3-M0 */
+    { 4, 5,  8 },  /* B-M0-M1 */
+    { 5, 6,  9 },  /* B-M1-M2 */
+    { 6, 7, 10 },  /* B-M2-M3 */
+    { 7, 4, 11 },  /* B-M3-M0 */
+};
+
+long long
+irrep_ising_walker_wang_octahedron_full_count(void)
+{
+    irrep_ising_object_t labels[12];
+    long long total = 1;
+    for (int i = 0; i < 12; ++i) total *= 3;
+    long long count = 0;
+    for (long long c = 0; c < total; ++c) {
+        long long x = c;
+        for (int i = 0; i < 12; ++i) {
+            labels[i] = (irrep_ising_object_t)(x % 3);
+            x /= 3;
+        }
+        int ok = 1;
+        for (int v = 0; v < 6 && ok; ++v) {
+            irrep_ising_object_t local[4] = {
+                labels[kOctahedronVertices[v][0]],
+                labels[kOctahedronVertices[v][1]],
+                labels[kOctahedronVertices[v][2]],
+                labels[kOctahedronVertices[v][3]],
+            };
+            if (!irrep_ising_walker_wang_vertex_admissible(local, 4)) ok = 0;
+        }
+        if (ok) {
+            for (int f = 0; f < 8 && ok; ++f) {
+                irrep_ising_object_t local[3] = {
+                    labels[kOctahedronFaces[f][0]],
+                    labels[kOctahedronFaces[f][1]],
+                    labels[kOctahedronFaces[f][2]],
+                };
+                if (!irrep_ising_walker_wang_vertex_admissible(local, 3)) ok = 0;
+            }
+        }
+        if (ok) ++count;
+    }
+    return count;
+}
+
 long long
 irrep_ising_walker_wang_cube_full_count(void)
 {

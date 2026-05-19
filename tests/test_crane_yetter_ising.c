@@ -108,6 +108,43 @@ static int test_CY_invariant(void) {
     return 0;
 }
 
+/* F-symbol Hadamard block on σσσσ + R-symbol → twist consistency. */
+static int test_F_R_symbols(void) {
+    irrep_ising_object_t s  = IRREP_ISING_OBJ_SIGMA;
+    irrep_ising_object_t I_ = IRREP_ISING_OBJ_1;
+    irrep_ising_object_t P  = IRREP_ISING_OBJ_PSI;
+    const double inv_sqrt2 = 0.7071067811865475244;
+
+    double _Complex F11 = irrep_ising_F_symbol(s, s, s, s, I_, I_);
+    double _Complex F1P = irrep_ising_F_symbol(s, s, s, s, I_, P);
+    double _Complex FP1 = irrep_ising_F_symbol(s, s, s, s, P,  I_);
+    double _Complex FPP = irrep_ising_F_symbol(s, s, s, s, P,  P);
+    if (cabs(F11 -   inv_sqrt2)  > 1e-12) return 1;
+    if (cabs(F1P -   inv_sqrt2)  > 1e-12) return 1;
+    if (cabs(FP1 -   inv_sqrt2)  > 1e-12) return 1;
+    if (cabs(FPP - (-inv_sqrt2)) > 1e-12) return 1;
+
+    /* Forbidden fusion → 0. (σ × ψ = σ; (σψ)_ψ is forbidden.) */
+    if (cabs(irrep_ising_F_symbol(s, P, s, s, P, s)) > 1e-12) return 1;
+
+    /* F-unitarity on σσσσ. */
+    if (irrep_ising_F_unitarity_residual() > 1e-12) return 1;
+
+    /* R-symbols. */
+    if (cabs(irrep_ising_R_symbol(s, s, I_) - cexp(-I * M_PI / 8.0))      > 1e-12) return 1;
+    if (cabs(irrep_ising_R_symbol(s, s, P)  - cexp(I * 3.0 * M_PI / 8.0)) > 1e-12) return 1;
+    if (cabs(irrep_ising_R_symbol(P, P, I_) - (-1.0))                     > 1e-12) return 1;
+    if (cabs(irrep_ising_R_symbol(s, P, s)  - I)                          > 1e-12) return 1;
+
+    /* Forbidden R: σ × σ → σ has N = 0. */
+    if (cabs(irrep_ising_R_symbol(s, s, s)) > 1e-12) return 1;
+
+    /* Twist consistency: derived θ_a matches T_a to machine precision. */
+    if (irrep_ising_twist_from_R_residual() > 1e-12) return 1;
+
+    return 0;
+}
+
 int main(void) {
     int rc = 0;
     if (test_quantum_dimensions())  { fprintf(stderr, "FAIL test_quantum_dimensions\n"); rc = 1; }
@@ -115,5 +152,6 @@ int main(void) {
     if (test_S_matrix_unitarity())  { fprintf(stderr, "FAIL test_S_matrix_unitarity\n"); rc = 1; }
     if (test_T_eigenvalues())       { fprintf(stderr, "FAIL test_T_eigenvalues\n"); rc = 1; }
     if (test_CY_invariant())        { fprintf(stderr, "FAIL test_CY_invariant\n"); rc = 1; }
+    if (test_F_R_symbols())         { fprintf(stderr, "FAIL test_F_R_symbols\n"); rc = 1; }
     return rc;
 }

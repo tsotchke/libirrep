@@ -129,3 +129,105 @@ irrep_crane_yetter_ising_invariant(int euler_char, int signature)
     /* exp(2πi c σ / 8) = exp(iπcσ/4). For c = 1/2: phase = π σ / 8. */
     return prefactor * (cos(phase) + I * sin(phase));
 }
+
+/* ====================================================================
+ * F-symbols and R-symbols of the Ising MTC.
+ *
+ * Convention: Kitaev's Anyons-paper Appendix E. Frobenius-Schur
+ * indicator κ_σ = +1, so F^{σbσ}_1 = +1 for all b.
+ * ==================================================================== */
+
+double _Complex
+irrep_ising_F_symbol(irrep_ising_object_t a, irrep_ising_object_t b,
+                     irrep_ising_object_t c, irrep_ising_object_t d,
+                     irrep_ising_object_t e, irrep_ising_object_t f)
+{
+    if (irrep_ising_fusion(a, b, e) == 0) return 0.0;
+    if (irrep_ising_fusion(e, c, d) == 0) return 0.0;
+    if (irrep_ising_fusion(b, c, f) == 0) return 0.0;
+    if (irrep_ising_fusion(a, f, d) == 0) return 0.0;
+
+    /* Non-trivial Hadamard block: F^{σσσ}_σ with (e, f) ∈ {1, ψ}². */
+    if (a == IRREP_ISING_OBJ_SIGMA && b == IRREP_ISING_OBJ_SIGMA
+        && c == IRREP_ISING_OBJ_SIGMA && d == IRREP_ISING_OBJ_SIGMA) {
+        const double inv_sqrt2 = 0.7071067811865475244;
+        int sign = (e == IRREP_ISING_OBJ_PSI && f == IRREP_ISING_OBJ_PSI) ? -1 : +1;
+        return (double)sign * inv_sqrt2;
+    }
+    return 1.0;
+}
+
+double _Complex
+irrep_ising_R_symbol(irrep_ising_object_t a, irrep_ising_object_t b,
+                     irrep_ising_object_t c)
+{
+    if (irrep_ising_fusion(a, b, c) == 0) return 0.0;
+
+    /* Trivial: any factor is identity. */
+    if (a == IRREP_ISING_OBJ_1 || b == IRREP_ISING_OBJ_1) {
+        return 1.0;
+    }
+    /* σ × σ → 1 or ψ. */
+    if (a == IRREP_ISING_OBJ_SIGMA && b == IRREP_ISING_OBJ_SIGMA) {
+        if (c == IRREP_ISING_OBJ_1)   return cexp(-I * M_PI / 8.0);
+        if (c == IRREP_ISING_OBJ_PSI) return cexp(I * 3.0 * M_PI / 8.0);
+    }
+    /* σ × ψ → σ and ψ × σ → σ. */
+    if ((a == IRREP_ISING_OBJ_SIGMA && b == IRREP_ISING_OBJ_PSI)
+        || (a == IRREP_ISING_OBJ_PSI && b == IRREP_ISING_OBJ_SIGMA)) {
+        return I;
+    }
+    /* ψ × ψ → 1. */
+    if (a == IRREP_ISING_OBJ_PSI && b == IRREP_ISING_OBJ_PSI) {
+        return -1.0;
+    }
+    return 0.0;
+}
+
+double
+irrep_ising_twist_from_R_residual(void)
+{
+    double max_err = 0.0;
+    for (int a = 0; a < IRREP_ISING_N_OBJECTS; ++a) {
+        irrep_ising_object_t A = (irrep_ising_object_t)a;
+        double d_a = irrep_ising_quantum_dim(A);
+        double _Complex theta = 0.0;
+        for (int c = 0; c < IRREP_ISING_N_OBJECTS; ++c) {
+            irrep_ising_object_t C = (irrep_ising_object_t)c;
+            int N = irrep_ising_fusion(A, A, C);
+            if (N == 0) continue;
+            double d_c = irrep_ising_quantum_dim(C);
+            double _Complex R = irrep_ising_R_symbol(A, A, C);
+            theta += (double)N * d_c * R;
+        }
+        theta /= d_a;
+        double _Complex T_hardcoded = irrep_ising_T_eigenvalue(A);
+        double err = cabs(theta - T_hardcoded);
+        if (err > max_err) max_err = err;
+    }
+    return max_err;
+}
+
+double
+irrep_ising_F_unitarity_residual(void)
+{
+    double max_err = 0.0;
+    irrep_ising_object_t s = IRREP_ISING_OBJ_SIGMA;
+    irrep_ising_object_t ch[2] = {
+        IRREP_ISING_OBJ_1, IRREP_ISING_OBJ_PSI,
+    };
+    for (int fi = 0; fi < 2; ++fi) {
+        for (int fj = 0; fj < 2; ++fj) {
+            double _Complex acc = 0.0;
+            for (int ei = 0; ei < 2; ++ei) {
+                double _Complex Fi = irrep_ising_F_symbol(s, s, s, s, ch[ei], ch[fi]);
+                double _Complex Fj = irrep_ising_F_symbol(s, s, s, s, ch[ei], ch[fj]);
+                acc += Fi * conj(Fj);
+            }
+            double expected = (fi == fj) ? 1.0 : 0.0;
+            double err = cabs(acc - expected);
+            if (err > max_err) max_err = err;
+        }
+    }
+    return max_err;
+}

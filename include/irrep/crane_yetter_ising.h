@@ -123,6 +123,78 @@ irrep_ising_S_matrix(irrep_ising_object_t a, irrep_ising_object_t b);
 IRREP_API double _Complex
 irrep_ising_T_eigenvalue(irrep_ising_object_t a);
 
+/* ====================================================================
+ * F-symbols and R-symbols
+ *
+ * The F- and R-symbols are the **structure constants** of an MTC: F
+ * gives the change-of-basis between equivalent fusion trees on the
+ * same product (a × b × c)_d, while R gives the braiding of a ⊗ b in
+ * fusion channel c.
+ *
+ * For Ising, the only F-symbol with non-trivial absolute value is
+ *
+ *      F^{σσσ}_σ = (1/√2) [[ 1,  1 ],          (entries in (e, f) ∈
+ *                          [ 1, -1 ]]            {1, ψ} × {1, ψ})
+ *
+ * a Hadamard matrix on the 2-dim fusion space σσσσ. All other allowed
+ * F-symbols are scalars equal to 1 (with the standard Frobenius-Schur
+ * indicator κ_σ = +1); forbidden by fusion → 0.
+ *
+ * R-symbols (Kitaev convention, anyons-paper Appendix E):
+ *      R^{11}_1 = 1
+ *      R^{1a}_a = R^{a1}_a = 1
+ *      R^{σσ}_1 = exp(-iπ/8)
+ *      R^{σσ}_ψ = exp(i 3π/8)
+ *      R^{σψ}_σ = R^{ψσ}_σ = i
+ *      R^{ψψ}_1 = -1
+ *
+ * These are the foundations for the Walker-Wang 3+1D lattice
+ * Hamiltonian, whose vertex projector is built from F-symbols and
+ * plaquette operators from R-symbols.
+ * ==================================================================== */
+
+/** @brief F-symbol matrix entry [F^{abc}_d]_{e,f}.
+ *
+ *  Conventions:
+ *    - `e` is the intermediate channel in `(a × b)_e → (e × c)_d`;
+ *      `f` is the intermediate channel in `(b × c)_f → (a × f)_d`.
+ *    - Returns 0 if any of the four sub-fusions `N^{ab}_e`,
+ *      `N^{ec}_d`, `N^{bc}_f`, `N^{af}_d` vanishes.
+ *    - Returns 1 for all allowed scalar (1-dim) channels.
+ *    - Returns the Hadamard entries for the σσσσ case.
+ */
+IRREP_API double _Complex
+irrep_ising_F_symbol(irrep_ising_object_t a, irrep_ising_object_t b,
+                     irrep_ising_object_t c, irrep_ising_object_t d,
+                     irrep_ising_object_t e, irrep_ising_object_t f);
+
+/** @brief R-symbol R^{ab}_c.
+ *
+ *  Returns 0 if `N^{ab}_c == 0` (fusion forbidden); otherwise the
+ *  Kitaev-convention phase listed in the header docstring. */
+IRREP_API double _Complex
+irrep_ising_R_symbol(irrep_ising_object_t a, irrep_ising_object_t b,
+                     irrep_ising_object_t c);
+
+/** @brief Compute the topological twist θ_a from R-symbols and verify
+ *  it matches `irrep_ising_T_eigenvalue(a)`.
+ *
+ *  Twist formula: `θ_a = (1/d_a) Σ_c N^{aa}_c d_c R^{aa}_c` (valid for
+ *  self-dual particles). For Ising, all simples are self-dual; this is
+ *  consistent with the closed-form T-matrix exposed above.
+ *
+ *  @return Maximum absolute deviation `|θ_a(R) − T_a|` across all
+ *          three simples. Should be < 1e-12 if R-symbols are correct. */
+IRREP_API double
+irrep_ising_twist_from_R_residual(void);
+
+/** @brief Verify the F-matrix unitarity on the σσσσ block:
+ *  `Σ_e F^{σσσ}_σ_{e,f} · conj(F^{σσσ}_σ_{e,f'}) = δ_{f,f'}`.
+ *
+ *  @return Maximum absolute deviation from identity. */
+IRREP_API double
+irrep_ising_F_unitarity_residual(void);
+
 /** @brief Crane-Yetter 4-manifold invariant for a closed orientable
  *  4-manifold M, parameterised by its Euler characteristic and signature.
  *

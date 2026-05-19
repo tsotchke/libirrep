@@ -188,6 +188,23 @@ irrep_ising_R_symbol(irrep_ising_object_t a, irrep_ising_object_t b,
 IRREP_API double
 irrep_ising_twist_from_R_residual(void);
 
+/** @brief Verify the Verlinde formula on the Ising MTC.
+ *
+ *  The Verlinde formula relates the fusion coefficients to the
+ *  modular S-matrix:
+ *
+ *      N_{ab}^c = Σ_x  S_{ax} · S_{bx} · S*_{cx} / S_{0x}
+ *
+ *  This is the fundamental consistency relation between the fusion
+ *  ring and the modular data of any MTC. Verifies it across all
+ *  3·3·3 = 27 (a, b, c) triples for Ising.
+ *
+ *  @return Maximum absolute deviation `|N_derived - N_actual|` over
+ *          all 27 triples. Should be < 1e-12 if S and N are mutually
+ *          consistent. */
+IRREP_API double
+irrep_ising_verlinde_residual(void);
+
 /** @brief Verify the modular S-matrix derived from twists and fusion
  *  data matches the hardcoded S-matrix.
  *

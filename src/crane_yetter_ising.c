@@ -209,6 +209,35 @@ irrep_ising_twist_from_R_residual(void)
 }
 
 double
+irrep_ising_verlinde_residual(void)
+{
+    double max_err = 0.0;
+    for (int a = 0; a < IRREP_ISING_N_OBJECTS; ++a) {
+        for (int b = 0; b < IRREP_ISING_N_OBJECTS; ++b) {
+            for (int c = 0; c < IRREP_ISING_N_OBJECTS; ++c) {
+                irrep_ising_object_t A = (irrep_ising_object_t)a;
+                irrep_ising_object_t B = (irrep_ising_object_t)b;
+                irrep_ising_object_t C = (irrep_ising_object_t)c;
+                double _Complex acc = 0.0;
+                for (int x = 0; x < IRREP_ISING_N_OBJECTS; ++x) {
+                    irrep_ising_object_t X = (irrep_ising_object_t)x;
+                    double _Complex S_ax = irrep_ising_S_matrix(A, X);
+                    double _Complex S_bx = irrep_ising_S_matrix(B, X);
+                    double _Complex S_cx = irrep_ising_S_matrix(C, X);
+                    double _Complex S_0x = irrep_ising_S_matrix(IRREP_ISING_OBJ_1, X);
+                    if (cabs(S_0x) < 1e-15) continue;
+                    acc += S_ax * S_bx * conj(S_cx) / S_0x;
+                }
+                int N_actual = irrep_ising_fusion(A, B, C);
+                double err = cabs(acc - (double)N_actual);
+                if (err > max_err) max_err = err;
+            }
+        }
+    }
+    return max_err;
+}
+
+double
 irrep_ising_S_from_twist_residual(void)
 {
     double max_err = 0.0;

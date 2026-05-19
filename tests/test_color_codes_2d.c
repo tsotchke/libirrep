@@ -316,27 +316,36 @@ static int test_hex_triangular_generic(void) {
         IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
         IRREP_ASSERT(irrep_css_code_logical_qubits(&cs) == 1);
 
-        /* PROOF that the weight-d canonical logical X̄ on qubits
-         * {0, ..., d-1} is a valid non-trivial logical:
-         *   1. Commutes with every stabilizer.
-         *   2. Has weight exactly d.
-         *   3. Is NOT in the span of the stabilizer group (would
-         *      otherwise be trivial, not a logical). */
+        /* PROOF that the weight-d canonical X̄ AND Z̄ are valid
+         * non-trivial conjugate logical operators:
+         *   1. weight(X̄) = weight(Z̄) = d.
+         *   2. Both commute with every stabilizer.
+         *   3. Neither is in the stabilizer span.
+         *   4. X̄ and Z̄ ANTI-commute (i.e., their symplectic inner
+         *      product is 1) — proving they're a conjugate logical
+         *      pair encoding the single logical qubit. */
         {
-            irrep_pauli_t Lx;
+            irrep_pauli_t Lx, Lz;
             IRREP_ASSERT(irrep_color_hex_triangular_logical_X(d, &Lx) == IRREP_OK);
+            IRREP_ASSERT(irrep_color_hex_triangular_logical_Z(d, &Lz) == IRREP_OK);
             IRREP_ASSERT(irrep_pauli_weight(&Lx) == d);
+            IRREP_ASSERT(irrep_pauli_weight(&Lz) == d);
 
             irrep_stabilizer_group_t g;
             IRREP_ASSERT(irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK);
             for (int i = 0; i < g.n_generators; ++i) {
                 IRREP_ASSERT(irrep_pauli_commute(&g.gens[i], &Lx));
+                IRREP_ASSERT(irrep_pauli_commute(&g.gens[i], &Lz));
             }
-            /* Logical lies outside the stabilizer span (i.e., is a
-             * non-trivial element of the centraliser, not a stabilizer). */
             IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lx) == 0);
+            IRREP_ASSERT(irrep_pauli_in_stabilizer_span(&g, &Lz) == 0);
+            /* X̄ and Z̄ anti-commute: their shared support is the
+             * single corner qubit (0, 0) = qubit 0. */
+            IRREP_ASSERT(!irrep_pauli_commute(&Lx, &Lz));
+
             irrep_stabilizer_group_free(&g);
             irrep_pauli_free(&Lx);
+            irrep_pauli_free(&Lz);
         }
         irrep_css_code_free(&cs);
     }

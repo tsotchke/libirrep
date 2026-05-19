@@ -412,3 +412,39 @@ irrep_color_hex_triangular_logical_X(int d, irrep_pauli_t *out)
     }
     return IRREP_OK;
 }
+
+irrep_status_t
+irrep_color_hex_triangular_logical_Z(int d, irrep_pauli_t *out)
+{
+    if (out == NULL || d < 3 || (d % 2) == 0) return IRREP_ERR_INVALID_ARG;
+    int n = irrep_color_hex_triangular_n_qubits(d);
+    irrep_status_t s = irrep_pauli_new(out, n);
+    if (s != IRREP_OK) return s;
+
+    int L = 3 * ((d - 1) / 2);
+    /* Mirror the builder's enumeration to find data-qubit indices.
+     * Set Z on the leftmost-data qubit in each non-skipped row. */
+    static const int kAncColorLocal[3] = { 2, 0, 1 };
+    int data_idx = 0;
+    for (int y = 0; y <= L; ++y) {
+        int x_min = 2 * y;
+        int x_max = 4 * L - 2 * y;
+        if (x_max < x_min) continue;
+        int placed_in_row = 0;
+        for (int x = x_min; x <= x_max; x += 4) {
+            int cls = hex_color_class(x, y);
+            int is_anc = (cls == kAncColorLocal[y % 3]) ? 1 : 0;
+            if (!is_anc) {
+                if (!placed_in_row && x == x_min) {
+                    /* Leftmost qubit in this row IS data (i.e., the
+                     * canonical left-edge position is not an ancilla).
+                     * Mark it. */
+                    irrep_pauli_set(out, data_idx, IRREP_PAULI_LETTER_Z);
+                    placed_in_row = 1;
+                }
+                ++data_idx;
+            }
+        }
+    }
+    return IRREP_OK;
+}

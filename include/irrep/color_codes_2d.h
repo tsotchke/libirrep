@@ -251,6 +251,22 @@ irrep_color_hex_triangular_n_faces(int d);
 IRREP_API irrep_status_t
 irrep_color_hex_triangular_logical_X(int d, irrep_pauli_t *out);
 
+/** @brief Canonical logical Z̄ for the triangular-hex code at distance d.
+ *
+ *  Z-string on the d data qubits along the LEFT edge of the triangular
+ *  patch (the diagonal `x = 2y` from `(0, 0)` at the bottom-left corner
+ *  to `(2L, L)` at the apex). Data qubits exist at `(x=2y, y)` exactly
+ *  when `y mod 3 ≠ 1` (otherwise that position is an ancilla); the
+ *  resulting Z̄ has weight exactly d.
+ *
+ *  Anti-commutes with `irrep_color_hex_triangular_logical_X` on the
+ *  unique shared corner qubit (the bottom-left vertex `q = 0` at
+ *  position (0, 0)), which lies on both the bottom edge (X̄ support)
+ *  and the left edge (Z̄ support). This anti-commutation is the
+ *  algebraic signature of an encoded logical qubit. */
+IRREP_API irrep_status_t
+irrep_color_hex_triangular_logical_Z(int d, irrep_pauli_t *out);
+
 #ifdef __cplusplus
 }
 #endif

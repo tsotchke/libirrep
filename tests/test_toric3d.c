@@ -72,6 +72,22 @@ static int test_stabilizer_group(int Lx, int Ly, int Lz) {
     return rc;
 }
 
+/* Logical qubit count: k = dim H_1(T³, F₂) = 3 for any Lx, Ly, Lz ≥ 2.
+ * Verifies the F₂-rank-derived k matches the analytical topological
+ * invariant. */
+static int test_logical_qubits(int Lx, int Ly, int Lz) {
+    irrep_toric3d_params_t p;
+    irrep_toric3d_init(&p, Lx, Ly, Lz);
+    irrep_css_code_t c;
+    if (irrep_toric3d_build(&p, &c) != IRREP_OK) return 1;
+    int k = irrep_css_code_logical_qubits(&c);
+    int rc = (k == 3) ? 0 : 1;
+    if (rc) fprintf(stderr, "  3D toric (%d,%d,%d) k = %d (expected 3)\n",
+                    Lx, Ly, Lz, k);
+    irrep_css_code_free(&c);
+    return rc;
+}
+
 /* Vertex-stabilizer redundancy: product of all vertex stars on a closed
  * torus equals identity (each edge appears in exactly 2 incident-vertex
  * stars). Equivalently, each column of H_X has even parity sum. */
@@ -107,6 +123,8 @@ int main(void) {
             { fprintf(stderr, "FAIL test_stabilizer_group(%d,%d,%d)\n", Lx, Ly, Lz); rc = 1; }
         if (test_vertex_redundancy(Lx, Ly, Lz))
             { fprintf(stderr, "FAIL test_vertex_redundancy(%d,%d,%d)\n", Lx, Ly, Lz); rc = 1; }
+        if (test_logical_qubits(Lx, Ly, Lz))
+            { fprintf(stderr, "FAIL test_logical_qubits(%d,%d,%d)\n", Lx, Ly, Lz); rc = 1; }
     }
     return rc;
 }

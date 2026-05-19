@@ -59,6 +59,9 @@ static int run_for_L(int L) {
     /* CSS orthogonality. */
     IRREP_ASSERT(irrep_css_code_verify(&cs) == IRREP_OK);
 
+    /* k = dim H₂(T⁴, F₂) = C(4, 2) = 6 for any L ≥ 2 (topology-only). */
+    IRREP_ASSERT(irrep_css_code_logical_qubits(&cs) == 6);
+
     /* Full stabilizer-group commutativity. */
     irrep_stabilizer_group_t g;
     IRREP_ASSERT(irrep_css_code_to_stabilizer_group(&cs, &g) == IRREP_OK);

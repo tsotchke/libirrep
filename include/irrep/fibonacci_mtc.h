@@ -201,6 +201,70 @@ irrep_fib_walker_wang_tri_bipyramid_full_count(void);
 IRREP_API long long
 irrep_fib_walker_wang_tri_prism_full_count(void);
 
+/* ====================================================================
+ * Fibonacci anyonic braiding — universal quantum computation via braids.
+ *
+ * For 4 Fibonacci anyons fused pairwise to vacuum, the fusion space has
+ * dimension F_3 = 2 (the τ-channel fusion has multiplicity 2 from
+ * τ × τ × τ × τ → 1). This gives a "logical qubit" with two basis
+ * states determined by the intermediate fusion channels (1 or τ
+ * for the first pair).
+ *
+ * In this basis, the braid generators σ_1, σ_2, σ_3 (braiding anyons
+ * 1↔2, 2↔3, 3↔4) act as 2×2 unitaries:
+ *
+ *   σ_1 = R⊕R₂ (braid in-place, no F-move): diagonal in the basis,
+ *     entries (R^{ττ}_1, R^{ττ}_τ).
+ *
+ *   σ_2 = F · σ_1 · F⁻¹ (change basis, braid, change back): involves
+ *     the τττ F-matrix conjugation.
+ *
+ *   σ_3 = R again, diagonal in the basis with entries
+ *     (R^{ττ}_1, R^{ττ}_τ).
+ *
+ * Repeated applications of σ_1, σ_2, σ_3, σ_1⁻¹, ... approximate any
+ * U(2) gate to any desired precision — this is the universal-braiding
+ * property of Fibonacci anyons.
+ * ==================================================================== */
+
+/** @brief Apply braid generator σ_1 (= σ_3 by symmetry) to the 2-dim
+ *  fusion space of 4 Fibonacci anyons fusing to vacuum.
+ *
+ *  σ_1 is diagonal in the (1, τ) intermediate-channel basis:
+ *    σ_1 |1⟩ = R^{ττ}_1 |1⟩ = exp(-4πi/5) |1⟩
+ *    σ_1 |τ⟩ = R^{ττ}_τ |τ⟩ = exp(3πi/5)  |τ⟩
+ *
+ *  @param[in,out] state  Length-2 complex amplitude vector (basis
+ *                        order: |1⟩, |τ⟩). Modified in place.
+ *  @param[in]     inverse  If non-zero, apply σ_1⁻¹ instead. */
+IRREP_API void
+irrep_fib_braid_sigma_1(double _Complex state[2], int inverse);
+
+/** @brief Apply braid generator σ_2 to the 2-dim fusion space.
+ *
+ *  σ_2 = F · diag(R^{ττ}_1, R^{ττ}_τ) · F⁻¹ — braid in the rotated
+ *  fusion-tree basis. Performs a full 2×2 unitary on the state vector. */
+IRREP_API void
+irrep_fib_braid_sigma_2(double _Complex state[2], int inverse);
+
+/** @brief Verify that σ_1 and σ_2 are both 2×2 unitaries.
+ *
+ *  Constructs the matrix forms by applying each generator to the two
+ *  basis vectors and checks `U · U† = I` to machine precision.
+ *
+ *  @return Max |U·U† - I| across both generators. */
+IRREP_API double
+irrep_fib_braid_unitarity_residual(void);
+
+/** @brief Verify the Yang-Baxter relation: σ_1·σ_2·σ_1 = σ_2·σ_1·σ_2.
+ *
+ *  This is the defining relation of the braid group B_3 and must hold
+ *  for any valid braid representation.
+ *
+ *  @return Max |LHS - RHS| over the four 2×2 matrix entries. */
+IRREP_API double
+irrep_fib_braid_yang_baxter_residual(void);
+
 #ifdef __cplusplus
 }
 #endif

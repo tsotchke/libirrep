@@ -165,5 +165,15 @@ int main(void) {
     rc |= test_consistency_proofs();
     rc |= test_admissibility();
     rc |= test_walker_wang_polyhedra();
+
+    /* Anyonic braiding: σ_1, σ_2 are unitaries and satisfy Yang-Baxter.
+     * These two facts together define a faithful representation of the
+     * braid group B_3 on the 2-dim fusion space of 4 Fibonacci anyons
+     * — the algebraic content of "universal topological quantum
+     * computation via Fibonacci braiding". */
+    IRREP_TEST_START("fibonacci_mtc_braiding");
+    IRREP_ASSERT(irrep_fib_braid_unitarity_residual()   < 1e-12);
+    IRREP_ASSERT(irrep_fib_braid_yang_baxter_residual() < 1e-12);
+    rc |= IRREP_TEST_END();
     return rc;
 }

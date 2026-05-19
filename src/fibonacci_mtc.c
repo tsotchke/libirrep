@@ -443,3 +443,122 @@ irrep_fib_walker_wang_tri_prism_full_count(void)
     }
     return count;
 }
+
+/* ====================================================================
+ * Anyonic braiding on 4 Fibonacci anyons.
+ *
+ * Fusion space basis: |1⟩, |τ⟩ — the two channels for τ × τ → ?
+ * fusion of the first pair (1, 2). After fixing the total fusion to
+ * vacuum, the last pair's channel is determined.
+ *
+ * Braid generators σ_1 and σ_3 are diagonal in this basis; σ_2 acts as
+ * F · σ_1 · F⁻¹ where F is the τττ F-matrix.
+ * ==================================================================== */
+
+void
+irrep_fib_braid_sigma_1(double _Complex state[2], int inverse)
+{
+    double _Complex R1 = cexp(-I * 4.0 * M_PI / 5.0);
+    double _Complex Rt = cexp( I * 3.0 * M_PI / 5.0);
+    if (inverse) {
+        R1 = conj(R1);
+        Rt = conj(Rt);
+    }
+    state[0] *= R1;
+    state[1] *= Rt;
+}
+
+void
+irrep_fib_braid_sigma_2(double _Complex state[2], int inverse)
+{
+    /* F^{τττ}_τ matrix (symmetric, real, unitary). */
+    double inv_phi = 1.0 / PHI;
+    double inv_sqrt_phi = 1.0 / sqrt(PHI);
+    double F00 =  inv_phi, F01 =  inv_sqrt_phi;
+    double F10 =  inv_sqrt_phi, F11 = -inv_phi;
+    /* F⁻¹ = F^T = F (symmetric). */
+
+    /* (1) F⁻¹ · state. */
+    double _Complex s0 = F00 * state[0] + F10 * state[1];
+    double _Complex s1 = F01 * state[0] + F11 * state[1];
+    /* (2) diag(R1, Rt) · F⁻¹ · state. */
+    double _Complex R1 = cexp(-I * 4.0 * M_PI / 5.0);
+    double _Complex Rt = cexp( I * 3.0 * M_PI / 5.0);
+    if (inverse) { R1 = conj(R1); Rt = conj(Rt); }
+    s0 *= R1;
+    s1 *= Rt;
+    /* (3) F · (diag · F⁻¹ · state). */
+    state[0] = F00 * s0 + F01 * s1;
+    state[1] = F10 * s0 + F11 * s1;
+}
+
+/* Build the 2×2 matrix form of a generator by applying it to e_0, e_1. */
+static void
+build_matrix(void (*gen)(double _Complex[2], int), int inv,
+             double _Complex M[2][2])
+{
+    double _Complex e0[2] = { 1.0, 0.0 };
+    double _Complex e1[2] = { 0.0, 1.0 };
+    gen(e0, inv); gen(e1, inv);
+    M[0][0] = e0[0]; M[1][0] = e0[1];
+    M[0][1] = e1[0]; M[1][1] = e1[1];
+}
+
+/* 2×2 matrix multiply: out = A · B. */
+static void
+mat2_mul(double _Complex A[2][2], double _Complex B[2][2],
+         double _Complex out[2][2])
+{
+    out[0][0] = A[0][0]*B[0][0] + A[0][1]*B[1][0];
+    out[0][1] = A[0][0]*B[0][1] + A[0][1]*B[1][1];
+    out[1][0] = A[1][0]*B[0][0] + A[1][1]*B[1][0];
+    out[1][1] = A[1][0]*B[0][1] + A[1][1]*B[1][1];
+}
+
+double
+irrep_fib_braid_unitarity_residual(void)
+{
+    double max_err = 0.0;
+    double _Complex M[2][2], M_dag[2][2], prod[2][2];
+    /* σ_1 unitarity. */
+    build_matrix(irrep_fib_braid_sigma_1, 0, M);
+    M_dag[0][0] = conj(M[0][0]); M_dag[0][1] = conj(M[1][0]);
+    M_dag[1][0] = conj(M[0][1]); M_dag[1][1] = conj(M[1][1]);
+    mat2_mul(M, M_dag, prod);
+    for (int i = 0; i < 2; ++i) for (int j = 0; j < 2; ++j) {
+        double expected = (i == j) ? 1.0 : 0.0;
+        double err = cabs(prod[i][j] - expected);
+        if (err > max_err) max_err = err;
+    }
+    /* σ_2 unitarity. */
+    build_matrix(irrep_fib_braid_sigma_2, 0, M);
+    M_dag[0][0] = conj(M[0][0]); M_dag[0][1] = conj(M[1][0]);
+    M_dag[1][0] = conj(M[0][1]); M_dag[1][1] = conj(M[1][1]);
+    mat2_mul(M, M_dag, prod);
+    for (int i = 0; i < 2; ++i) for (int j = 0; j < 2; ++j) {
+        double expected = (i == j) ? 1.0 : 0.0;
+        double err = cabs(prod[i][j] - expected);
+        if (err > max_err) max_err = err;
+    }
+    return max_err;
+}
+
+double
+irrep_fib_braid_yang_baxter_residual(void)
+{
+    /* σ_1 · σ_2 · σ_1 = σ_2 · σ_1 · σ_2. */
+    double _Complex S1[2][2], S2[2][2];
+    double _Complex tmp1[2][2], LHS[2][2], tmp2[2][2], RHS[2][2];
+    build_matrix(irrep_fib_braid_sigma_1, 0, S1);
+    build_matrix(irrep_fib_braid_sigma_2, 0, S2);
+    mat2_mul(S1, S2, tmp1);
+    mat2_mul(tmp1, S1, LHS);
+    mat2_mul(S2, S1, tmp2);
+    mat2_mul(tmp2, S2, RHS);
+    double max_err = 0.0;
+    for (int i = 0; i < 2; ++i) for (int j = 0; j < 2; ++j) {
+        double err = cabs(LHS[i][j] - RHS[i][j]);
+        if (err > max_err) max_err = err;
+    }
+    return max_err;
+}

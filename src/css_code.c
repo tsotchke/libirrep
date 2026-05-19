@@ -399,3 +399,40 @@ irrep_css_code_compute_logical_Z(const irrep_css_code_t *c, int max_weight,
     free(combo);
     return max_weight + 1;
 }
+
+irrep_status_t
+irrep_css_code_audit(const irrep_css_code_t *c, int max_distance_check,
+                     irrep_css_code_params_t *out)
+{
+    if (c == NULL || out == NULL || max_distance_check <= 0)
+        return IRREP_ERR_INVALID_ARG;
+
+    out->n      = c->n;
+    out->m_X    = c->H_X.n_rows;
+    out->m_Z    = c->H_Z.n_rows;
+    out->rank_X = irrep_parity_matrix_rank(&c->H_X);
+    out->rank_Z = irrep_parity_matrix_rank(&c->H_Z);
+    if (out->rank_X < 0 || out->rank_Z < 0) return IRREP_ERR_OUT_OF_MEMORY;
+    out->k = out->n - out->rank_X - out->rank_Z;
+    if (out->k < 0) out->k = 0;
+
+    /* Compute d_X and d_Z without keeping the Pauli supports. */
+    irrep_pauli_t tmp;
+    out->d_X = irrep_css_code_compute_logical_X(c, max_distance_check, &tmp);
+    if (out->d_X >= 0 && out->d_X <= max_distance_check) {
+        out->d_X_bounded = 1;
+        irrep_pauli_free(&tmp);
+    } else {
+        out->d_X_bounded = 0;
+    }
+    out->d_Z = irrep_css_code_compute_logical_Z(c, max_distance_check, &tmp);
+    if (out->d_Z >= 0 && out->d_Z <= max_distance_check) {
+        out->d_Z_bounded = 1;
+        irrep_pauli_free(&tmp);
+    } else {
+        out->d_Z_bounded = 0;
+    }
+    out->d = (out->d_X < out->d_Z) ? out->d_X : out->d_Z;
+
+    return IRREP_OK;
+}

@@ -231,6 +231,39 @@ IRREP_API int
 irrep_css_code_compute_logical_Z(const irrep_css_code_t *c, int max_weight,
                                   irrep_pauli_t *out_pauli);
 
+/** @brief Compact CSS-code audit summary — bundles every parameter
+ *  that the various rank/distance primitives can compute. */
+typedef struct {
+    int n;         /**< Number of physical qubits. */
+    int m_X;       /**< Number of X-stabilizer rows. */
+    int m_Z;       /**< Number of Z-stabilizer rows. */
+    int rank_X;    /**< F₂-rank of H_X. */
+    int rank_Z;    /**< F₂-rank of H_Z. */
+    int k;         /**< Logical qubit count = n - rank_X - rank_Z. */
+    int d_X;       /**< X-side distance (or `max_weight+1` if unbounded). */
+    int d_Z;       /**< Z-side distance. */
+    int d;         /**< CSS distance = min(d_X, d_Z). */
+    int d_X_bounded; /**< 1 if d_X is confirmed (≤ max_weight); 0 if just lower bound. */
+    int d_Z_bounded; /**< 1 if d_Z is confirmed; 0 if just lower bound. */
+} irrep_css_code_params_t;
+
+/** @brief Run a full audit of a CSS code: dimensions, F₂-rank,
+ *  logical-qubit count, and X/Z distances via brute-force search
+ *  up to `max_distance_check`.
+ *
+ *  Calls each of the underlying primitives once and packs the
+ *  results into the output struct. Useful for one-shot code-
+ *  parameter reports.
+ *
+ *  @param[in]  c                   CSS code (read-only).
+ *  @param[in]  max_distance_check  Largest weight to enumerate in the
+ *                                   d_X / d_Z searches.
+ *  @param[out] out                 Caller-allocated summary struct;
+ *                                   all fields filled on success. */
+IRREP_API irrep_status_t
+irrep_css_code_audit(const irrep_css_code_t *c, int max_distance_check,
+                     irrep_css_code_params_t *out);
+
 #ifdef __cplusplus
 }
 #endif

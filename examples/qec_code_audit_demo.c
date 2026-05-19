@@ -45,24 +45,14 @@ static void
 audit_code(const char *label, irrep_css_code_t *cs, int max_weight)
 {
     if (cs == NULL) return;
-    int k = irrep_css_code_logical_qubits(cs);
-    irrep_pauli_t Lx, Lz;
-    int d_X = irrep_css_code_compute_logical_X(cs, max_weight, &Lx);
-    int d_Z = irrep_css_code_compute_logical_Z(cs, max_weight, &Lz);
-    int d = (d_X < d_Z) ? d_X : d_Z;
-    /* If either side hit max_weight+1, the actual d_X/d_Z exceeds the
-     * search window — flag with a '*' to distinguish from a confirmed
-     * value. */
-    int d_X_bounded = (d_X <= max_weight);
-    int d_Z_bounded = (d_Z <= max_weight);
+    irrep_css_code_params_t p;
+    if (irrep_css_code_audit(cs, max_weight, &p) != IRREP_OK) return;
     printf("  %-30s  [[%2d, %d, %d%s]]   m_X=%2d m_Z=%2d  d_X=%d%s d_Z=%d%s\n",
-           label, cs->n, k, d,
-           (!d_X_bounded || !d_Z_bounded) ? "*" : "",
-           cs->H_X.n_rows, cs->H_Z.n_rows,
-           d_X, d_X_bounded ? "" : "+",
-           d_Z, d_Z_bounded ? "" : "+");
-    if (d_X <= max_weight) irrep_pauli_free(&Lx);
-    if (d_Z <= max_weight) irrep_pauli_free(&Lz);
+           label, p.n, p.k, p.d,
+           (!p.d_X_bounded || !p.d_Z_bounded) ? "*" : "",
+           p.m_X, p.m_Z,
+           p.d_X, p.d_X_bounded ? "" : "+",
+           p.d_Z, p.d_Z_bounded ? "" : "+");
 }
 
 int main(void) {
